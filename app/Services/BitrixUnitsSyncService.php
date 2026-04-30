@@ -32,7 +32,7 @@ class BitrixUnitsSyncService
                 ->acceptJson()
                 ->asJson()
                 ->post($this->buildUrl('crm.item.list.json'), [
-                    'entityTypeId' => (int) config('services.bitrix_units.entity_type_id'),
+                    'entityTypeId' => (int) config('services.bitrix.entity_type_id'),
                     'select' => [
                         'id',
                         'stageId',
@@ -221,6 +221,6 @@ class BitrixUnitsSyncService
 
     private function buildUrl(string $method): string
     {
-        return rtrim((string) config('services.bitrix_units.webhook'), '/').'/'.$method;
+        return rtrim((string) config('services.bitrix.webhook'), '/').'/'.$method;
     }
 }

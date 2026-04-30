@@ -9,3 +9,4 @@ Artisan::command('inspire', function () {
 })->purpose('Display an inspiring quote');
 
 Schedule::command('bitrix:sync-units-snapshot')->dailyAt('23:40');
+Schedule::command('bitrix:sync-contacts')->dailyAt('23:50');

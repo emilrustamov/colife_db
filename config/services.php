@@ -35,9 +35,13 @@ return [
         ],
     ],
 
-    'bitrix_units' => [
-        'webhook' => env('BITRIX_UNITS_WEBHOOK'),
-        'entity_type_id' => env('BITRIX_UNITS_ENTITY_TYPE_ID', 167),
+    'bitrix' => [
+        'webhook' => env('BITRIX_WEBHOOK', env('BITRIX_UNITS_WEBHOOK')),
+        'entity_type_id' => env('BITRIX_ENTITY_TYPE_ID', env('BITRIX_UNITS_ENTITY_TYPE_ID', 167)),
+    ],
+
+    'bitrix_contacts' => [
+        'timeout' => env('BITRIX_CONTACTS_TIMEOUT', 60),
     ],
 
     'client_balance' => [
