@@ -5,10 +5,13 @@ namespace App\Services;
 use App\Models\BitrixUnitsSnapshot;
 use Carbon\Carbon;
 use Throwable;
-use Illuminate\Support\Facades\Http;
 
 class BitrixUnitsSyncService
 {
+    public function __construct(private readonly BitrixRestClient $bitrixRestClient)
+    {
+    }
+
     private const STAGE_FOR_RENT = 'DT167_12:PREPARATION';
 
     private const SHARING_ENUM_ID = 242;
@@ -28,27 +31,20 @@ class BitrixUnitsSyncService
         $failedUnitIds = [];
 
         while (true) {
-            $response = Http::timeout(60)
-                ->acceptJson()
-                ->asJson()
-                ->post($this->buildUrl('crm.item.list.json'), [
-                    'entityTypeId' => (int) config('services.bitrix.entity_type_id'),
-                    'select' => [
-                        'id',
-                        'stageId',
-                        'ufCrm8_1684429208',
-                        'ufCrm8IsBooked',
-                        'ufCrm8MovedFromTerminationYesterday',
-                        'ufCrm8IsStageEqualToStatus',
-                        'ufCrm8_1682957076924',
-                        'ufCrm8_1738748217262',
-                    ],
-                    'start' => $start,
-                ]);
-
-            $response->throw();
-
-            $data = $response->json();
+            $data = $this->bitrixRestClient->postJson('crm.item.list.json', [
+                'entityTypeId' => (int) config('services.bitrix.entity_type_id'),
+                'select' => [
+                    'id',
+                    'stageId',
+                    'ufCrm8_1684429208',
+                    'ufCrm8IsBooked',
+                    'ufCrm8MovedFromTerminationYesterday',
+                    'ufCrm8IsStageEqualToStatus',
+                    'ufCrm8_1682957076924',
+                    'ufCrm8_1738748217262',
+                ],
+                'start' => $start,
+            ]);
             $rows = [];
 
             foreach (data_get($data, 'result.items', []) as $item) {
@@ -217,10 +213,5 @@ class BitrixUnitsSyncService
         }
 
         return Carbon::parse($value);
-    }
-
-    private function buildUrl(string $method): string
-    {
-        return rtrim((string) config('services.bitrix.webhook'), '/').'/'.$method;
     }
 }

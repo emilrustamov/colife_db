@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\Api\BitrixUnitsSnapshotController;
+use App\Http\Controllers\Api\BitrixContactWebhookController;
 use App\Http\Controllers\Api\ClientBalanceController;
 use Illuminate\Support\Facades\Route;
 
@@ -9,3 +10,5 @@ Route::middleware(['api.key'])->group(function (): void {
     Route::post('/client-balances/batch', [ClientBalanceController::class, 'batchStore']);
     Route::get('/bitrix-units/idle-apartments', [BitrixUnitsSnapshotController::class, 'idleApartments']);
 });
+
+Route::post('/webhooks/bitrix/contacts', BitrixContactWebhookController::class);
