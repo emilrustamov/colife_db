@@ -7,6 +7,7 @@ use App\Services\BitrixRestClient;
 use App\Services\Contracts\BitrixEntityProfile;
 use App\Support\BitrixSyncContext;
 use Carbon\Carbon;
+use Illuminate\Support\Arr;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
@@ -63,6 +64,7 @@ class BitrixContactProfile implements BitrixEntityProfile
         $phonePayloadByBitrixId = [];
         $emailPayloadByBitrixId = [];
         $currentBatchBitrixIds = [];
+        $operationByBitrixId = [];
 
         foreach ($items as $item) {
             $processed++;
@@ -81,8 +83,10 @@ class BitrixContactProfile implements BitrixEntityProfile
 
                 if (array_key_exists($bitrixId, $existingUpdatedAtByBitrixId)) {
                     $updated++;
+                    $operationByBitrixId[$bitrixId] = 'bitrix.contact.updated';
                 } else {
                     $created++;
+                    $operationByBitrixId[$bitrixId] = 'bitrix.contact.created';
                 }
 
                 $recordsPayload[] = $normalized;
@@ -96,7 +100,7 @@ class BitrixContactProfile implements BitrixEntityProfile
         }
 
         if ($recordsPayload !== []) {
-            $this->upsertBatchPayload($recordsPayload, $currentBatchBitrixIds, $phonePayloadByBitrixId, $emailPayloadByBitrixId, $now);
+            $this->upsertBatchPayload($recordsPayload, $currentBatchBitrixIds, $phonePayloadByBitrixId, $emailPayloadByBitrixId, $operationByBitrixId, $now);
         }
 
         return [
@@ -154,16 +158,18 @@ class BitrixContactProfile implements BitrixEntityProfile
      * @param  list<int>  $currentBatchBitrixIds
      * @param  array<int, list<array{phone:string,type:?string,is_primary:bool,sort:int}>>  $phonePayloadByBitrixId
      * @param  array<int, list<array{email:string,type:?string,is_primary:bool,sort:int}>>  $emailPayloadByBitrixId
+     * @param  array<int, string>  $operationByBitrixId
      */
     private function upsertBatchPayload(
         array $recordsPayload,
         array $currentBatchBitrixIds,
         array $phonePayloadByBitrixId,
         array $emailPayloadByBitrixId,
+        array $operationByBitrixId,
         Carbon $now
     ): void {
-        $this->syncContext->runWithoutContactPush(function () use ($recordsPayload, $currentBatchBitrixIds, $phonePayloadByBitrixId, $emailPayloadByBitrixId, $now): void {
-            DB::transaction(function () use ($recordsPayload, $currentBatchBitrixIds, $phonePayloadByBitrixId, $emailPayloadByBitrixId, $now): void {
+        $this->syncContext->runWithoutContactPush(function () use ($recordsPayload, $currentBatchBitrixIds, $phonePayloadByBitrixId, $emailPayloadByBitrixId, $operationByBitrixId, $now): void {
+            DB::transaction(function () use ($recordsPayload, $currentBatchBitrixIds, $phonePayloadByBitrixId, $emailPayloadByBitrixId, $operationByBitrixId, $now): void {
                 Contact::query()->upsert(
                     $recordsPayload,
                     ['bitrix_id'],
@@ -192,8 +198,58 @@ class BitrixContactProfile implements BitrixEntityProfile
 
                 $this->insertPhones($contactIdByBitrixId, $phonePayloadByBitrixId, $now);
                 $this->insertEmails($contactIdByBitrixId, $emailPayloadByBitrixId, $now);
+                $this->insertActivityLogs($recordsPayload, $contactIdByBitrixId, $operationByBitrixId, $now);
             });
         });
+    }
+
+    /**
+     * @param  list<array<string, mixed>>  $recordsPayload
+     * @param  Collection<int|string, string>  $contactIdByBitrixId
+     * @param  array<int, string>  $operationByBitrixId
+     */
+    private function insertActivityLogs(array $recordsPayload, Collection $contactIdByBitrixId, array $operationByBitrixId, Carbon $now): void
+    {
+        $rows = [];
+
+        foreach ($recordsPayload as $record) {
+            $bitrixId = (int) ($record['bitrix_id'] ?? 0);
+            $contactId = $contactIdByBitrixId->get($bitrixId);
+
+            if (! is_string($contactId) || $contactId === '') {
+                continue;
+            }
+
+            $event = $operationByBitrixId[$bitrixId] ?? 'bitrix.contact.synced';
+            $newValues = Arr::only($record, [
+                'bitrix_id',
+                'first_name',
+                'last_name',
+                'contact_type_id',
+                'birth_date',
+                'is_deleted',
+                'bitrix_created_at',
+                'bitrix_updated_at',
+                'last_synced_at',
+            ]);
+
+            $rows[] = [
+                'id' => (string) Str::uuid(),
+                'event' => $event,
+                'subject_type' => Contact::class,
+                'subject_id' => $contactId,
+                'user_id' => null,
+                'old_values' => null,
+                'new_values' => json_encode($newValues, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES),
+                'happened_at' => $now,
+                'created_at' => $now,
+                'updated_at' => $now,
+            ];
+        }
+
+        if ($rows !== []) {
+            DB::table('activity_logs')->insert($rows);
+        }
     }
 
     /**

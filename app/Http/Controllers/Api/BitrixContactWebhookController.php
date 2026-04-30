@@ -3,10 +3,13 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
+use App\Models\Contact;
 use App\Services\BitrixEntitySyncService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Str;
 
 class BitrixContactWebhookController extends Controller
 {
@@ -47,6 +50,7 @@ class BitrixContactWebhookController extends Controller
 
         if ($event === 'ONCRMCONTACTDELETE') {
             $updated = $syncService->markItemDeleted($bitrixId);
+            $this->logDeleteActivity($bitrixId);
             Log::channel('bitrix_contacts')->info('Bitrix webhook contact delete handled', [
                 'bitrix_id' => $bitrixId,
                 'updated_rows' => $updated,
@@ -102,6 +106,32 @@ class BitrixContactWebhookController extends Controller
         }
 
         return hash_equals($expected, $incoming);
+    }
+
+    private function logDeleteActivity(int $bitrixId): void
+    {
+        $contact = Contact::query()->where('bitrix_id', $bitrixId)->first(['id', 'bitrix_id']);
+        if ($contact === null) {
+            return;
+        }
+
+        $now = now();
+
+        DB::table('activity_logs')->insert([
+            'id' => (string) Str::uuid(),
+            'event' => 'bitrix.contact.deleted',
+            'subject_type' => Contact::class,
+            'subject_id' => $contact->id,
+            'user_id' => null,
+            'old_values' => null,
+            'new_values' => json_encode([
+                'bitrix_id' => (int) $contact->bitrix_id,
+                'is_deleted' => true,
+            ], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES),
+            'happened_at' => $now,
+            'created_at' => $now,
+            'updated_at' => $now,
+        ]);
     }
 
 }
