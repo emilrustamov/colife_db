@@ -40,15 +40,7 @@ class AuthController extends Controller
 
         $request->session()->regenerate();
 
-        $user = Auth::user();
-        $home = route('directories.index');
-        if ($user !== null && ! DirectoryController::userHasAnyDirectoryAccess($user)) {
-            if ($user->can('users.manage') || $user->can('roles.manage')) {
-                $home = route('admin.access');
-            }
-        }
-
-        return redirect()->intended($home);
+        return redirect()->intended(route('directories.index'));
     }
 
     /**

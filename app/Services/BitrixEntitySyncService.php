@@ -21,7 +21,7 @@ class BitrixEntitySyncService
 
     /**
      * @param  list<array<string, mixed>>  $items
-     * @return array{processed:int, successful:int, skipped:int, failed:int, failed_ids:list<int|string>}
+     * @return array{processed:int, created:int, updated:int, successful:int, skipped:int, failed:int, failed_ids:list<int|string>}
      */
     public function syncBatchItems(array $items, string $entity = 'contacts'): array
     {

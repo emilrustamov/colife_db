@@ -26,11 +26,13 @@ class BitrixContactProfile implements BitrixEntityProfile
 
     /**
      * @param  list<array<string, mixed>>  $items
-     * @return array{processed:int, successful:int, skipped:int, failed:int, failed_ids:list<int|string>}
+     * @return array{processed:int, created:int, updated:int, successful:int, skipped:int, failed:int, failed_ids:list<int|string>}
      */
     public function syncBatchItems(array $items): array
     {
         $processed = 0;
+        $created = 0;
+        $updated = 0;
         $successful = 0;
         $skipped = 0;
         $failedIds = [];
@@ -77,6 +79,12 @@ class BitrixContactProfile implements BitrixEntityProfile
                     continue;
                 }
 
+                if (array_key_exists($bitrixId, $existingUpdatedAtByBitrixId)) {
+                    $updated++;
+                } else {
+                    $created++;
+                }
+
                 $recordsPayload[] = $normalized;
                 $phonePayloadByBitrixId[$bitrixId] = $this->normalizePhoneCollection($item['PHONE'] ?? []);
                 $emailPayloadByBitrixId[$bitrixId] = $this->normalizeEmailCollection($item['EMAIL'] ?? []);
@@ -93,6 +101,8 @@ class BitrixContactProfile implements BitrixEntityProfile
 
         return [
             'processed' => $processed,
+            'created' => $created,
+            'updated' => $updated,
             'successful' => $successful,
             'skipped' => $skipped,
             'failed' => count($failedIds),

@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use Illuminate\Contracts\Auth\Authenticatable;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
@@ -13,15 +14,39 @@ use Inertia\Response;
 
 class DirectoryController extends Controller
 {
+    public function root(Request $request): RedirectResponse
+    {
+        $filtered = $this->filterDirectoriesForUser($request->user());
+        $firstKey = array_key_first($filtered);
+
+        if ($firstKey === null) {
+            abort(403);
+        }
+
+        return redirect()->route('directories.page', ['directory' => $firstKey]);
+    }
+
     /**
      * Display directories page.
      */
-    public function index(Request $request): Response
+    public function index(Request $request, ?string $directory = null): Response
     {
         $filtered = $this->filterDirectoriesForUser($request->user());
+        $initialDirectoryKey = null;
+        $page = 'Directories/Index';
 
-        return Inertia::render('Directories/Index', [
+        if ($directory !== null) {
+            $config = $this->resolveDirectory($directory);
+            $this->authorizeDirectoryAccess($request->user(), $config['key']);
+            $initialDirectoryKey = $config['key'];
+            $page = $this->directoryPage($config['key']);
+        } elseif ($filtered !== []) {
+            $initialDirectoryKey = array_key_first($filtered);
+        }
+
+        return Inertia::render($page, [
             'directories' => array_values($filtered),
+            'initialDirectoryKey' => $initialDirectoryKey,
         ]);
     }
 
@@ -179,6 +204,14 @@ class DirectoryController extends Controller
                     'password',
                     'remember_token',
                 ],
+            ],
+            'roles' => [
+                'key' => 'roles',
+                'title' => 'Roles',
+                'icon' => '🛡️',
+                'table' => 'roles',
+                'id' => 'id',
+                'morph' => 'Spatie\\Permission\\Models\\Role',
             ],
             'contact-types' => [
                 'key' => 'contact-types',
@@ -340,5 +373,27 @@ class DirectoryController extends Controller
     {
         abort_if($user === null, 403);
         abort_unless($this->userMayViewDirectory($user, $directoryKey), 403);
+    }
+
+    private function directoryPage(string $directoryKey): string
+    {
+        return match ($directoryKey) {
+            'users' => 'Directories/Users',
+            'roles' => 'Directories/Roles',
+            'contact-types' => 'Directories/ContactTypes',
+            'contacts' => 'Directories/Contacts',
+            'contact-phones' => 'Directories/ContactPhones',
+            'contact-emails' => 'Directories/ContactEmails',
+            'metro-stations' => 'Directories/MetroStations',
+            'apartment-types' => 'Directories/ApartmentTypes',
+            'pipelines' => 'Directories/Pipelines',
+            'stages' => 'Directories/Stages',
+            'buildings' => 'Directories/Buildings',
+            'apartments' => 'Directories/Apartments',
+            'units' => 'Directories/Units',
+            'unit-stays' => 'Directories/UnitStays',
+            'bitrix-units-snapshot' => 'Directories/BitrixUnitsSnapshot',
+            default => 'Directories/Index',
+        };
     }
 }

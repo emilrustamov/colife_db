@@ -1,6 +1,5 @@
 <?php
 
-use App\Http\Controllers\AdminAccessController;
 use App\Http\Controllers\AuthController;
 use App\Http\Controllers\DirectoryController;
 use App\Http\Controllers\RoleAdminController;
@@ -21,10 +20,6 @@ Route::middleware([RedirectLocalhostToAppUrl::class])->group(function () {
             return redirect()->route('directories.index');
         }
 
-        if ($user->can('users.manage') || $user->can('roles.manage')) {
-            return redirect()->route('admin.access');
-        }
-
         return redirect()->route('directories.index');
     });
 
@@ -38,13 +33,10 @@ Route::middleware([RedirectLocalhostToAppUrl::class])->group(function () {
     });
 
     Route::middleware(['auth', 'directories.module'])->group(function () {
-        Route::get('/directories', [DirectoryController::class, 'index'])->name('directories.index');
+        Route::get('/directories', [DirectoryController::class, 'root'])->name('directories.index');
+        Route::get('/directories/{directory}', [DirectoryController::class, 'index'])->name('directories.page');
         Route::get('/api/directories/{directory}', [DirectoryController::class, 'list'])->name('directories.list');
         Route::get('/api/directories/{directory}/{id}', [DirectoryController::class, 'show'])->name('directories.show');
-    });
-
-    Route::middleware(['auth', 'role_or_permission:users.manage|roles.manage'])->group(function () {
-        Route::get('/admin/access', [AdminAccessController::class, 'index'])->name('admin.access');
     });
 
     Route::middleware(['auth', 'permission:users.manage'])->group(function (): void {

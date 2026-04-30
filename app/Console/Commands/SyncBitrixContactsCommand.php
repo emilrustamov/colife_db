@@ -27,8 +27,10 @@ class SyncBitrixContactsCommand extends Command
             Log::channel('bitrix_contacts')->info('Bitrix contacts sync completed', $result);
 
             $this->info(sprintf(
-                'Completed. Total: %d, successful: %d, skipped: %d, failed: %d.',
+                'Completed. Total: %d, created: %d, updated: %d, successful: %d, skipped: %d, failed: %d.',
                 $result['total'],
+                $result['created'],
+                $result['updated'],
                 $result['successful'],
                 $result['skipped'],
                 $result['failed']
@@ -57,6 +59,8 @@ class SyncBitrixContactsCommand extends Command
     {
         $start = 0;
         $total = 0;
+        $created = 0;
+        $updated = 0;
         $successful = 0;
         $skipped = 0;
         $failedContactIds = [];
@@ -87,13 +91,17 @@ class SyncBitrixContactsCommand extends Command
 
             $batch = $syncService->syncBatchItems($items);
             $total += $batch['processed'];
+            $created += $batch['created'];
+            $updated += $batch['updated'];
             $successful += $batch['successful'];
             $skipped += $batch['skipped'];
             $failedContactIds = array_merge($failedContactIds, $batch['failed_ids']);
 
             $this->info(sprintf(
-                'Batch synced. Total processed: %d, successful: %d, skipped: %d, failed: %d.',
+                'Batch synced. Total processed: %d, created: %d, updated: %d, successful: %d, skipped: %d, failed: %d.',
                 $total,
+                $created,
+                $updated,
                 $successful,
                 $skipped,
                 count($failedContactIds)
@@ -112,6 +120,8 @@ class SyncBitrixContactsCommand extends Command
 
         return [
             'total' => $total,
+            'created' => $created,
+            'updated' => $updated,
             'successful' => $successful,
             'skipped' => $skipped,
             'failed' => count($failedContactIds),
