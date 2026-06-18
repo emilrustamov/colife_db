@@ -17,6 +17,7 @@ import { directoryMessages } from './i18n/directoryMessages';
 const perPage = 50;
 let searchDebounceId = null;
 const skipSearchRefetch = ref(false);
+const initialRecordId = ref(null);
 
 const inertiaPage = usePage();
 
@@ -252,6 +253,21 @@ const logout = () => {
     router.post('/logout');
 };
 
+const setUrlRecordParam = (recordId) => {
+    if (typeof window === 'undefined') {
+        return;
+    }
+
+    const url = new URL(window.location.href);
+    if (recordId === null || recordId === undefined || String(recordId).trim() === '') {
+        url.searchParams.delete('record');
+    } else {
+        url.searchParams.set('record', String(recordId));
+    }
+
+    window.history.replaceState(window.history.state, '', `${url.pathname}${url.search}${url.hash}`);
+};
+
 const setOrderedFields = (value) => {
     orderedFields.value = value;
 };
@@ -288,11 +304,20 @@ const onSetItemVisible = (key, visible) => {
 onMounted(() => {
     initLocale();
     initTheme();
+    if (typeof window !== 'undefined') {
+        const url = new URL(window.location.href);
+        const record = (url.searchParams.get('record') ?? '').trim();
+        initialRecordId.value = record === '' ? null : record;
+    }
     loadHiddenKeys();
     selectedKey.value = props.initialDirectoryKey;
     syncSelectedKey();
     if (selectedKey.value) {
-        loadList(skipSearchRefetch);
+        loadList(skipSearchRefetch).then(() => {
+            if (initialRecordId.value !== null) {
+                selectRow(initialRecordId.value);
+            }
+        });
     }
     nextTick(() => {
         const el = tableScrollRef.value;
@@ -328,6 +353,22 @@ watch(
         if (selectedKey.value !== prevSelectedKey) {
             loadList(skipSearchRefetch);
         }
+    },
+);
+
+watch(
+    () => [cardModalOpen.value, selectedId.value, selectedKey.value],
+    () => {
+        if (!selectedKey.value) {
+            return;
+        }
+
+        if (cardModalOpen.value && selectedId.value !== null) {
+            setUrlRecordParam(selectedId.value);
+            return;
+        }
+
+        setUrlRecordParam(null);
     },
 );
 

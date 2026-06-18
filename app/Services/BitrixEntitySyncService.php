@@ -3,7 +3,9 @@
 namespace App\Services;
 
 use App\Services\Contracts\BitrixEntityProfile;
+use App\Services\Profiles\BitrixApartmentProfile;
 use App\Services\Profiles\BitrixContactProfile;
+use App\Services\Profiles\BitrixUnitProfile;
 
 class BitrixEntitySyncService
 {
@@ -12,10 +14,15 @@ class BitrixEntitySyncService
      */
     private array $profiles;
 
-    public function __construct(BitrixContactProfile $contactProfile)
-    {
+    public function __construct(
+        BitrixContactProfile $contactProfile,
+        BitrixApartmentProfile $apartmentProfile,
+        BitrixUnitProfile $unitProfile
+    ) {
         $this->profiles = [
             $contactProfile->entity() => $contactProfile,
+            $apartmentProfile->entity() => $apartmentProfile,
+            $unitProfile->entity() => $unitProfile,
         ];
     }
 

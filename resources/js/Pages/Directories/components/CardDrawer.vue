@@ -1,7 +1,9 @@
 <script setup>
+import { computed, ref } from 'vue';
 import RecordForm from '../../../Components/RecordForm.vue';
+import TimelineEventList from './TimelineEventList.vue';
 
-defineProps({
+const props = defineProps({
     cardModalOpen: { type: Boolean, default: false },
     menuLength: { type: Number, default: 0 },
     current: { type: Object, default: null },
@@ -14,6 +16,29 @@ defineProps({
     closeCardModal: { type: Function, required: true },
     setCardModalTab: { type: Function, required: true },
     renderValue: { type: Function, required: true },
+});
+
+const showTechnicalFields = ref(false);
+
+const drawerTitle = computed(() => {
+    const name = String(props.form?.name ?? '').trim();
+    if (name !== '') {
+        return name;
+    }
+
+    const title = String(props.form?.title ?? '').trim();
+    if (title !== '') {
+        return title;
+    }
+
+    const firstName = String(props.form?.first_name ?? '').trim();
+    const lastName = String(props.form?.last_name ?? '').trim();
+    const fullName = `${firstName} ${lastName}`.trim();
+    if (fullName !== '') {
+        return fullName;
+    }
+
+    return props.current?.title ?? 'Directory';
 });
 </script>
 
@@ -50,7 +75,7 @@ defineProps({
         >
             <div class="flex shrink-0 items-center justify-between gap-4 border-b border-slate-200 px-5 py-4 dark:border-slate-700">
                 <h2 class="min-w-0 truncate text-lg font-semibold text-slate-900 dark:text-slate-100 md:text-xl">
-                    {{ current?.title ?? 'Directory' }}
+                    {{ drawerTitle }}
                 </h2>
                 <button
                     type="button"
@@ -60,31 +85,44 @@ defineProps({
                     {{ t(messages, 'closeCard') }}
                 </button>
             </div>
-            <div class="flex shrink-0 gap-1 border-b border-slate-200 px-4 dark:border-slate-700">
-                <button
-                    type="button"
-                    class="border-b-2 px-5 py-3.5 text-base font-medium transition"
-                    :class="
-                        cardModalTab === 'form'
-                            ? 'border-slate-900 text-slate-900 dark:border-slate-100 dark:text-slate-100'
-                            : 'border-transparent text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-slate-200'
-                    "
-                    @click="setCardModalTab('form')"
+            <div class="flex shrink-0 items-center justify-between border-b border-slate-200 px-4 dark:border-slate-700">
+                <div class="flex gap-1">
+                    <button
+                        type="button"
+                        class="border-b-2 px-5 py-3.5 text-base font-medium transition"
+                        :class="
+                            cardModalTab === 'form'
+                                ? 'border-slate-900 text-slate-900 dark:border-slate-100 dark:text-slate-100'
+                                : 'border-transparent text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-slate-200'
+                        "
+                        @click="setCardModalTab('form')"
+                    >
+                        {{ t(messages, 'card') }}
+                    </button>
+                    <button
+                        type="button"
+                        class="border-b-2 px-5 py-3.5 text-base font-medium transition"
+                        :class="
+                            cardModalTab === 'timeline'
+                                ? 'border-slate-900 text-slate-900 dark:border-slate-100 dark:text-slate-100'
+                                : 'border-transparent text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-slate-200'
+                        "
+                        @click="setCardModalTab('timeline')"
+                    >
+                        {{ t(messages, 'timeline') }}
+                    </button>
+                </div>
+                <label
+                    v-if="cardModalTab === 'timeline'"
+                    class="inline-flex cursor-pointer items-center gap-2 text-sm text-slate-600 dark:text-slate-300"
                 >
-                    {{ t(messages, 'card') }}
-                </button>
-                <button
-                    type="button"
-                    class="border-b-2 px-5 py-3.5 text-base font-medium transition"
-                    :class="
-                        cardModalTab === 'timeline'
-                            ? 'border-slate-900 text-slate-900 dark:border-slate-100 dark:text-slate-100'
-                            : 'border-transparent text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-slate-200'
-                    "
-                    @click="setCardModalTab('timeline')"
-                >
-                    {{ t(messages, 'timeline') }}
-                </button>
+                    <input
+                        v-model="showTechnicalFields"
+                        type="checkbox"
+                        class="h-4 w-4 rounded border-slate-300 text-slate-900 focus:ring-slate-400 dark:border-slate-600 dark:bg-slate-800"
+                    >
+                    <span>Показать служебные поля</span>
+                </label>
             </div>
             <div class="min-h-0 flex-1 overflow-y-auto">
                 <div v-if="rowDetailLoading" class="flex items-center justify-center py-24 text-lg text-slate-500 dark:text-slate-400">
@@ -97,22 +135,13 @@ defineProps({
                         :empty-message="t(messages, 'select')"
                     />
                     <div v-show="cardModalTab === 'timeline'" class="p-6 md:p-8 lg:p-10">
-                        <div v-if="timeline.length === 0" class="rounded-xl border border-dashed border-slate-300 p-10 text-center text-lg text-slate-500 dark:border-slate-600 dark:text-slate-400">
-                            {{ t(messages, 'noEvents') }}
-                        </div>
-                        <div v-else class="space-y-5">
-                            <div
-                                v-for="event in timeline"
-                                :key="event.id"
-                                class="relative rounded-xl border border-slate-200 bg-slate-50/80 p-5 pl-6 dark:border-slate-700 dark:bg-slate-800/50"
-                            >
-                                <span class="absolute left-2 top-6 h-2.5 w-2.5 rounded-full bg-slate-500 dark:bg-slate-300"></span>
-                                <div class="mb-2 text-sm text-slate-500 dark:text-slate-400">{{ event.happened_at || event.created_at }}</div>
-                                <div class="mb-3 text-lg font-semibold text-slate-900 dark:text-slate-100">{{ event.event }}</div>
-                                <div class="mb-2 text-base text-slate-600 dark:text-slate-300">{{ t(messages, 'old') }}: {{ renderValue(event.old_values) }}</div>
-                                <div class="text-base text-slate-600 dark:text-slate-300">{{ t(messages, 'new') }}: {{ renderValue(event.new_values) }}</div>
-                            </div>
-                        </div>
+                        <TimelineEventList
+                            :timeline="timeline"
+                            :messages="messages"
+                            :t="t"
+                            :render-value="renderValue"
+                            :show-technical-fields="showTechnicalFields"
+                        />
                     </div>
                 </template>
             </div>

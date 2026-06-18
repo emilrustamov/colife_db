@@ -144,12 +144,15 @@ class DirectoryController extends Controller
             }
         }
 
-        $timeline = collect();
+        $this->formatRowForDisplay($row, $config['key']);
 
-        if (Schema::hasTable('activity_logs')) {
+        $timeline = collect();
+        $subjectId = $this->resolveTimelineSubjectId($row, $config);
+
+        if (Schema::hasTable('activity_logs') && $subjectId !== null) {
             $timeline = DB::table('activity_logs')
                 ->where('subject_type', $config['morph'])
-                ->where('subject_id', (string) $row->{$config['id']})
+                ->where('subject_id', $subjectId)
                 ->orderByDesc('happened_at')
                 ->orderByDesc('created_at')
                 ->limit(100)
@@ -226,7 +229,7 @@ class DirectoryController extends Controller
                 'title' => 'Contacts',
                 'icon' => '👤',
                 'table' => 'contacts',
-                'id' => 'id',
+                'id' => 'bitrix_id',
                 'morph' => 'App\\Models\\Contact',
             ],
             'contact-phones' => [
@@ -250,7 +253,7 @@ class DirectoryController extends Controller
                 'title' => 'Metro Stations',
                 'icon' => '🚇',
                 'table' => 'metro_stations',
-                'id' => 'id',
+                'id' => 'bitrix_id',
                 'morph' => 'App\\Models\\MetroStation',
             ],
             'apartment-types' => [
@@ -266,7 +269,7 @@ class DirectoryController extends Controller
                 'title' => 'Pipelines',
                 'icon' => '📈',
                 'table' => 'pipelines',
-                'id' => 'id',
+                'id' => 'bitrix_id',
                 'morph' => 'App\\Models\\Pipeline',
             ],
             'stages' => [
@@ -282,7 +285,7 @@ class DirectoryController extends Controller
                 'title' => 'Buildings',
                 'icon' => '🏗️',
                 'table' => 'buildings',
-                'id' => 'id',
+                'id' => 'bitrix_id',
                 'morph' => 'App\\Models\\Building',
             ],
             'apartments' => [
@@ -290,7 +293,7 @@ class DirectoryController extends Controller
                 'title' => 'Apartments',
                 'icon' => '🏠',
                 'table' => 'apartments',
-                'id' => 'id',
+                'id' => 'bitrix_id',
                 'morph' => 'App\\Models\\Apartment',
             ],
             'units' => [
@@ -298,7 +301,7 @@ class DirectoryController extends Controller
                 'title' => 'Units',
                 'icon' => '🧱',
                 'table' => 'units',
-                'id' => 'id',
+                'id' => 'bitrix_id',
                 'morph' => 'App\\Models\\Unit',
             ],
             'unit-stays' => [
@@ -395,5 +398,124 @@ class DirectoryController extends Controller
             'bitrix-units-snapshot' => 'Directories/BitrixUnitsSnapshot',
             default => 'Directories/Index',
         };
+    }
+
+    private function formatRowForDisplay(object $row, string $directoryKey): void
+    {
+        if ($directoryKey === 'buildings') {
+            $name = trim((string) ($row->name ?? ''));
+            if ($name !== '') {
+                $row->name = 'Buildings '.$name;
+            }
+
+            foreach (['pool', 'jacuzzi', 'gym', 'sauna', 'parking', 'elevator', 'security'] as $field) {
+                if (! isset($row->{$field}) || $row->{$field} === null) {
+                    continue;
+                }
+
+                $row->{$field} = (int) $row->{$field} === 1 ? 'Есть' : 'Нет';
+            }
+        }
+
+        $mappings = match ($directoryKey) {
+            'contacts' => [
+                ['field' => 'contact_type_id', 'table' => 'contact_types', 'id_column' => 'id', 'label_columns' => ['name']],
+            ],
+            'contact-phones', 'contact-emails' => [
+                ['field' => 'contact_id', 'table' => 'contacts', 'id_column' => 'id', 'label_columns' => ['first_name', 'last_name']],
+            ],
+            'apartments' => [
+                ['field' => 'apartment_type_id', 'table' => 'apartment_types', 'id_column' => 'id', 'label_columns' => ['name']],
+                ['field' => 'stage_id', 'table' => 'stages', 'id_column' => 'id', 'label_columns' => ['name']],
+                ['field' => 'metro_station_id', 'table' => 'metro_stations', 'id_column' => 'id', 'label_columns' => ['name']],
+                ['field' => 'building_id', 'table' => 'buildings', 'id_column' => 'id', 'label_columns' => ['name']],
+                ['field' => 'landlord_contact_id', 'table' => 'contacts', 'id_column' => 'id', 'label_columns' => ['first_name', 'last_name']],
+            ],
+            'units' => [
+                ['field' => 'apartment_id', 'table' => 'apartments', 'id_column' => 'id', 'label_columns' => ['title']],
+                ['field' => 'stage_id', 'table' => 'stages', 'id_column' => 'id', 'label_columns' => ['name']],
+            ],
+            'unit-stays' => [
+                ['field' => 'unit_id', 'table' => 'units', 'id_column' => 'id', 'label_columns' => ['title']],
+                ['field' => 'tenant_contact_id', 'table' => 'contacts', 'id_column' => 'id', 'label_columns' => ['first_name', 'last_name']],
+                ['field' => 'co_tenant_contact_id', 'table' => 'contacts', 'id_column' => 'id', 'label_columns' => ['first_name', 'last_name']],
+            ],
+            'bitrix-units-snapshot' => [
+                ['field' => 'apart_id', 'table' => 'apartments', 'id_column' => 'bitrix_id', 'label_columns' => ['title']],
+            ],
+            default => [],
+        };
+
+        foreach ($mappings as $mapping) {
+            $this->formatForeignKeyField(
+                $row,
+                $mapping['field'],
+                $mapping['table'],
+                $mapping['id_column'],
+                $mapping['label_columns']
+            );
+        }
+    }
+
+    /**
+     * @param  list<string>  $labelColumns
+     */
+    private function formatForeignKeyField(
+        object $row,
+        string $field,
+        string $table,
+        string $idColumn,
+        array $labelColumns
+    ): void {
+        if (! isset($row->{$field}) || $row->{$field} === null) {
+            return;
+        }
+
+        $rawId = trim((string) $row->{$field});
+        if ($rawId === '') {
+            return;
+        }
+
+        $record = DB::table($table)
+            ->where($idColumn, $row->{$field})
+            ->first($labelColumns);
+
+        if ($record === null) {
+            return;
+        }
+
+        $parts = [];
+        foreach ($labelColumns as $column) {
+            $value = trim((string) ($record->{$column} ?? ''));
+            if ($value !== '') {
+                $parts[] = $value;
+            }
+        }
+
+        $label = trim(implode(' ', $parts));
+        if ($label === '') {
+            return;
+        }
+
+        $row->{$field} = sprintf('%s (%s)', $label, $rawId);
+    }
+
+    /**
+     * @param  array<string, mixed>  $config
+     */
+    private function resolveTimelineSubjectId(object $row, array $config): ?string
+    {
+        if (isset($row->id) && $row->id !== null && trim((string) $row->id) !== '') {
+            return (string) $row->id;
+        }
+
+        $routeKey = (string) ($config['id'] ?? '');
+        if ($routeKey !== '' && isset($row->{$routeKey}) && $row->{$routeKey} !== null) {
+            $value = trim((string) $row->{$routeKey});
+
+            return $value !== '' ? $value : null;
+        }
+
+        return null;
     }
 }

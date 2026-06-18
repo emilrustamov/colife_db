@@ -14,11 +14,23 @@ use Illuminate\Support\Str;
 
 class BitrixContactProfile implements BitrixEntityProfile
 {
+    private const BITRIX_FIELD_GENDER = 'UF_CRM_1688664973718';
+
+    private const BITRIX_FIELD_LANGUAGE = 'UF_CRM_1696438640';
+
+    private const BITRIX_FIELD_NATIONALITY = 'UF_CRM_1755104713';
+
+    private const BITRIX_FIELD_NATIONALITY_LEGACY = 'UF_CRM_1729690794035';
+
+    /**
+     * @var array<int, string|null>
+     */
+    private array $bitrixUserNameCache = [];
+
     public function __construct(
         private readonly BitrixSyncContext $syncContext,
         private readonly BitrixRestClient $bitrixRestClient
-    ) {
-    }
+    ) {}
 
     public function entity(): string
     {
@@ -40,6 +52,12 @@ class BitrixContactProfile implements BitrixEntityProfile
         $now = now();
         $typeMap = $this->resolveTypeMap();
         $defaultTypeId = $typeMap['not_selected'] ?? null;
+        $enumMap = $this->resolveContactFieldEnumMap([
+            self::BITRIX_FIELD_GENDER,
+            self::BITRIX_FIELD_LANGUAGE,
+            self::BITRIX_FIELD_NATIONALITY,
+            self::BITRIX_FIELD_NATIONALITY_LEGACY,
+        ]);
 
         $incomingBitrixIds = [];
         foreach ($items as $item) {
@@ -49,15 +67,29 @@ class BitrixContactProfile implements BitrixEntityProfile
             }
         }
 
-        $existingUpdatedAtByBitrixId = [];
+        $existingBitrixIds = [];
+        $existingContactsByBitrixId = collect();
         if ($incomingBitrixIds !== []) {
-            $existingUpdatedAtByBitrixId = Contact::query()
+            $existingContactsByBitrixId = Contact::query()
                 ->whereIn('bitrix_id', $incomingBitrixIds)
-                ->get(['bitrix_id', 'bitrix_updated_at'])
-                ->mapWithKeys(static function (Contact $contact): array {
-                    return [(int) $contact->bitrix_id => $contact->bitrix_updated_at?->getTimestamp()];
-                })
+                ->get([
+                    'id',
+                    'bitrix_id',
+                    'first_name',
+                    'last_name',
+                    'contact_type_id',
+                    'birth_date',
+                    'is_deleted',
+                    'bitrix_created_at',
+                    'bitrix_updated_at',
+                    'last_synced_at',
+                ])
+                ->keyBy(static fn (Contact $contact): int => (int) $contact->bitrix_id);
+            $existingBitrixIds = $existingContactsByBitrixId
+                ->keys()
+                ->map(static fn (mixed $value): int => (int) $value)
                 ->all();
+            $existingBitrixIds = array_fill_keys($existingBitrixIds, true);
         }
 
         $recordsPayload = [];
@@ -65,25 +97,23 @@ class BitrixContactProfile implements BitrixEntityProfile
         $emailPayloadByBitrixId = [];
         $currentBatchBitrixIds = [];
         $operationByBitrixId = [];
+        $oldValuesByBitrixId = [];
+        $changedByBitrixUserIdByBitrixId = [];
+        $changedByBitrixUserNameByBitrixId = [];
 
         foreach ($items as $item) {
             $processed++;
 
             try {
-                $normalized = $this->normalizeItem($item, $now, $typeMap, $defaultTypeId);
+                $normalized = $this->normalizeItem($item, $now, $typeMap, $defaultTypeId, $enumMap);
                 $bitrixId = (int) $normalized['bitrix_id'];
-                $incomingUpdatedAt = $normalized['bitrix_updated_at'] instanceof Carbon
-                    ? $normalized['bitrix_updated_at']->getTimestamp()
-                    : null;
-
-                if ($this->shouldSkipItem($bitrixId, $incomingUpdatedAt, $existingUpdatedAtByBitrixId)) {
-                    $skipped++;
-                    continue;
-                }
-
-                if (array_key_exists($bitrixId, $existingUpdatedAtByBitrixId)) {
+                if (isset($existingBitrixIds[$bitrixId])) {
                     $updated++;
                     $operationByBitrixId[$bitrixId] = 'bitrix.contact.updated';
+                    $existingContact = $existingContactsByBitrixId->get($bitrixId);
+                    if ($existingContact instanceof Contact) {
+                        $oldValuesByBitrixId[$bitrixId] = $this->buildActivityPayloadFromModel($existingContact);
+                    }
                 } else {
                     $created++;
                     $operationByBitrixId[$bitrixId] = 'bitrix.contact.created';
@@ -92,6 +122,9 @@ class BitrixContactProfile implements BitrixEntityProfile
                 $recordsPayload[] = $normalized;
                 $phonePayloadByBitrixId[$bitrixId] = $this->normalizePhoneCollection($item['PHONE'] ?? []);
                 $emailPayloadByBitrixId[$bitrixId] = $this->normalizeEmailCollection($item['EMAIL'] ?? []);
+                $changedByBitrixUserId = $this->toNullableInt($item['MODIFY_BY_ID'] ?? null);
+                $changedByBitrixUserIdByBitrixId[$bitrixId] = $changedByBitrixUserId;
+                $changedByBitrixUserNameByBitrixId[$bitrixId] = $this->resolveBitrixUserName($changedByBitrixUserId);
                 $currentBatchBitrixIds[] = $bitrixId;
                 $successful++;
             } catch (\Throwable) {
@@ -100,7 +133,17 @@ class BitrixContactProfile implements BitrixEntityProfile
         }
 
         if ($recordsPayload !== []) {
-            $this->upsertBatchPayload($recordsPayload, $currentBatchBitrixIds, $phonePayloadByBitrixId, $emailPayloadByBitrixId, $operationByBitrixId, $now);
+            $this->upsertBatchPayload(
+                $recordsPayload,
+                $currentBatchBitrixIds,
+                $phonePayloadByBitrixId,
+                $emailPayloadByBitrixId,
+                $operationByBitrixId,
+                $oldValuesByBitrixId,
+                $changedByBitrixUserIdByBitrixId,
+                $changedByBitrixUserNameByBitrixId,
+                $now
+            );
         }
 
         return [
@@ -159,6 +202,9 @@ class BitrixContactProfile implements BitrixEntityProfile
      * @param  array<int, list<array{phone:string,type:?string,is_primary:bool,sort:int}>>  $phonePayloadByBitrixId
      * @param  array<int, list<array{email:string,type:?string,is_primary:bool,sort:int}>>  $emailPayloadByBitrixId
      * @param  array<int, string>  $operationByBitrixId
+     * @param  array<int, array<string, mixed>>  $oldValuesByBitrixId
+     * @param  array<int, int|null>  $changedByBitrixUserIdByBitrixId
+     * @param  array<int, string|null>  $changedByBitrixUserNameByBitrixId
      */
     private function upsertBatchPayload(
         array $recordsPayload,
@@ -166,10 +212,13 @@ class BitrixContactProfile implements BitrixEntityProfile
         array $phonePayloadByBitrixId,
         array $emailPayloadByBitrixId,
         array $operationByBitrixId,
+        array $oldValuesByBitrixId,
+        array $changedByBitrixUserIdByBitrixId,
+        array $changedByBitrixUserNameByBitrixId,
         Carbon $now
     ): void {
-        $this->syncContext->runWithoutContactPush(function () use ($recordsPayload, $currentBatchBitrixIds, $phonePayloadByBitrixId, $emailPayloadByBitrixId, $operationByBitrixId, $now): void {
-            DB::transaction(function () use ($recordsPayload, $currentBatchBitrixIds, $phonePayloadByBitrixId, $emailPayloadByBitrixId, $operationByBitrixId, $now): void {
+        $this->syncContext->runWithoutContactPush(function () use ($recordsPayload, $currentBatchBitrixIds, $phonePayloadByBitrixId, $emailPayloadByBitrixId, $operationByBitrixId, $oldValuesByBitrixId, $changedByBitrixUserIdByBitrixId, $changedByBitrixUserNameByBitrixId, $now): void {
+            DB::transaction(function () use ($recordsPayload, $currentBatchBitrixIds, $phonePayloadByBitrixId, $emailPayloadByBitrixId, $operationByBitrixId, $oldValuesByBitrixId, $changedByBitrixUserIdByBitrixId, $changedByBitrixUserNameByBitrixId, $now): void {
                 Contact::query()->upsert(
                     $recordsPayload,
                     ['bitrix_id'],
@@ -177,7 +226,10 @@ class BitrixContactProfile implements BitrixEntityProfile
                         'first_name',
                         'last_name',
                         'contact_type_id',
+                        'nationality',
                         'birth_date',
+                        'gender',
+                        'language',
                         'is_deleted',
                         'bitrix_created_at',
                         'bitrix_updated_at',
@@ -198,7 +250,15 @@ class BitrixContactProfile implements BitrixEntityProfile
 
                 $this->insertPhones($contactIdByBitrixId, $phonePayloadByBitrixId, $now);
                 $this->insertEmails($contactIdByBitrixId, $emailPayloadByBitrixId, $now);
-                $this->insertActivityLogs($recordsPayload, $contactIdByBitrixId, $operationByBitrixId, $now);
+                $this->insertActivityLogs(
+                    $recordsPayload,
+                    $contactIdByBitrixId,
+                    $operationByBitrixId,
+                    $oldValuesByBitrixId,
+                    $changedByBitrixUserIdByBitrixId,
+                    $changedByBitrixUserNameByBitrixId,
+                    $now
+                );
             });
         });
     }
@@ -207,9 +267,19 @@ class BitrixContactProfile implements BitrixEntityProfile
      * @param  list<array<string, mixed>>  $recordsPayload
      * @param  Collection<int|string, string>  $contactIdByBitrixId
      * @param  array<int, string>  $operationByBitrixId
+     * @param  array<int, array<string, mixed>>  $oldValuesByBitrixId
+     * @param  array<int, int|null>  $changedByBitrixUserIdByBitrixId
+     * @param  array<int, string|null>  $changedByBitrixUserNameByBitrixId
      */
-    private function insertActivityLogs(array $recordsPayload, Collection $contactIdByBitrixId, array $operationByBitrixId, Carbon $now): void
-    {
+    private function insertActivityLogs(
+        array $recordsPayload,
+        Collection $contactIdByBitrixId,
+        array $operationByBitrixId,
+        array $oldValuesByBitrixId,
+        array $changedByBitrixUserIdByBitrixId,
+        array $changedByBitrixUserNameByBitrixId,
+        Carbon $now
+    ): void {
         $rows = [];
 
         foreach ($recordsPayload as $record) {
@@ -226,12 +296,22 @@ class BitrixContactProfile implements BitrixEntityProfile
                 'first_name',
                 'last_name',
                 'contact_type_id',
+                'nationality',
                 'birth_date',
+                'gender',
+                'language',
                 'is_deleted',
                 'bitrix_created_at',
                 'bitrix_updated_at',
                 'last_synced_at',
             ]);
+            $newValues['birth_date'] = $this->formatDateOnly($newValues['birth_date'] ?? null);
+            $newValues['changed_by_bitrix_user_id'] = $changedByBitrixUserIdByBitrixId[$bitrixId] ?? null;
+            $newValues['changed_by_bitrix_user_name'] = $changedByBitrixUserNameByBitrixId[$bitrixId] ?? null;
+            $oldValues = $event === 'bitrix.contact.updated' ? ($oldValuesByBitrixId[$bitrixId] ?? null) : null;
+            if ($event === 'bitrix.contact.updated' && ! $this->hasMeaningfulDiff($oldValues, $newValues)) {
+                continue;
+            }
 
             $rows[] = [
                 'id' => (string) Str::uuid(),
@@ -239,7 +319,7 @@ class BitrixContactProfile implements BitrixEntityProfile
                 'subject_type' => Contact::class,
                 'subject_id' => $contactId,
                 'user_id' => null,
-                'old_values' => null,
+                'old_values' => $oldValues !== null ? json_encode($oldValues, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) : null,
                 'new_values' => json_encode($newValues, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES),
                 'happened_at' => $now,
                 'created_at' => $now,
@@ -250,6 +330,79 @@ class BitrixContactProfile implements BitrixEntityProfile
         if ($rows !== []) {
             DB::table('activity_logs')->insert($rows);
         }
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function buildActivityPayloadFromModel(Contact $contact): array
+    {
+        return [
+            'bitrix_id' => $contact->bitrix_id !== null ? (int) $contact->bitrix_id : null,
+            'first_name' => $contact->first_name,
+            'last_name' => $contact->last_name,
+            'contact_type_id' => $contact->contact_type_id,
+            'nationality' => $contact->nationality,
+            'birth_date' => $this->formatDateOnly($contact->birth_date),
+            'gender' => $contact->gender,
+            'language' => $contact->language,
+            'is_deleted' => (bool) $contact->is_deleted,
+            'bitrix_created_at' => $contact->bitrix_created_at?->toIso8601String(),
+            'bitrix_updated_at' => $contact->bitrix_updated_at?->toIso8601String(),
+            'last_synced_at' => $contact->last_synced_at?->toIso8601String(),
+            'changed_by_bitrix_user_id' => null,
+            'changed_by_bitrix_user_name' => null,
+        ];
+    }
+
+    /**
+     * @param  array<string, mixed>|null  $oldValues
+     * @param  array<string, mixed>  $newValues
+     */
+    private function hasMeaningfulDiff(?array $oldValues, array $newValues): bool
+    {
+        if ($oldValues === null) {
+            return true;
+        }
+
+        $keys = array_unique(array_merge(array_keys($oldValues), array_keys($newValues)));
+        foreach ($keys as $key) {
+            if ($this->isTechnicalDiffKey($key)) {
+                continue;
+            }
+
+            $old = $this->normalizeDiffValue($oldValues[$key] ?? null);
+            $new = $this->normalizeDiffValue($newValues[$key] ?? null);
+            if ($old !== $new) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private function normalizeDiffValue(mixed $value): mixed
+    {
+        if ($value === null || $value === '') {
+            return null;
+        }
+
+        if (is_bool($value)) {
+            return $value ? 1 : 0;
+        }
+
+        return $value;
+    }
+
+    private function isTechnicalDiffKey(string $key): bool
+    {
+        return in_array($key, [
+            'bitrix_created_at',
+            'bitrix_updated_at',
+            'last_synced_at',
+            'changed_by_bitrix_user_id',
+            'changed_by_bitrix_user_name',
+        ], true);
     }
 
     /**
@@ -271,9 +424,10 @@ class BitrixContactProfile implements BitrixEntityProfile
     /**
      * @param  array<string, mixed>  $item
      * @param  array<string, int>  $typeMap
+     * @param  array<string, array<string, string>>  $enumMap
      * @return array<string, mixed>
      */
-    private function normalizeItem(array $item, Carbon $syncedAt, array $typeMap, ?int $defaultTypeId): array
+    private function normalizeItem(array $item, Carbon $syncedAt, array $typeMap, ?int $defaultTypeId, array $enumMap): array
     {
         $bitrixId = (int) ($item['ID'] ?? 0);
         if ($bitrixId <= 0) {
@@ -281,6 +435,7 @@ class BitrixContactProfile implements BitrixEntityProfile
         }
 
         $typeKey = $this->normalizeTypeKey((string) ($item['TYPE_ID'] ?? ''));
+        $nationalityRaw = $item[self::BITRIX_FIELD_NATIONALITY] ?? $item[self::BITRIX_FIELD_NATIONALITY_LEGACY] ?? null;
 
         return [
             'id' => (string) Str::uuid(),
@@ -288,7 +443,11 @@ class BitrixContactProfile implements BitrixEntityProfile
             'first_name' => $this->toNullableString($item['NAME'] ?? null),
             'last_name' => $this->toNullableString($item['LAST_NAME'] ?? null),
             'contact_type_id' => $typeMap[$typeKey] ?? $defaultTypeId,
+            'nationality' => $this->resolveEnumDisplayValue($enumMap, self::BITRIX_FIELD_NATIONALITY, $nationalityRaw)
+                ?? $this->resolveEnumDisplayValue($enumMap, self::BITRIX_FIELD_NATIONALITY_LEGACY, $nationalityRaw),
             'birth_date' => $this->parseDate($item['BIRTHDATE'] ?? null),
+            'gender' => $this->resolveEnumDisplayValue($enumMap, self::BITRIX_FIELD_GENDER, $item[self::BITRIX_FIELD_GENDER] ?? null),
+            'language' => $this->resolveEnumDisplayValue($enumMap, self::BITRIX_FIELD_LANGUAGE, $item[self::BITRIX_FIELD_LANGUAGE] ?? null),
             'is_deleted' => false,
             'bitrix_created_at' => $this->parseDateTime($item['DATE_CREATE'] ?? null),
             'bitrix_updated_at' => $this->parseDateTime($item['DATE_MODIFY'] ?? null),
@@ -299,7 +458,6 @@ class BitrixContactProfile implements BitrixEntityProfile
     }
 
     /**
-     * @param  mixed  $phones
      * @return list<array{phone:string,type:?string,is_primary:bool,sort:int}>
      */
     private function normalizePhoneCollection(mixed $phones): array
@@ -331,7 +489,6 @@ class BitrixContactProfile implements BitrixEntityProfile
     }
 
     /**
-     * @param  mixed  $emails
      * @return list<array{email:string,type:?string,is_primary:bool,sort:int}>
      */
     private function normalizeEmailCollection(mixed $emails): array
@@ -426,28 +583,71 @@ class BitrixContactProfile implements BitrixEntityProfile
         }
     }
 
-    /**
-     * @param  array<int, int|null>  $existingUpdatedAtByBitrixId
-     */
-    private function shouldSkipItem(int $bitrixId, ?int $incomingUpdatedAt, array $existingUpdatedAtByBitrixId): bool
-    {
-        if (! array_key_exists($bitrixId, $existingUpdatedAtByBitrixId)) {
-            return false;
-        }
-
-        $existingUpdatedAt = $existingUpdatedAtByBitrixId[$bitrixId] ?? null;
-        if ($incomingUpdatedAt === null || $existingUpdatedAt === null) {
-            return false;
-        }
-
-        return $incomingUpdatedAt <= $existingUpdatedAt;
-    }
-
     private function normalizeTypeKey(string $value): string
     {
         $normalized = Str::of($value)->trim()->lower()->replace('-', '_')->replace(' ', '_')->value();
 
         return preg_replace('/[^a-z0-9_]/', '', $normalized) ?? '';
+    }
+
+    /**
+     * @param  list<string>  $fieldCodes
+     * @return array<string, array<string, string>>
+     */
+    private function resolveContactFieldEnumMap(array $fieldCodes): array
+    {
+        $response = $this->bitrixRestClient->postJson('crm.contact.fields', []);
+        $fields = data_get($response, 'result', []);
+        if (! is_array($fields)) {
+            return [];
+        }
+
+        $map = [];
+        foreach ($fieldCodes as $fieldCode) {
+            $definition = $fields[$fieldCode] ?? null;
+            if (! is_array($definition)) {
+                continue;
+            }
+
+            $items = $definition['items'] ?? null;
+            if (! is_array($items)) {
+                continue;
+            }
+
+            $fieldMap = [];
+            foreach ($items as $item) {
+                if (! is_array($item)) {
+                    continue;
+                }
+
+                $id = $this->toNullableString($item['ID'] ?? null);
+                $value = $this->toNullableString($item['VALUE'] ?? null);
+                if ($id === null || $value === null) {
+                    continue;
+                }
+
+                $fieldMap[$id] = $value;
+            }
+
+            if ($fieldMap !== []) {
+                $map[$fieldCode] = $fieldMap;
+            }
+        }
+
+        return $map;
+    }
+
+    /**
+     * @param  array<string, array<string, string>>  $enumMap
+     */
+    private function resolveEnumDisplayValue(array $enumMap, string $fieldCode, mixed $rawValue): ?string
+    {
+        $raw = $this->toNullableString($rawValue);
+        if ($raw === null) {
+            return null;
+        }
+
+        return $enumMap[$fieldCode][$raw] ?? $raw;
     }
 
     private function toNullableString(mixed $value): ?string
@@ -506,5 +706,66 @@ class BitrixContactProfile implements BitrixEntityProfile
         $email = strtolower($trimmed);
 
         return filter_var($email, FILTER_VALIDATE_EMAIL) !== false ? $email : null;
+    }
+
+    private function toNullableInt(mixed $value): ?int
+    {
+        if ($value === null || $value === '') {
+            return null;
+        }
+
+        return is_numeric($value) ? (int) $value : null;
+    }
+
+    private function formatDateOnly(mixed $value): ?string
+    {
+        if ($value === null || $value === '') {
+            return null;
+        }
+
+        if ($value instanceof Carbon) {
+            return $value->toDateString();
+        }
+
+        try {
+            return Carbon::parse((string) $value)->toDateString();
+        } catch (\Throwable) {
+            return $this->toNullableString($value);
+        }
+    }
+
+    private function resolveBitrixUserName(?int $bitrixUserId): ?string
+    {
+        if ($bitrixUserId === null || $bitrixUserId <= 0) {
+            return null;
+        }
+
+        if (array_key_exists($bitrixUserId, $this->bitrixUserNameCache)) {
+            return $this->bitrixUserNameCache[$bitrixUserId];
+        }
+
+        try {
+            $response = $this->bitrixRestClient->postJson('user.get', [
+                'FILTER' => ['ID' => $bitrixUserId],
+            ]);
+            $users = data_get($response, 'result', []);
+            if (! is_array($users) || $users === [] || ! is_array($users[0] ?? null)) {
+                $this->bitrixUserNameCache[$bitrixUserId] = null;
+
+                return null;
+            }
+
+            $firstName = $this->toNullableString($users[0]['NAME'] ?? null);
+            $lastName = $this->toNullableString($users[0]['LAST_NAME'] ?? null);
+            $fullName = trim(($firstName ?? '').' '.($lastName ?? ''));
+            $resolved = $fullName !== '' ? $fullName : ($this->toNullableString($users[0]['EMAIL'] ?? null) ?? null);
+            $this->bitrixUserNameCache[$bitrixUserId] = $resolved;
+
+            return $resolved;
+        } catch (\Throwable) {
+            $this->bitrixUserNameCache[$bitrixUserId] = null;
+
+            return null;
+        }
     }
 }

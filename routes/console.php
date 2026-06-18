@@ -10,3 +10,10 @@ Artisan::command('inspire', function () {
 
 Schedule::command('bitrix:sync-units-snapshot')->dailyAt('23:40');
 Schedule::command('bitrix:sync-contacts')->dailyAt('23:50');
+Schedule::command('chatapp:collect')
+    ->dailyAt('09:00')
+    ->timezone('Europe/Moscow');
+
+Schedule::command('chatapp:collect')
+    ->dailyAt('14:00')
+    ->timezone('Europe/Moscow');

@@ -10,9 +10,18 @@ defineProps({
     },
 });
 
-const formatValue = (value) => {
+const formatValue = (value, key, record) => {
     if (value === null || value === undefined) {
         return '';
+    }
+
+    if (key === 'contact_type_id') {
+        const contactTypeId = String(value).trim();
+        const contactTypeName = String(record?.contact_type_name ?? '').trim();
+
+        if (contactTypeId !== '' && contactTypeName !== '') {
+            return `${contactTypeName} (${contactTypeId})`;
+        }
     }
 
     if (typeof value === 'object') {
@@ -38,7 +47,7 @@ const formatValue = (value) => {
             <div v-for="(value, key) in record" :key="key" class="min-w-0">
                 <label class="mb-2 block text-sm font-semibold uppercase tracking-wide text-slate-600 dark:text-slate-300">{{ key }}</label>
                 <input
-                    :value="formatValue(value)"
+                    :value="formatValue(value, key, record)"
                     class="w-full rounded-xl border border-slate-300 bg-white px-4 py-3.5 text-lg leading-relaxed text-slate-800 shadow-sm dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100"
                     readonly
                 >

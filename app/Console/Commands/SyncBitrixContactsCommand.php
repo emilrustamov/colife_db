@@ -14,9 +14,6 @@ class SyncBitrixContactsCommand extends Command
 
     protected $description = 'Sync contacts from Bitrix24 to local database';
 
-    /**
-     * @return int
-     */
     public function handle(BitrixEntitySyncService $syncService, BitrixRestClient $bitrixRestClient): int
     {
         $this->info('Bitrix contacts sync started...');
@@ -71,6 +68,11 @@ class SyncBitrixContactsCommand extends Command
                     'ID',
                     'NAME',
                     'LAST_NAME',
+                    'MODIFY_BY_ID',
+                    'UF_CRM_1688664973718',
+                    'UF_CRM_1696438640',
+                    'UF_CRM_1755104713',
+                    'UF_CRM_1729690794035',
                     'TYPE_ID',
                     'BIRTHDATE',
                     'PHONE',
