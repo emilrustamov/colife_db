@@ -5,14 +5,14 @@ namespace App\Jobs;
 use App\Services\BitrixPauseDateResolver;
 use App\Services\BitrixRestClient;
 use Illuminate\Bus\Queueable;
-use Illuminate\Contracts\Queue\ShouldBeUnique;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Bus\Dispatchable;
 use Illuminate\Queue\InteractsWithQueue;
 use Illuminate\Queue\SerializesModels;
 use Illuminate\Support\Facades\Log;
+use Throwable;
 
-class ProcessPauseJob implements ShouldBeUnique, ShouldQueue
+class ProcessPauseJob implements ShouldQueue
 {
     use Dispatchable;
     use InteractsWithQueue;
@@ -21,28 +21,44 @@ class ProcessPauseJob implements ShouldBeUnique, ShouldQueue
 
     public int $tries = 5;
 
-    public int $uniqueFor = 604800;
+    public int $timeout = 120;
 
     /**
-     * @param  array{event_token:string,domain:string}  $data
+     * @param  array{event_token:string,domain:string,workflow_id?:string,document_id?:mixed,enqueued_at?:string,target_at?:string,wait_seconds?:int}  $data
      */
     public function __construct(public array $data) {}
-
-    /**
-     * Get the unique ID for the job lock.
-     */
-    public function uniqueId(): string
-    {
-        return $this->data['event_token'];
-    }
 
     /**
      * Resume paused Bitrix business process activity.
      */
     public function handle(BitrixRestClient $bitrixRestClient, BitrixPauseDateResolver $pauseDateResolver): void
     {
+        $logger = Log::channel('bitrix_pauses');
+        $now = now();
+        $enqueuedAt = $this->data['enqueued_at'] ?? null;
+        $targetAt = $this->data['target_at'] ?? null;
+        $lagSeconds = null;
+
+        if (is_string($enqueuedAt)) {
+            $lagSeconds = max($now->diffInSeconds($enqueuedAt, false) * -1, 0);
+        }
+
+        $logger->info('PAUSE_JOB_START', [
+            'job_id' => $this->job?->getJobId(),
+            'attempt' => $this->attempts(),
+            'domain' => $this->data['domain'],
+            'event_token' => $this->data['event_token'],
+            'workflow_id' => $this->data['workflow_id'] ?? null,
+            'document_id' => $this->data['document_id'] ?? null,
+            'enqueued_at' => $enqueuedAt,
+            'target_at' => $targetAt,
+            'wait_seconds' => $this->data['wait_seconds'] ?? null,
+            'lag_seconds' => $lagSeconds,
+            'server_now_portal' => $now->timezone($pauseDateResolver->portalTimezone())->toIso8601String(),
+        ]);
+
         if ((bool) config('services.bitrix.pause_dry_run', false)) {
-            Log::info('PAUSE_RESUMED_DRY_RUN', [
+            $logger->info('PAUSE_RESUMED_DRY_RUN', [
                 'domain' => $this->data['domain'],
                 'event_token' => $this->data['event_token'],
             ]);
@@ -50,20 +66,55 @@ class ProcessPauseJob implements ShouldBeUnique, ShouldQueue
             return;
         }
 
-        $response = $bitrixRestClient->postJson(
-            'bizproc.event.send',
-            [
-                'event_token' => $this->data['event_token'],
-                'return_values' => [],
-            ],
-            $this->data['domain']
-        );
+        try {
+            $response = $bitrixRestClient->postJson(
+                'bizproc.event.send',
+                [
+                    'event_token' => $this->data['event_token'],
+                    'return_values' => [],
+                ],
+                $this->data['domain']
+            );
 
-        Log::info('PAUSE_RESUMED', [
+            $logger->info('PAUSE_RESUMED', [
+                'job_id' => $this->job?->getJobId(),
+                'attempt' => $this->attempts(),
+                'domain' => $this->data['domain'],
+                'event_token' => $this->data['event_token'],
+                'workflow_id' => $this->data['workflow_id'] ?? null,
+                'document_id' => $this->data['document_id'] ?? null,
+                'lag_seconds' => $lagSeconds,
+                'server_now_portal' => $now->timezone($pauseDateResolver->portalTimezone())->toIso8601String(),
+                'response' => $response,
+            ]);
+        } catch (Throwable $e) {
+            $logger->error('PAUSE_JOB_ERROR', [
+                'job_id' => $this->job?->getJobId(),
+                'attempt' => $this->attempts(),
+                'domain' => $this->data['domain'],
+                'event_token' => $this->data['event_token'],
+                'workflow_id' => $this->data['workflow_id'] ?? null,
+                'document_id' => $this->data['document_id'] ?? null,
+                'error' => $e->getMessage(),
+            ]);
+
+            throw $e;
+        }
+    }
+
+    /**
+     * Handle a job failure.
+     */
+    public function failed(Throwable $e): void
+    {
+        Log::channel('bitrix_pauses')->error('PAUSE_JOB_FAILED', [
+            'job_id' => $this->job?->getJobId(),
+            'attempts' => $this->attempts(),
             'domain' => $this->data['domain'],
             'event_token' => $this->data['event_token'],
-            'server_now_portal' => now()->timezone($pauseDateResolver->portalTimezone())->toIso8601String(),
-            'response' => $response,
+            'workflow_id' => $this->data['workflow_id'] ?? null,
+            'document_id' => $this->data['document_id'] ?? null,
+            'error' => $e->getMessage(),
         ]);
     }
 }

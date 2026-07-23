@@ -2,8 +2,10 @@
 
 namespace App\Console\Commands;
 
+use App\Models\Contact;
 use App\Services\BitrixEntitySyncService;
 use App\Services\BitrixRestClient;
+use App\Support\BitrixSoftDeleteReconciler;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\Log;
 use Throwable;
@@ -24,13 +26,14 @@ class SyncBitrixContactsCommand extends Command
             Log::channel('bitrix_contacts')->info('Bitrix contacts sync completed', $result);
 
             $this->info(sprintf(
-                'Completed. Total: %d, created: %d, updated: %d, successful: %d, skipped: %d, failed: %d.',
+                'Completed. Total: %d, created: %d, updated: %d, successful: %d, skipped: %d, failed: %d, marked deleted: %d.',
                 $result['total'],
                 $result['created'],
                 $result['updated'],
                 $result['successful'],
                 $result['skipped'],
-                $result['failed']
+                $result['failed'],
+                $result['marked_deleted']
             ));
 
             if ($result['failed'] > 0) {
@@ -50,7 +53,7 @@ class SyncBitrixContactsCommand extends Command
     }
 
     /**
-     * @return array{total:int, successful:int, skipped:int, failed:int, failed_contact_ids:list<int|string>}
+     * @return array{total:int, successful:int, skipped:int, failed:int, failed_contact_ids:list<int|string>, marked_deleted:int, created:int, updated:int}
      */
     private function syncContacts(BitrixEntitySyncService $syncService, BitrixRestClient $bitrixRestClient): array
     {
@@ -61,6 +64,7 @@ class SyncBitrixContactsCommand extends Command
         $successful = 0;
         $skipped = 0;
         $failedContactIds = [];
+        $seenBitrixIds = [];
 
         while (true) {
             $data = $bitrixRestClient->postJson('crm.contact.list.json', [
@@ -89,6 +93,17 @@ class SyncBitrixContactsCommand extends Command
 
             if ($items === []) {
                 break;
+            }
+
+            foreach ($items as $item) {
+                if (! is_array($item)) {
+                    continue;
+                }
+
+                $bitrixId = (int) ($item['ID'] ?? $item['id'] ?? 0);
+                if ($bitrixId > 0) {
+                    $seenBitrixIds[] = $bitrixId;
+                }
             }
 
             $batch = $syncService->syncBatchItems($items);
@@ -120,6 +135,15 @@ class SyncBitrixContactsCommand extends Command
             $start = (int) $next;
         }
 
+        $markedDeleted = 0;
+        if ($total > 0) {
+            $markedDeleted = BitrixSoftDeleteReconciler::markMissingAsDeleted(
+                Contact::class,
+                array_values(array_unique($seenBitrixIds)),
+                now()
+            );
+        }
+
         return [
             'total' => $total,
             'created' => $created,
@@ -128,6 +152,7 @@ class SyncBitrixContactsCommand extends Command
             'skipped' => $skipped,
             'failed' => count($failedContactIds),
             'failed_contact_ids' => $failedContactIds,
+            'marked_deleted' => $markedDeleted,
         ];
     }
 }

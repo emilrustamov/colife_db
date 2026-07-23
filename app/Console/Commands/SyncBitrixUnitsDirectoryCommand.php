@@ -5,6 +5,7 @@ namespace App\Console\Commands;
 use App\Models\Apartment;
 use App\Models\Unit;
 use App\Services\BitrixRestClient;
+use App\Support\BitrixSoftDeleteReconciler;
 use Carbon\Carbon;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\DB;
@@ -55,10 +56,11 @@ class SyncBitrixUnitsDirectoryCommand extends Command
             $result = $this->syncUnits($bitrixRestClient, $stageIdMap, $apartmentIdByBitrixId, $now);
 
             $this->info(sprintf(
-                'Completed. Total: %d, successful: %d, failed: %d.',
+                'Completed. Total: %d, successful: %d, failed: %d, marked deleted: %d.',
                 $result['total'],
                 $result['successful'],
-                $result['failed']
+                $result['failed'],
+                $result['marked_deleted']
             ));
 
             if ($result['failed'] > 0) {
@@ -180,7 +182,7 @@ class SyncBitrixUnitsDirectoryCommand extends Command
     /**
      * @param  array<string, int>  $stageIdMap
      * @param  array<int, string>  $apartmentIdByBitrixId
-     * @return array{total:int,successful:int,failed:int,failed_ids:list<int|string>}
+     * @return array{total:int,successful:int,failed:int,failed_ids:list<int|string>,marked_deleted:int}
      */
     private function syncUnits(
         BitrixRestClient $bitrixRestClient,
@@ -192,6 +194,7 @@ class SyncBitrixUnitsDirectoryCommand extends Command
         $total = 0;
         $successful = 0;
         $failedIds = [];
+        $seenBitrixIds = [];
 
         while (true) {
             $response = $bitrixRestClient->postJson('crm.item.list.json', [
@@ -214,6 +217,7 @@ class SyncBitrixUnitsDirectoryCommand extends Command
                 $bitrixId = (int) ($item['id'] ?? 0);
                 if ($bitrixId > 0) {
                     $bitrixIds[] = $bitrixId;
+                    $seenBitrixIds[] = $bitrixId;
                 }
             }
 
@@ -307,11 +311,21 @@ class SyncBitrixUnitsDirectoryCommand extends Command
             $start = (int) $next;
         }
 
+        $markedDeleted = 0;
+        if ($total > 0) {
+            $markedDeleted = BitrixSoftDeleteReconciler::markMissingAsDeleted(
+                Unit::class,
+                array_values(array_unique($seenBitrixIds)),
+                $now
+            );
+        }
+
         return [
             'total' => $total,
             'successful' => $successful,
             'failed' => count($failedIds),
             'failed_ids' => $failedIds,
+            'marked_deleted' => $markedDeleted,
         ];
     }
 

@@ -34,6 +34,11 @@ return [
         'webhook_token' => env('BITRIX_WEBHOOK_TOKEN', env('BITRIX_CONTACTS_EVENT_TOKEN')),
         'open_lines_application_token' => env('BITRIX_OPEN_LINES_APPLICATION_TOKEN'),
         'webhook' => env('BITRIX_WEBHOOK', env('BITRIX_UNITS_WEBHOOK')),
+        'disk_webhook' => env('BITRIX_DISK_WEBHOOK', env('BITRIX_WEBHOOK', env('BITRIX_UNITS_WEBHOOK'))),
+        'lists' => [
+            'utilities_iblock_id' => (int) env('BITRIX_UTILITIES_IBLOCK_ID', 156),
+            'disk_iblock_id' => (int) env('BITRIX_DISK_IBLOCK_ID', 322),
+        ],
     ],
 
     'b24_hk' => [

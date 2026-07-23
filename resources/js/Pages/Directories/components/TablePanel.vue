@@ -3,7 +3,7 @@ import Draggable from 'vuedraggable';
 import RecordTable from '../../../Components/RecordTable.vue';
 import { rtEmpty, rtTdTruncate, rtThDense, rtTheadSticky } from '../../../Components/recordTableClasses';
 
-defineProps({
+const props = defineProps({
     menu: { type: Array, default: () => [] },
     paginationMeta: { type: Object, required: true },
     rows: { type: Array, default: () => [] },
@@ -41,7 +41,39 @@ defineProps({
     toggleSort: { type: Function, required: true },
     markRowSelected: { type: Function, required: true },
     handleRowDblClick: { type: Function, required: true },
+    openLinkedCell: { type: Function, required: true },
 });
+
+const cellHref = (row, field) => {
+    const href = row?.[`${field}_href`];
+
+    return typeof href === 'string' && href.trim() !== '' ? href.trim() : null;
+};
+
+const isRowDeleted = (row) => {
+    const value = row?.is_deleted;
+
+    return value === true || value === 1 || value === '1';
+};
+
+const rowClass = (row) => {
+    const selected = String(props.selectedId) === String(props.rowPrimaryKey(row));
+    const deleted = isRowDeleted(row);
+
+    if (deleted && selected) {
+        return 'bg-slate-200/90 text-slate-400 dark:bg-slate-800/80 dark:text-slate-500';
+    }
+
+    if (deleted) {
+        return 'bg-slate-100/90 text-slate-400 hover:bg-slate-100 dark:bg-slate-800/50 dark:text-slate-500 dark:hover:bg-slate-800/60';
+    }
+
+    if (selected) {
+        return 'bg-blue-50/70 dark:bg-blue-900/30';
+    }
+
+    return 'hover:bg-slate-50 dark:hover:bg-slate-800/50';
+};
 </script>
 
 <template>
@@ -177,11 +209,24 @@ defineProps({
                         </thead>
                         <tbody>
                             <tr v-for="row in rows" :key="String(rowPrimaryKey(row))"
-                                class="cursor-pointer transition hover:bg-slate-50 dark:hover:bg-slate-800/50"
-                                :class="String(selectedId) === String(rowPrimaryKey(row)) ? 'bg-blue-50/70 dark:bg-blue-900/30' : ''"
+                                class="cursor-pointer transition"
+                                :class="rowClass(row)"
+                                :title="isRowDeleted(row) ? t(messages, 'deletedInBitrix') : undefined"
                                 @click="markRowSelected(row)" @dblclick="handleRowDblClick(row)">
                                 <td v-for="field in orderedFields" :key="`${rowPrimaryKey(row)}-${field}`"
-                                    :class="rtTdTruncate" v-html="highlightHtml(row[field], query)"></td>
+                                    :class="rtTdTruncate">
+                                    <button
+                                        v-if="cellHref(row, field)"
+                                        type="button"
+                                        class="max-w-full cursor-pointer truncate text-left underline underline-offset-2"
+                                        :class="isRowDeleted(row)
+                                            ? 'text-slate-400 decoration-slate-300 hover:text-slate-500 dark:text-slate-500 dark:decoration-slate-600'
+                                            : 'text-sky-700 decoration-sky-300 hover:text-sky-900 dark:text-sky-300 dark:decoration-sky-700 dark:hover:text-sky-100'"
+                                        @click.stop="openLinkedCell(cellHref(row, field))"
+                                        v-html="highlightHtml(row[field], query)"
+                                    ></button>
+                                    <span v-else v-html="highlightHtml(row[field], query)"></span>
+                                </td>
                             </tr>
                             <tr v-if="rows.length === 0 && !loading">
                                 <td :colspan="Math.max(orderedFields.length, 1)" :class="rtEmpty">

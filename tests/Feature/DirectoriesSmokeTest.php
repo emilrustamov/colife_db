@@ -43,6 +43,7 @@ class DirectoriesSmokeTest extends TestCase
             'units',
             'unit-stays',
             'bitrix-units-snapshot',
+            'utilities',
         ];
 
         foreach ($keys as $key) {

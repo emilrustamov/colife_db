@@ -8,7 +8,10 @@ Artisan::command('inspire', function () {
     $this->comment(Inspiring::quote());
 })->purpose('Display an inspiring quote');
 
+Schedule::command('bitrix:sync-apartments')->dailyAt('23:20');
+Schedule::command('bitrix:sync-units')->dailyAt('23:30');
 Schedule::command('bitrix:sync-units-snapshot')->dailyAt('23:40');
+Schedule::command('bitrix:sync-utilities')->dailyAt('23:45');
 Schedule::command('bitrix:sync-contacts')->dailyAt('23:50');
 Schedule::command('chatapp:collect')
     ->dailyAt('09:00')
@@ -17,3 +20,5 @@ Schedule::command('chatapp:collect')
 Schedule::command('chatapp:collect')
     ->dailyAt('14:00')
     ->timezone('Europe/Moscow');
+
+Schedule::command('bitrix:recover-stuck-pauses')->everyFiveMinutes();

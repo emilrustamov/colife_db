@@ -75,12 +75,87 @@ export const useDirectoryData = ({ selectedKey, menu, perPage }) => {
         selectedId.value = null;
         form.value = {};
         timeline.value = [];
+        closeRelatedCard();
+    };
+
+    const relatedCardOpen = ref(false);
+    const relatedCardLoading = ref(false);
+    const relatedCardTab = ref('form');
+    const relatedForm = ref({});
+    const relatedTimeline = ref([]);
+    const relatedDirectory = ref(null);
+
+    const closeRelatedCard = () => {
+        relatedCardOpen.value = false;
+        relatedCardLoading.value = false;
+        relatedCardTab.value = 'form';
+        relatedForm.value = {};
+        relatedTimeline.value = [];
+        relatedDirectory.value = null;
+    };
+
+    const parseDirectoryHref = (href) => {
+        try {
+            const url = new URL(href, typeof window !== 'undefined' ? window.location.origin : 'http://localhost');
+            const match = url.pathname.match(/^\/directories\/([^/]+)\/?$/);
+            if (!match) {
+                return null;
+            }
+
+            const record = (url.searchParams.get('record') ?? '').trim();
+            if (record === '') {
+                return null;
+            }
+
+            return {
+                directory: match[1],
+                record,
+            };
+        } catch {
+            return null;
+        }
+    };
+
+    const openLinkedRecord = async (href) => {
+        const parsed = parseDirectoryHref(href);
+        if (!parsed) {
+            return;
+        }
+
+        const directoryMeta = menu.value.find((item) => item.key === parsed.directory) ?? {
+            key: parsed.directory,
+            title: parsed.directory,
+        };
+
+        relatedDirectory.value = directoryMeta;
+        relatedCardTab.value = 'form';
+        relatedCardOpen.value = true;
+        relatedCardLoading.value = true;
+        relatedForm.value = {};
+        relatedTimeline.value = [];
+
+        try {
+            const { data } = await window.axios.get(`/api/directories/${parsed.directory}/${parsed.record}`);
+            relatedForm.value = { ...(data.row ?? {}) };
+            relatedTimeline.value = data.timeline ?? [];
+            if (data.directory && typeof data.directory === 'object') {
+                relatedDirectory.value = {
+                    ...directoryMeta,
+                    ...data.directory,
+                };
+            }
+        } catch {
+            closeRelatedCard();
+        } finally {
+            relatedCardLoading.value = false;
+        }
     };
 
     const loadList = async (skipSearchRefetch) => {
         cardModalOpen.value = false;
         rowDetailLoading.value = false;
         cardModalTab.value = 'form';
+        closeRelatedCard();
 
         if (!current.value) {
             selectedId.value = null;
@@ -211,5 +286,13 @@ export const useDirectoryData = ({ selectedKey, menu, perPage }) => {
         selectRow,
         markRowSelected,
         renderValue,
+        relatedCardOpen,
+        relatedCardLoading,
+        relatedCardTab,
+        relatedForm,
+        relatedTimeline,
+        relatedDirectory,
+        closeRelatedCard,
+        openLinkedRecord,
     };
 };
