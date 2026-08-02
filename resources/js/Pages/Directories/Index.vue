@@ -3,6 +3,7 @@ import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { router, usePage } from '@inertiajs/vue3';
 import Sidebar from './components/Sidebar.vue';
 import TablePanel from './components/TablePanel.vue';
+import DiskPanel from './components/DiskPanel.vue';
 import CardDrawer from './components/CardDrawer.vue';
 import UserModal from './components/UserModal.vue';
 import RoleModal from './components/RoleModal.vue';
@@ -55,6 +56,7 @@ const canManageRoles = computed(() => inertiaPage.props.auth?.user?.can?.manageR
 const currentUserId = computed(() => inertiaPage.props.auth?.user?.id ?? null);
 const isUsersDirectory = computed(() => selectedKey.value === 'users');
 const isRolesDirectory = computed(() => selectedKey.value === 'roles');
+const isDiskDirectory = computed(() => selectedKey.value === 'disk');
 let tableScrollResizeObserver = null;
 const { locale, theme, initLocale, initTheme, toggleLocale, toggleTheme, t } = useAppPreferences();
 
@@ -149,6 +151,14 @@ const {
     menu,
     perPage,
 });
+
+const loadDirectoryList = (skipRefetchFlag) => {
+    if (selectedKey.value === 'disk') {
+        return Promise.resolve();
+    }
+
+    return loadList(skipRefetchFlag);
+};
 
 const escapeHtml = (s) =>
     String(s)
@@ -297,7 +307,7 @@ const onSetItemVisible = (key, visible) => {
     setItemVisible(key, visible);
     syncSelectedKey();
     if (selectedKey.value !== prevSelectedKey) {
-        loadList(skipSearchRefetch);
+        loadDirectoryList(skipSearchRefetch);
     }
 };
 
@@ -313,8 +323,8 @@ onMounted(() => {
     selectedKey.value = props.initialDirectoryKey;
     syncSelectedKey();
     if (selectedKey.value) {
-        loadList(skipSearchRefetch).then(() => {
-            if (initialRecordId.value !== null) {
+        loadDirectoryList(skipSearchRefetch).then(() => {
+            if (initialRecordId.value !== null && selectedKey.value !== 'disk') {
                 selectRow(initialRecordId.value);
             }
         });
@@ -339,7 +349,7 @@ watch(
         selectedKey.value = props.initialDirectoryKey;
         syncSelectedKey();
         if (selectedKey.value !== prevSelectedKey) {
-            loadList(skipSearchRefetch);
+            loadDirectoryList(skipSearchRefetch);
         }
     },
 );
@@ -351,7 +361,7 @@ watch(
         selectedKey.value = value;
         syncSelectedKey();
         if (selectedKey.value !== prevSelectedKey) {
-            loadList(skipSearchRefetch);
+            loadDirectoryList(skipSearchRefetch);
         }
     },
 );
@@ -442,7 +452,13 @@ onBeforeUnmount(() => {
                     :logout="logout"
                 />
 
+                <DiskPanel
+                    v-if="isDiskDirectory"
+                    :t="t"
+                    :messages="messages"
+                />
                 <TablePanel
+                    v-else
                     :menu="menu"
                     :pagination-meta="paginationMeta"
                     :rows="rows"

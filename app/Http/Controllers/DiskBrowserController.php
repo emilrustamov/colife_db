@@ -301,6 +301,10 @@ class DiskBrowserController extends Controller
         $items = collect($paginator->items())->map(function (DiskSyncedFile $row): array {
             $exists = Storage::disk('local')->exists($row->local_path);
             $originalName = (string) ($row->original_name ?? '');
+            $nameForType = $originalName !== '' ? $originalName : (string) $row->local_path;
+            $isImage = $exists && $this->isImageName($nameForType);
+            $isPdf = $exists && $this->isPdfName($nameForType);
+            $canPreview = $isImage || $isPdf;
 
             return [
                 'id' => (int) $row->id,
@@ -315,8 +319,10 @@ class DiskBrowserController extends Controller
                 'is_deleted' => (bool) $row->is_deleted,
                 'last_synced_at' => $row->last_synced_at?->toIso8601String(),
                 'exists' => $exists,
-                'is_image' => $exists && $this->isImageName($originalName !== '' ? $originalName : $row->local_path),
-                'preview_url' => $exists && $this->isImageName($originalName !== '' ? $originalName : $row->local_path)
+                'is_image' => $isImage,
+                'is_pdf' => $isPdf,
+                'can_preview' => $canPreview,
+                'preview_url' => $canPreview
                     ? '/api/directories/disk/browser/files/'.$row->id.'/preview'
                     : null,
                 'download_url' => '/api/directories/disk/browser/files/'.$row->id.'/download',
@@ -354,7 +360,7 @@ class DiskBrowserController extends Controller
     }
 
     /**
-     * Inline preview for image files.
+     * Inline preview for image and PDF files.
      */
     public function preview(Request $request, int $id): StreamedResponse
     {
@@ -366,7 +372,7 @@ class DiskBrowserController extends Controller
         $name = $file->original_name !== null && $file->original_name !== ''
             ? $file->original_name
             : basename($file->local_path);
-        abort_unless($this->isImageName($name), 404);
+        abort_unless($this->isPreviewableName($name), 404);
 
         return Storage::disk('local')->response(
             $file->local_path,
@@ -485,6 +491,16 @@ class DiskBrowserController extends Controller
         return in_array($extension, ['jpg', 'jpeg', 'png', 'gif', 'webp', 'bmp'], true);
     }
 
+    private function isPdfName(string $name): bool
+    {
+        return strtolower(pathinfo($name, PATHINFO_EXTENSION)) === 'pdf';
+    }
+
+    private function isPreviewableName(string $name): bool
+    {
+        return $this->isImageName($name) || $this->isPdfName($name);
+    }
+
     private function mimeFromName(string $name): string
     {
         return match (strtolower(pathinfo($name, PATHINFO_EXTENSION))) {
@@ -493,6 +509,7 @@ class DiskBrowserController extends Controller
             'gif' => 'image/gif',
             'webp' => 'image/webp',
             'bmp' => 'image/bmp',
+            'pdf' => 'application/pdf',
             default => 'application/octet-stream',
         };
     }

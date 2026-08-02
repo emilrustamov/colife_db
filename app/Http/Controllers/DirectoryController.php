@@ -314,11 +314,22 @@ class DirectoryController extends Controller
             ],
             'bitrix-units-snapshot' => [
                 'key' => 'bitrix-units-snapshot',
-                'title' => 'Bitrix Units Snapshot',
+                'title' => 'Фин отчет',
                 'icon' => '📡',
                 'table' => 'bitrix_units_snapshot',
                 'id' => 'id',
                 'morph' => 'App\\Models\\BitrixUnitsSnapshot',
+            ],
+            'disk' => [
+                'key' => 'disk',
+                'title' => 'Диск',
+                'icon' => '📁',
+                'table' => 'disk_synced_files',
+                'id' => 'id',
+                'morph' => 'App\\Models\\DiskSyncedFile',
+                'hiddenFields' => [
+                    'local_path',
+                ],
             ],
         ];
     }
@@ -396,6 +407,7 @@ class DirectoryController extends Controller
             'units' => 'Directories/Units',
             'unit-stays' => 'Directories/UnitStays',
             'bitrix-units-snapshot' => 'Directories/BitrixUnitsSnapshot',
+            'disk' => 'Directories/Disk',
             default => 'Directories/Index',
         };
     }

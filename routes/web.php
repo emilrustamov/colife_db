@@ -2,6 +2,7 @@
 
 use App\Http\Controllers\AuthController;
 use App\Http\Controllers\DirectoryController;
+use App\Http\Controllers\DiskBrowserController;
 use App\Http\Controllers\RoleAdminController;
 use App\Http\Controllers\UserAdminController;
 use App\Http\Middleware\RedirectLocalhostToAppUrl;
@@ -35,6 +36,11 @@ Route::middleware([RedirectLocalhostToAppUrl::class])->group(function () {
     Route::middleware(['auth', 'directories.module'])->group(function () {
         Route::get('/directories', [DirectoryController::class, 'root'])->name('directories.index');
         Route::get('/directories/{directory}', [DirectoryController::class, 'index'])->name('directories.page');
+        Route::get('/api/directories/disk/browser/folders', [DiskBrowserController::class, 'folders'])->name('directories.disk.folders');
+        Route::get('/api/directories/disk/browser/folder', [DiskBrowserController::class, 'folder'])->name('directories.disk.folder');
+        Route::get('/api/directories/disk/browser/files', [DiskBrowserController::class, 'files'])->name('directories.disk.files');
+        Route::get('/api/directories/disk/browser/files/{id}/download', [DiskBrowserController::class, 'download'])->name('directories.disk.download');
+        Route::get('/api/directories/disk/browser/files/{id}/preview', [DiskBrowserController::class, 'preview'])->name('directories.disk.preview');
         Route::get('/api/directories/{directory}', [DirectoryController::class, 'list'])->name('directories.list');
         Route::get('/api/directories/{directory}/{id}', [DirectoryController::class, 'show'])->name('directories.show');
     });

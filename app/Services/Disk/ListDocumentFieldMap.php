@@ -396,7 +396,11 @@ class ListDocumentFieldMap
             return true;
         }
 
-        return (bool) preg_match('/^id\s/iu', $name);
+        if (preg_match('/^ID_/u', $codeUpper) === 1) {
+            return true;
+        }
+
+        return (bool) preg_match('/^id[\s_]/iu', $name);
     }
 
     /**
