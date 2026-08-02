@@ -39,9 +39,6 @@ class DiskBrowserController extends Controller
                 folder_name,
                 MAX(folder_url) as folder_url,
                 MAX(element_bitrix_id) as element_bitrix_id,
-                COUNT(*) as files_count,
-                SUM(CASE WHEN is_deleted = 0 THEN 1 ELSE 0 END) as active_count,
-                SUM(CASE WHEN is_deleted = 1 THEN 1 ELSE 0 END) as deleted_count,
                 MAX(last_synced_at) as last_synced_at
             ')
             ->whereNotNull('folder_name')
@@ -107,16 +104,9 @@ class DiskBrowserController extends Controller
                     'element_bitrix_id' => $isExactLeaf && $row->element_bitrix_id !== null
                         ? (int) $row->element_bitrix_id
                         : null,
-                    'files_count' => 0,
-                    'active_count' => 0,
-                    'deleted_count' => 0,
                     'last_synced_at' => $row->last_synced_at,
                 ];
             }
-
-            $nodes[$childPath]['files_count'] += (int) $row->files_count;
-            $nodes[$childPath]['active_count'] += (int) $row->active_count;
-            $nodes[$childPath]['deleted_count'] += (int) $row->deleted_count;
 
             if (! $isExactLeaf) {
                 $nodes[$childPath]['is_leaf'] = false;
@@ -194,9 +184,6 @@ class DiskBrowserController extends Controller
                 folder_name,
                 MAX(folder_url) as folder_url,
                 MAX(element_bitrix_id) as element_bitrix_id,
-                COUNT(*) as files_count,
-                SUM(CASE WHEN is_deleted = 0 THEN 1 ELSE 0 END) as active_count,
-                SUM(CASE WHEN is_deleted = 1 THEN 1 ELSE 0 END) as deleted_count,
                 MAX(last_synced_at) as last_synced_at
             ')
             ->where('list_id', $listId)
@@ -238,9 +225,6 @@ class DiskBrowserController extends Controller
                 'folder_url' => null,
                 'element_bitrix_id' => null,
                 'list_element_url' => null,
-                'files_count' => 0,
-                'active_count' => 0,
-                'deleted_count' => 0,
                 'last_synced_at' => null,
                 'is_leaf' => false,
                 'path' => $path,
@@ -405,9 +389,6 @@ class DiskBrowserController extends Controller
      *     folder_name: mixed,
      *     folder_url: mixed,
      *     element_bitrix_id: mixed,
-     *     files_count: mixed,
-     *     active_count: mixed,
-     *     deleted_count: mixed,
      *     last_synced_at: mixed
      * }  $row
      * @return array{
@@ -417,9 +398,6 @@ class DiskBrowserController extends Controller
      *     folder_url: ?string,
      *     element_bitrix_id: ?int,
      *     list_element_url: ?string,
-     *     files_count: int,
-     *     active_count: int,
-     *     deleted_count: int,
      *     last_synced_at: mixed
      * }
      */
@@ -435,9 +413,6 @@ class DiskBrowserController extends Controller
             'folder_url' => $row->folder_url !== null && $row->folder_url !== '' ? (string) $row->folder_url : null,
             'element_bitrix_id' => $elementId !== null && $elementId > 0 ? $elementId : null,
             'list_element_url' => $this->listElementUrl($listId, $elementId),
-            'files_count' => (int) $row->files_count,
-            'active_count' => (int) $row->active_count,
-            'deleted_count' => (int) $row->deleted_count,
             'last_synced_at' => $row->last_synced_at,
             'is_leaf' => true,
             'path' => (string) $row->folder_name,

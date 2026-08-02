@@ -449,6 +449,7 @@ class DirectoryController extends Controller
             ],
             'unit-stays' => [
                 ['field' => 'unit_id', 'table' => 'units', 'id_column' => 'id', 'label_columns' => ['title']],
+                ['field' => 'stage_id', 'table' => 'stages', 'id_column' => 'id', 'label_columns' => ['name']],
                 ['field' => 'tenant_contact_id', 'table' => 'contacts', 'id_column' => 'id', 'label_columns' => ['first_name', 'last_name']],
                 ['field' => 'co_tenant_contact_id', 'table' => 'contacts', 'id_column' => 'id', 'label_columns' => ['first_name', 'last_name']],
             ],

@@ -357,6 +357,40 @@ const isImageFile = (file) => Boolean(file?.is_image && file?.preview_url);
 const isPdfFile = (file) => Boolean(file?.is_pdf && file?.preview_url);
 const canPreviewFile = (file) => Boolean(file?.can_preview && file?.preview_url && file?.exists);
 
+const normalizeFileName = (name) => {
+    const raw = String(name ?? '').trim().toLowerCase().replace(/\s+/g, ' ');
+    if (!raw) {
+        return '';
+    }
+
+    return raw.replace(/\s+\(\d+\)(?=\.[^.]+$)/, '');
+};
+
+const duplicateNameKeys = computed(() => {
+    const counts = new Map();
+    for (const file of files.value) {
+        const key = normalizeFileName(file?.original_name || `file_${file?.bitrix_file_id}`);
+        if (!key) {
+            continue;
+        }
+        counts.set(key, (counts.get(key) || 0) + 1);
+    }
+
+    const dupes = new Set();
+    for (const [key, count] of counts.entries()) {
+        if (count > 1) {
+            dupes.add(key);
+        }
+    }
+
+    return dupes;
+});
+
+const isDuplicateFile = (file) => {
+    const key = normalizeFileName(file?.original_name || `file_${file?.bitrix_file_id}`);
+    return key !== '' && duplicateNameKeys.value.has(key);
+};
+
 const openPreview = (file) => {
     if (!canPreviewFile(file)) {
         return;
@@ -560,13 +594,6 @@ onUnmounted(() => {
                         <div class="mt-2 w-full truncate text-sm font-semibold text-slate-900 dark:text-slate-100" :title="folder.name || folder.folder_name">
                             {{ folder.name || folder.folder_name }}
                         </div>
-                        <div class="mt-1 text-[11px] leading-snug text-slate-500 dark:text-slate-400">
-                            <span v-if="!folder.is_leaf">{{ folder.active_count }} {{ t(messages, 'diskActive') }}</span>
-                            <template v-else>
-                                <span>{{ folder.active_count }} {{ t(messages, 'diskActive') }}</span>
-                                <span v-if="folder.deleted_count > 0"> · {{ folder.deleted_count }} {{ t(messages, 'diskDeleted') }}</span>
-                            </template>
-                        </div>
                     </a>
                 </div>
             </div>
@@ -665,14 +692,22 @@ onUnmounted(() => {
                             </td>
                             <td class="px-3 py-2 text-slate-600 dark:text-slate-300">{{ file.field_code }}</td>
                             <td class="px-3 py-2">
-                                <span
-                                    class="rounded-full px-2 py-0.5 text-xs font-medium"
-                                    :class="file.is_deleted
-                                        ? 'bg-rose-100 text-rose-700 dark:bg-rose-950 dark:text-rose-300'
-                                        : 'bg-emerald-100 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300'"
-                                >
-                                    {{ file.is_deleted ? t(messages, 'diskDeleted') : t(messages, 'diskActive') }}
-                                </span>
+                                <div class="flex flex-wrap items-center gap-1.5">
+                                    <span
+                                        class="rounded-full px-2 py-0.5 text-xs font-medium"
+                                        :class="file.is_deleted
+                                            ? 'bg-rose-100 text-rose-700 dark:bg-rose-950 dark:text-rose-300'
+                                            : 'bg-emerald-100 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300'"
+                                    >
+                                        {{ file.is_deleted ? t(messages, 'diskDeleted') : t(messages, 'diskActive') }}
+                                    </span>
+                                    <span
+                                        v-if="isDuplicateFile(file)"
+                                        class="rounded-full bg-amber-100 px-2 py-0.5 text-xs font-medium text-amber-800 dark:bg-amber-950 dark:text-amber-300"
+                                    >
+                                        {{ t(messages, 'diskDuplicate') }}
+                                    </span>
+                                </div>
                             </td>
                             <td class="px-3 py-2 whitespace-nowrap text-slate-600 dark:text-slate-300">
                                 {{ formatDate(file.last_synced_at) }}
