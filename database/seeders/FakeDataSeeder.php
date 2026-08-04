@@ -4,6 +4,7 @@ namespace Database\Seeders;
 
 use App\Models\ActivityLog;
 use App\Models\Apartment;
+use App\Models\ApartmentOwnership;
 use App\Models\ApartmentType;
 use App\Models\BitrixUnitsSnapshot;
 use App\Models\Building;
@@ -148,6 +149,16 @@ class FakeDataSeeder extends Seeder
                     'unit_id' => $units->random()->id,
                     'tenant_contact_id' => $tenant,
                     'co_tenant_contact_id' => $coTenant,
+                ]);
+            }
+        }
+
+        $ownershipsInsertCount = $this->targetInsertCount('apartment_ownerships');
+        if ($ownershipsInsertCount > 0 && Schema::hasTable('apartment_ownerships') && ! $apartments->isEmpty()) {
+            foreach (range(1, $ownershipsInsertCount) as $i) {
+                ApartmentOwnership::factory()->create([
+                    'apartment_id' => $apartments->random()->id,
+                    'stage_id' => empty($stageIds) ? null : fake()->randomElement($stageIds),
                 ]);
             }
         }

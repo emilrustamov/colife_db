@@ -146,6 +146,14 @@ const {
     selectRow,
     markRowSelected,
     renderValue,
+    relatedCardOpen,
+    relatedCardLoading,
+    relatedCardTab,
+    relatedForm,
+    relatedTimeline,
+    relatedDirectory,
+    closeRelatedCard,
+    openLinkedRecord,
 } = useDirectoryData({
     selectedKey,
     menu,
@@ -294,6 +302,10 @@ const setCardModalTab = (value) => {
     cardModalTab.value = value;
 };
 
+const setRelatedCardTab = (value) => {
+    relatedCardTab.value = value;
+};
+
 const goRoles = () => {
     router.get('/directories/roles');
 };
@@ -426,8 +438,8 @@ onBeforeUnmount(() => {
 </script>
 
 <template>
-    <div class="min-h-screen bg-slate-100 p-4 md:p-6 dark:bg-slate-950">
-        <div class="mx-auto max-w-[1700px] overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm dark:border-slate-700 dark:bg-slate-900">
+    <div class="min-h-screen bg-slate-100 p-3 md:p-4 dark:bg-slate-950">
+        <div class="mx-auto max-w-[1700px] overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm dark:border-slate-700 dark:bg-slate-900">
             <div class="grid min-h-[calc(100vh-3rem)] grid-cols-1 lg:grid-cols-[260px_minmax(0,1fr)]">
                 <Sidebar
                     :menu="menu"
@@ -496,6 +508,7 @@ onBeforeUnmount(() => {
                     :toggle-sort="toggleSort"
                     :mark-row-selected="markRowSelected"
                     :handle-row-dbl-click="handleRowDblClick"
+                    :open-linked-cell="openLinkedRecord"
                 />
             </div>
         </div>
@@ -512,6 +525,23 @@ onBeforeUnmount(() => {
             :close-card-modal="closeCardModal"
             :set-card-modal-tab="setCardModalTab"
             :render-value="renderValue"
+            :open-linked-record="openLinkedRecord"
+        />
+        <CardDrawer
+            :card-modal-open="relatedCardOpen"
+            :menu-length="menu.length"
+            :current="relatedDirectory"
+            :card-modal-tab="relatedCardTab"
+            :row-detail-loading="relatedCardLoading"
+            :form="relatedForm"
+            :timeline="relatedTimeline"
+            :messages="messages"
+            :t="t"
+            :close-card-modal="closeRelatedCard"
+            :set-card-modal-tab="setRelatedCardTab"
+            :render-value="renderValue"
+            :open-linked-record="openLinkedRecord"
+            overlay
         />
         <UserModal
             :user-modal-open="userModalOpen"

@@ -3,9 +3,9 @@
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
 use Illuminate\Foundation\Configuration\Middleware;
-use App\Http\Middleware\EnsureDirectoriesModuleAccess;
-use App\Http\Middleware\HandleInertiaRequests;
-use App\Http\Middleware\VerifyApiKey;
+use App\Http\Middleware\DirectoriesAccess;
+use App\Http\Middleware\InertiaShare;
+use App\Http\Middleware\ApiKey;
 use Spatie\Permission\Middleware\PermissionMiddleware;
 use Spatie\Permission\Middleware\RoleMiddleware;
 use Spatie\Permission\Middleware\RoleOrPermissionMiddleware;
@@ -19,15 +19,15 @@ return Application::configure(basePath: dirname(__DIR__))
     )
     ->withMiddleware(function (Middleware $middleware): void {
         $middleware->web(append: [
-            HandleInertiaRequests::class,
+            InertiaShare::class,
         ]);
 
         $middleware->alias([
             'role' => RoleMiddleware::class,
             'permission' => PermissionMiddleware::class,
             'role_or_permission' => RoleOrPermissionMiddleware::class,
-            'directories.module' => EnsureDirectoriesModuleAccess::class,
-            'api.key' => VerifyApiKey::class,
+            'directories.module' => DirectoriesAccess::class,
+            'api.key' => ApiKey::class,
         ]);
     })
     ->withExceptions(function (Exceptions $exceptions): void {

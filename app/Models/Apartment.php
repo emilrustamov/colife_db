@@ -39,6 +39,7 @@ class Apartment extends Model
         'transport_type',
         'parking_number',
         'google_maps_link',
+        'disk_url',
         'bathrooms',
         'rooms',
         'area_sqm',

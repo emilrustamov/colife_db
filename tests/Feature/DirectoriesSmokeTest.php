@@ -42,6 +42,7 @@ class DirectoriesSmokeTest extends TestCase
             'apartments',
             'units',
             'unit-stays',
+            'apartment-ownerships',
             'bitrix-units-snapshot',
             'utilities',
         ];

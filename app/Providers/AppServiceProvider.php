@@ -5,7 +5,7 @@ namespace App\Providers;
 use App\Models\Contact;
 use App\Models\User;
 use App\Observers\ContactObserver;
-use App\Support\BitrixSyncContext;
+use App\Support\BitrixSync;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\ServiceProvider;
 
@@ -16,7 +16,7 @@ class AppServiceProvider extends ServiceProvider
      */
     public function register(): void
     {
-        $this->app->singleton(BitrixSyncContext::class, static fn (): BitrixSyncContext => new BitrixSyncContext());
+        $this->app->singleton(BitrixSync::class, static fn (): BitrixSync => new BitrixSync());
     }
 
     /**

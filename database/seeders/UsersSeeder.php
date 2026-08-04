@@ -7,6 +7,7 @@ use Illuminate\Database\Console\Seeds\WithoutModelEvents;
 use Illuminate\Database\Seeder;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Schema;
+use Illuminate\Support\Str;
 
 class UsersSeeder extends Seeder
 {
@@ -17,33 +18,31 @@ class UsersSeeder extends Seeder
      */
     public function run(): void
     {
+        if (app()->environment('production')) {
+            return;
+        }
+
         $email = 'test@example.com';
-        $plainPassword = 'password';
+        $plainPassword = (string) env('SEED_ADMIN_PASSWORD', '');
+        if ($plainPassword === '') {
+            $plainPassword = Str::password(32);
+            $this->command?->warn('SEED_ADMIN_PASSWORD not set; generated a one-time password for '.$email);
+            $this->command?->warn($plainPassword);
+        }
 
         $user = User::query()->firstOrCreate(
             ['email' => $email],
             [
                 'name' => 'Test User',
                 'password' => Hash::make($plainPassword),
-                'is_superadmin' => true,
+                'is_superadmin' => false,
             ]
         );
 
-        if (! $user->is_superadmin) {
-            $user->is_superadmin = true;
-            $user->save();
-        }
-
-        if (! Hash::check($plainPassword, (string) $user->password)) {
-            $user->password = Hash::make($plainPassword);
-            $user->save();
-        }
-
         if (Schema::hasTable('roles') && Schema::hasTable('model_has_roles')) {
-            if (!$user->hasRole('admin')) {
+            if (! $user->hasRole('admin')) {
                 $user->assignRole('admin');
             }
         }
     }
 }
-

@@ -21,7 +21,7 @@ const visibleFields = computed(() => {
 });
 
 const formatValue = (value, key, record) => {
-    if (value === null || value === undefined) {
+    if (value === null || value === undefined || value === '') {
         return '';
     }
 
@@ -52,36 +52,39 @@ const onOpenLinked = (href) => {
         props.openLinkedRecord(href);
     }
 };
+
+const displayValue = (key) => formatValue(props.record[key], key, props.record);
 </script>
 
 <template>
-    <div class="p-6 md:p-8 lg:p-10">
+    <div class="p-4 md:p-5">
         <div
             v-if="visibleFields.length === 0"
-            class="rounded-xl border border-dashed border-slate-300 bg-slate-50/80 p-10 text-center text-lg text-slate-500 dark:border-slate-600 dark:bg-slate-800/40 dark:text-slate-400"
+            class="rounded-lg border border-dashed border-slate-300 bg-slate-50/60 px-4 py-8 text-center text-sm text-slate-500 dark:border-slate-600 dark:bg-slate-800/40 dark:text-slate-400"
         >
             {{ emptyMessage }}
         </div>
         <div
             v-else
-            class="grid grid-cols-1 gap-7 sm:grid-cols-2 lg:grid-cols-3"
+            class="grid grid-cols-1 gap-x-4 gap-y-3 sm:grid-cols-2 xl:grid-cols-3"
         >
             <div v-for="key in visibleFields" :key="key" class="min-w-0">
-                <label class="mb-2 block text-sm font-semibold uppercase tracking-wide text-slate-600 dark:text-slate-300">{{ key }}</label>
+                <label class="mb-1 block truncate text-[11px] font-medium text-slate-500 dark:text-slate-400">{{ key }}</label>
                 <button
                     v-if="fieldHref(key)"
                     type="button"
-                    class="w-full cursor-pointer rounded-xl border border-sky-300 bg-sky-50 px-4 py-3.5 text-left text-lg leading-relaxed text-sky-800 shadow-sm transition hover:border-sky-400 hover:bg-sky-100 dark:border-sky-700 dark:bg-sky-950/40 dark:text-sky-200 dark:hover:bg-sky-950/70"
+                    class="w-full cursor-pointer break-words rounded-md border border-sky-200 bg-sky-50/80 px-2.5 py-1.5 text-left text-sm leading-snug text-sky-800 transition hover:border-sky-300 hover:bg-sky-100 dark:border-sky-800 dark:bg-sky-950/40 dark:text-sky-200 dark:hover:bg-sky-950/70"
                     @click="onOpenLinked(fieldHref(key))"
                 >
-                    {{ formatValue(record[key], key, record) }}
+                    {{ displayValue(key) || '—' }}
                 </button>
-                <input
+                <div
                     v-else
-                    :value="formatValue(record[key], key, record)"
-                    class="w-full rounded-xl border border-slate-300 bg-white px-4 py-3.5 text-lg leading-relaxed text-slate-800 shadow-sm dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100"
-                    readonly
+                    class="break-words rounded-md border border-slate-200/80 bg-slate-50 px-2.5 py-1.5 text-sm leading-snug text-slate-800 dark:border-slate-700 dark:bg-slate-800/50 dark:text-slate-100"
+                    :class="displayValue(key) ? '' : 'text-slate-400 dark:text-slate-500'"
                 >
+                    {{ displayValue(key) || '—' }}
+                </div>
             </div>
         </div>
     </div>

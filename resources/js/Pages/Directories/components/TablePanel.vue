@@ -78,22 +78,22 @@ const rowClass = (row) => {
 
 <template>
     <section
-        class="flex min-h-0 min-w-0 flex-col overflow-hidden border-b border-slate-200 bg-white p-4 dark:border-slate-700 dark:bg-slate-900 lg:h-full lg:max-h-[calc(100vh-3rem)] lg:border-r lg:border-b-0">
+        class="flex min-h-0 min-w-0 flex-col overflow-hidden border-b border-slate-200 bg-white p-3 dark:border-slate-700 dark:bg-slate-900 lg:h-full lg:max-h-[calc(100vh-3rem)] lg:border-r lg:border-b-0">
         <div v-if="menu.length === 0"
-            class="rounded-lg border border-dashed border-slate-300 bg-slate-50/80 p-8 text-center text-sm text-slate-600 dark:border-slate-600 dark:bg-slate-800/40 dark:text-slate-300">
+            class="rounded-lg border border-dashed border-slate-300 bg-slate-50/80 p-6 text-center text-sm text-slate-600 dark:border-slate-600 dark:bg-slate-800/40 dark:text-slate-300">
             {{ t(messages, 'menuEmpty') }}
         </div>
         <template v-else>
-            <div class="shrink-0 space-y-3 pb-3">
+            <div class="shrink-0 space-y-2.5 pb-2.5">
                 <div
-                    class="flex min-w-0 flex-nowrap items-center gap-2 overflow-x-auto border-b border-slate-100 pb-3 text-slate-600 dark:border-slate-800 dark:text-slate-300">
+                    class="flex min-w-0 flex-nowrap items-center gap-2 overflow-x-auto border-b border-slate-100 pb-2.5 text-slate-600 dark:border-slate-800 dark:text-slate-300">
                     <span v-if="paginationMeta.from != null && paginationMeta.to != null"
                         class="shrink-0 whitespace-nowrap text-xs text-slate-500 dark:text-slate-400">
                         {{ paginationMeta.from }}–{{ paginationMeta.to }}
                     </span>
                     <template v-if="rows.length > 0 || (paginationMeta.last_page ?? 1) > 1">
                         <button type="button"
-                            class="shrink-0 rounded-lg border border-slate-300 px-2.5 py-1 text-xs font-medium disabled:opacity-40 dark:border-slate-600"
+                            class="shrink-0 rounded-md border border-slate-300 px-2 py-0.5 text-xs font-medium disabled:opacity-40 dark:border-slate-600"
                             :disabled="(paginationMeta.current_page ?? 1) <= 1 || loading"
                             @click="goPage((paginationMeta.current_page ?? 1) - 1)">
                             {{ t(messages, 'prev') }}
@@ -101,14 +101,14 @@ const rowClass = (row) => {
                         <span class="shrink-0 whitespace-nowrap text-xs">{{ paginationMeta.current_page ?? 1 }} / {{
                             paginationMeta.last_page ?? 1 }}</span>
                         <button type="button"
-                            class="shrink-0 rounded-lg border border-slate-300 px-2.5 py-1 text-xs font-medium disabled:opacity-40 dark:border-slate-600"
+                            class="shrink-0 rounded-md border border-slate-300 px-2 py-0.5 text-xs font-medium disabled:opacity-40 dark:border-slate-600"
                             :disabled="(paginationMeta.current_page ?? 1) >= (paginationMeta.last_page ?? 1) || loading"
                             @click="goPage((paginationMeta.current_page ?? 1) + 1)">
                             {{ t(messages, 'next') }}
                         </button>
                     </template>
                     <h1
-                        class="min-w-[8rem] flex-1 truncate text-base font-semibold text-slate-900 dark:text-slate-100 sm:min-w-0 sm:text-lg">
+                        class="min-w-[8rem] flex-1 truncate text-sm font-semibold text-slate-900 dark:text-slate-100 sm:min-w-0 sm:text-base">
                         {{ current?.title ?? 'Directory' }}
                     </h1>
                     <span class="shrink-0 whitespace-nowrap text-xs text-slate-500 dark:text-slate-400">
@@ -116,27 +116,27 @@ const rowClass = (row) => {
                         {{ paginationMeta.current_page ?? 1 }} {{ t(messages, 'pageOf') }} {{ paginationMeta.last_page
                         ?? 1 }}
                     </span>
-                    <div class="ms-auto flex shrink-0 items-center gap-2">
+                    <div class="ms-auto flex shrink-0 items-center gap-1.5">
                         <span v-if="loading"
-                            class="rounded-full bg-slate-100 px-2.5 py-1 text-xs text-slate-600 dark:bg-slate-800 dark:text-slate-300">{{
+                            class="rounded-full bg-slate-100 px-2 py-0.5 text-xs text-slate-600 dark:bg-slate-800 dark:text-slate-300">{{
                                 t(messages, 'loading') }}</span>
                         <button v-if="isUsersDirectory && canManageRoles" type="button"
-                            class="rounded-lg border border-slate-300 px-3 py-1.5 text-xs font-medium text-slate-700 transition hover:bg-slate-100 dark:border-slate-600 dark:text-slate-200 dark:hover:bg-slate-800"
+                            class="rounded-md border border-slate-300 px-2.5 py-1 text-xs font-medium text-slate-700 transition hover:bg-slate-100 dark:border-slate-600 dark:text-slate-200 dark:hover:bg-slate-800"
                             @click="goRoles">
                             {{ t(messages, 'goRoles') }}
                         </button>
                         <button v-if="isRolesDirectory && canManageUsers" type="button"
-                            class="rounded-lg border border-slate-300 px-3 py-1.5 text-xs font-medium text-slate-700 transition hover:bg-slate-100 dark:border-slate-600 dark:text-slate-200 dark:hover:bg-slate-800"
+                            class="rounded-md border border-slate-300 px-2.5 py-1 text-xs font-medium text-slate-700 transition hover:bg-slate-100 dark:border-slate-600 dark:text-slate-200 dark:hover:bg-slate-800"
                             @click="goUsers">
                             {{ t(messages, 'goUsers') }}
                         </button>
                         <button v-if="isUsersDirectory && canManageUsers" type="button"
-                            class="rounded-lg bg-slate-900 px-3 py-1.5 text-xs font-medium text-white transition hover:bg-slate-800 dark:bg-slate-100 dark:text-slate-900 dark:hover:bg-slate-200"
+                            class="rounded-md bg-slate-900 px-2.5 py-1 text-xs font-medium text-white transition hover:bg-slate-800 dark:bg-slate-100 dark:text-slate-900 dark:hover:bg-slate-200"
                             @click="openCreateUserModal">
                             {{ t(messages, 'addUser') }}
                         </button>
                         <button v-if="isRolesDirectory && canManageRoles" type="button"
-                            class="rounded-lg bg-slate-900 px-3 py-1.5 text-xs font-medium text-white transition hover:bg-slate-800 dark:bg-slate-100 dark:text-slate-900 dark:hover:bg-slate-200"
+                            class="rounded-md bg-slate-900 px-2.5 py-1 text-xs font-medium text-white transition hover:bg-slate-800 dark:bg-slate-100 dark:text-slate-900 dark:hover:bg-slate-200"
                             @click="openCreateRoleModal">
                             {{ t(messages, 'addRole') }}
                         </button>
@@ -144,13 +144,13 @@ const rowClass = (row) => {
                 </div>
                 <div>
                     <input :value="query" type="text" :placeholder="t(messages, 'search')"
-                        class="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm outline-none ring-blue-500 focus:ring-2 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100"
+                        class="w-full rounded-md border border-slate-300 bg-white px-2.5 py-1.5 text-sm outline-none ring-blue-500 focus:ring-2 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100"
                         @input="setQuery($event.target.value)">
                 </div>
             </div>
 
             <div
-                class="relative min-h-0 min-w-0 flex-1 overflow-hidden rounded-lg border border-slate-200 dark:border-slate-700">
+                class="relative min-h-0 min-w-0 flex-1 overflow-hidden rounded-md border border-slate-200 dark:border-slate-700">
                 <button v-show="showTableScrollLeft" type="button"
                     class="absolute left-0 top-0 z-20 flex h-full w-9 shrink-0 items-center justify-center border-0 bg-gradient-to-r from-white via-white/90 to-transparent py-2 pl-1 pr-2 text-slate-600 shadow-none transition hover:text-slate-900 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 dark:from-slate-900 dark:via-slate-900/90 dark:text-slate-300 dark:hover:text-white"
                     :aria-label="t(messages, 'scrollTableLeft')" @mouseenter="startAutoTableScroll(-1)"
@@ -175,7 +175,7 @@ const rowClass = (row) => {
                         <thead :class="rtTheadSticky">
                             <Draggable :model-value="orderedFields" tag="tr" :item-key="fieldItemKey"
                                 handle=".col-drag-handle" :animation="200"
-                                ghost-class="!bg-amber-100 dark:!bg-amber-900/30" class="bg-slate-50 dark:bg-slate-800"
+                                ghost-class="!bg-amber-100 dark:!bg-amber-900/30" class="bg-slate-50/95 dark:bg-slate-800/95"
                                 @update:model-value="setOrderedFields" @end="persistColumnOrder">
                                 <template #item="{ element: field }">
                                     <th :class="rtThDense">

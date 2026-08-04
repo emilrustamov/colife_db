@@ -84,6 +84,13 @@ const fieldLabels = {
     passport_number: 'Паспорт / ID',
     check_in_date: 'Дата заселения',
     check_out_date: 'Дата выселения',
+    pml_start_date: 'PML start',
+    pml_end_date: 'PML end',
+    dtcm_start_date: 'DTCM start',
+    dtcm_end_date: 'DTCM end',
+    termination_date: 'Дата расторжения',
+    termination_reason: 'Причина расторжения',
+    disk_url: 'Ссылка на диск',
     value: 'Значение',
 };
 
@@ -97,6 +104,10 @@ const eventLabels = {
     'bitrix.unit.created': 'Юнит Bitrix создан',
     'bitrix.unit.updated': 'Юнит Bitrix обновлен',
     'bitrix.unit.deleted': 'Юнит Bitrix удален',
+    'bitrix.unit_stay.created': 'Tenant Contract создан',
+    'bitrix.unit_stay.updated': 'Tenant Contract обновлён',
+    'bitrix.apartment_ownership.created': 'Landlord Contract создан',
+    'bitrix.apartment_ownership.updated': 'Landlord Contract обновлён',
 };
 
 const isIsoDateLike = (value) => {
@@ -404,33 +415,33 @@ const items = computed(() => {
 </script>
 
 <template>
-    <div v-if="items.length === 0" class="rounded-xl border border-dashed border-slate-300 p-10 text-center text-lg text-slate-500 dark:border-slate-600 dark:text-slate-400">
+    <div v-if="items.length === 0" class="rounded-lg border border-dashed border-slate-300 px-4 py-8 text-center text-sm text-slate-500 dark:border-slate-600 dark:text-slate-400">
         {{ t(messages, 'noEvents') }}
     </div>
-    <div v-else class="relative space-y-3 pl-6">
-        <div class="pointer-events-none absolute bottom-0 left-2.5 top-0 w-px bg-slate-200 dark:bg-slate-700"></div>
+    <div v-else class="relative space-y-2.5 pl-5">
+        <div class="pointer-events-none absolute bottom-0 left-2 top-0 w-px bg-slate-200 dark:bg-slate-700"></div>
         <template v-for="event in items" :key="event.id">
-            <div v-if="event.showDayHeader" class="text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
+            <div v-if="event.showDayHeader" class="text-[11px] font-medium text-slate-500 dark:text-slate-400">
                 {{ event.dayLabel }}
             </div>
-            <div class="relative rounded-lg border border-slate-200 bg-slate-50/80 p-3 dark:border-slate-700 dark:bg-slate-800/50">
-                <span class="absolute -left-[1.18rem] top-4 h-3 w-3 rounded-full border-2 border-white bg-slate-500 dark:border-slate-900 dark:bg-slate-300"></span>
-                <span class="absolute -left-[0.44rem] top-[1.03rem] h-px w-[0.75rem] bg-slate-300 dark:bg-slate-600"></span>
-                <div class="mb-1 text-xs text-slate-500 dark:text-slate-400">{{ event.timeLabel }}</div>
-                <div class="mb-2 text-sm font-semibold text-slate-900 dark:text-slate-100">{{ event.eventLabel }}</div>
-                <div class="space-y-2">
+            <div class="relative rounded-md border border-slate-200/80 bg-slate-50/60 p-2.5 dark:border-slate-700 dark:bg-slate-800/40">
+                <span class="absolute -left-[1.05rem] top-3.5 h-2.5 w-2.5 rounded-full border-2 border-white bg-slate-500 dark:border-slate-900 dark:bg-slate-300"></span>
+                <span class="absolute -left-[0.4rem] top-[1.05rem] h-px w-[0.7rem] bg-slate-300 dark:bg-slate-600"></span>
+                <div class="mb-0.5 text-[11px] text-slate-500 dark:text-slate-400">{{ event.timeLabel }}</div>
+                <div class="mb-1.5 text-sm font-medium text-slate-900 dark:text-slate-100">{{ event.eventLabel }}</div>
+                <div class="space-y-1.5">
                     <div
                         v-for="change in event.changes"
                         :key="`${event.id}-${change.key}`"
-                        class="rounded-md border border-slate-200 bg-white/70 p-2 dark:border-slate-700 dark:bg-slate-900/40"
+                        class="rounded border border-slate-200/80 bg-white/80 px-2 py-1.5 dark:border-slate-700 dark:bg-slate-900/40"
                     >
-                        <div class="mb-1 text-xs font-medium text-slate-600 dark:text-slate-300">{{ change.label }}</div>
+                        <div class="mb-1 text-[11px] font-medium text-slate-500 dark:text-slate-400">{{ change.label }}</div>
                         <div class="grid grid-cols-[1fr_auto_1fr] items-center gap-1.5 text-xs">
-                            <div class="rounded border border-rose-200 bg-rose-50 px-2 py-1 text-rose-700 dark:border-rose-900/60 dark:bg-rose-950/30 dark:text-rose-300">
+                            <div class="rounded bg-rose-50 px-1.5 py-0.5 text-rose-700 dark:bg-rose-950/30 dark:text-rose-300">
                                 {{ change.from }}
                             </div>
                             <div class="text-slate-400">→</div>
-                            <div class="rounded border border-emerald-200 bg-emerald-50 px-2 py-1 text-emerald-700 dark:border-emerald-900/60 dark:bg-emerald-950/30 dark:text-emerald-300">
+                            <div class="rounded bg-emerald-50 px-1.5 py-0.5 text-emerald-700 dark:bg-emerald-950/30 dark:text-emerald-300">
                                 {{ change.to }}
                             </div>
                         </div>

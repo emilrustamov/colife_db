@@ -80,24 +80,24 @@ const isDeletedInBitrix = computed(() => {
     >
         <aside
             v-if="cardModalOpen && menuLength > 0"
-            class="fixed right-0 top-0 flex h-full w-[min(80vw,87.5rem)] min-w-[18rem] flex-col border-l border-slate-200 bg-white shadow-[-8px_0_32px_rgba(0,0,0,0.12)] dark:border-slate-700 dark:bg-slate-900 dark:shadow-[-8px_0_32px_rgba(0,0,0,0.4)]"
+            class="fixed right-0 top-0 flex h-full w-[min(72vw,56rem)] min-w-[18rem] flex-col border-l border-slate-200 bg-white shadow-[-6px_0_24px_rgba(0,0,0,0.1)] dark:border-slate-700 dark:bg-slate-900 dark:shadow-[-6px_0_24px_rgba(0,0,0,0.35)]"
             :class="panelClass"
             role="dialog"
             aria-modal="true"
             :aria-label="t(messages, 'card')"
         >
-            <div class="flex shrink-0 items-center justify-between gap-4 border-b border-slate-200 px-5 py-4 dark:border-slate-700">
+            <div class="flex shrink-0 items-center justify-between gap-3 border-b border-slate-200 px-4 py-3 dark:border-slate-700">
                 <div class="min-w-0">
-                    <p v-if="overlay && current?.title" class="mb-0.5 truncate text-xs font-medium uppercase tracking-wide text-slate-500 dark:text-slate-400">
+                    <p v-if="overlay && current?.title" class="mb-0.5 truncate text-[11px] font-medium text-slate-500 dark:text-slate-400">
                         {{ current.title }}
                     </p>
                     <div class="flex min-w-0 flex-wrap items-center gap-2">
-                        <h2 class="min-w-0 truncate text-lg font-semibold text-slate-900 dark:text-slate-100 md:text-xl">
+                        <h2 class="min-w-0 truncate text-base font-semibold text-slate-900 dark:text-slate-100">
                             {{ drawerTitle }}
                         </h2>
                         <span
                             v-if="isDeletedInBitrix"
-                            class="inline-flex shrink-0 items-center rounded-md bg-red-600 px-2.5 py-1 text-xs font-semibold uppercase tracking-wide text-white shadow-sm dark:bg-red-500"
+                            class="inline-flex shrink-0 items-center rounded bg-red-600 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-white dark:bg-red-500"
                         >
                             {{ t(messages, 'deletedInBitrix') }}
                         </span>
@@ -105,17 +105,17 @@ const isDeletedInBitrix = computed(() => {
                 </div>
                 <button
                     type="button"
-                    class="shrink-0 cursor-pointer rounded-lg border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-50 dark:border-slate-600 dark:text-slate-200 dark:hover:bg-slate-800"
+                    class="shrink-0 cursor-pointer rounded-md border border-slate-300 px-2.5 py-1.5 text-xs font-medium text-slate-700 transition hover:bg-slate-50 dark:border-slate-600 dark:text-slate-200 dark:hover:bg-slate-800"
                     @click="closeCardModal"
                 >
                     {{ t(messages, 'closeCard') }}
                 </button>
             </div>
             <div class="flex shrink-0 items-center justify-between border-b border-slate-200 px-4 dark:border-slate-700">
-                <div class="flex gap-1">
+                <div class="flex gap-0.5">
                     <button
                         type="button"
-                        class="cursor-pointer border-b-2 px-5 py-3.5 text-base font-medium transition"
+                        class="cursor-pointer border-b-2 px-3 py-2.5 text-sm font-medium transition"
                         :class="
                             cardModalTab === 'form'
                                 ? 'border-slate-900 text-slate-900 dark:border-slate-100 dark:text-slate-100'
@@ -127,7 +127,7 @@ const isDeletedInBitrix = computed(() => {
                     </button>
                     <button
                         type="button"
-                        class="cursor-pointer border-b-2 px-5 py-3.5 text-base font-medium transition"
+                        class="cursor-pointer border-b-2 px-3 py-2.5 text-sm font-medium transition"
                         :class="
                             cardModalTab === 'timeline'
                                 ? 'border-slate-900 text-slate-900 dark:border-slate-100 dark:text-slate-100'
@@ -140,18 +140,18 @@ const isDeletedInBitrix = computed(() => {
                 </div>
                 <label
                     v-if="cardModalTab === 'timeline'"
-                    class="inline-flex cursor-pointer items-center gap-2 text-sm text-slate-600 dark:text-slate-300"
+                    class="inline-flex cursor-pointer items-center gap-1.5 text-xs text-slate-600 dark:text-slate-300"
                 >
                     <input
                         v-model="showTechnicalFields"
                         type="checkbox"
-                        class="h-4 w-4 rounded border-slate-300 text-slate-900 focus:ring-slate-400 dark:border-slate-600 dark:bg-slate-800"
+                        class="h-3.5 w-3.5 rounded border-slate-300 text-slate-900 focus:ring-slate-400 dark:border-slate-600 dark:bg-slate-800"
                     >
                     <span>Показать служебные поля</span>
                 </label>
             </div>
             <div class="min-h-0 flex-1 overflow-y-auto">
-                <div v-if="rowDetailLoading" class="flex items-center justify-center py-24 text-lg text-slate-500 dark:text-slate-400">
+                <div v-if="rowDetailLoading" class="flex items-center justify-center py-16 text-sm text-slate-500 dark:text-slate-400">
                     {{ t(messages, 'loading') }}
                 </div>
                 <template v-else>
@@ -161,7 +161,7 @@ const isDeletedInBitrix = computed(() => {
                         :empty-message="t(messages, 'select')"
                         :open-linked-record="openLinkedRecord"
                     />
-                    <div v-show="cardModalTab === 'timeline'" class="p-6 md:p-8 lg:p-10">
+                    <div v-show="cardModalTab === 'timeline'" class="p-4 md:p-5">
                         <TimelineEventList
                             :timeline="timeline"
                             :messages="messages"

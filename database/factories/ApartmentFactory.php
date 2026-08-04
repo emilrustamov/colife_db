@@ -41,6 +41,7 @@ class ApartmentFactory extends Factory
             'transport_type' => fake()->boolean(60) ? fake()->randomElement($transportTypes) : null,
             'parking_number' => fake()->boolean(20) ? 'P-' . fake()->numberBetween(1, 999) : null,
             'google_maps_link' => fake()->boolean(20) ? 'https://maps.google.com/?q=' . urlencode(fake()->address()) : null,
+            'disk_url' => fake()->boolean(20) ? 'https://colifeae.bitrix24.eu/docs/path/Appartments/'.urlencode(fake()->words(3, true)) : null,
             'bathrooms' => fake()->boolean(80) ? fake()->numberBetween(1, 3) : null,
             'rooms' => fake()->boolean(80) ? fake()->numberBetween(1, 4) : null,
             'area_sqm' => fake()->boolean(80) ? fake()->randomFloat(2, 18, 180) : null,

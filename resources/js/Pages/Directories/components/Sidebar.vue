@@ -1,5 +1,7 @@
 <script setup>
-defineProps({
+import { computed } from 'vue';
+
+const props = defineProps({
     menu: { type: Array, default: () => [] },
     visibleTopLevelMenu: { type: Array, default: () => [] },
     visibleContactsChildren: { type: Array, default: () => [] },
@@ -21,15 +23,35 @@ defineProps({
     toggleTheme: { type: Function, required: true },
     logout: { type: Function, required: true },
 });
+
+/**
+ * @param {{ key: string, title?: string }} a
+ * @param {{ key: string, title?: string }} b
+ * @returns {number}
+ */
+const byLabel = (a, b) => {
+    const left = props.translateMenuTitle(a.key, a.title);
+    const right = props.translateMenuTitle(b.key, b.title);
+
+    return left.localeCompare(right, props.locale === 'en' ? 'en' : 'ru', { sensitivity: 'base' });
+};
+
+const sortedMenu = computed(() => [...props.menu].sort(byLabel));
+const sortedTopLevelMenu = computed(() => [...props.visibleTopLevelMenu].sort(byLabel));
+const sortedContactsChildren = computed(() => [...props.visibleContactsChildren].sort(byLabel));
 </script>
 
 <template>
-    <aside class="flex min-h-0 flex-col border-b border-slate-200 bg-slate-50 p-4 dark:border-slate-700 dark:bg-slate-900 lg:h-full lg:max-h-[calc(100vh-3rem)] lg:border-r lg:border-b-0">
-        <div class="mb-4 flex shrink-0 items-center justify-between gap-3">
-            <h2 class="text-xs font-semibold uppercase tracking-[0.12em] text-slate-500 dark:text-slate-400">{{ t(messages, 'directories') }}</h2>
+    <aside class="flex min-h-0 flex-col border-b border-slate-200 bg-slate-50 p-3 dark:border-slate-700 dark:bg-slate-900 lg:h-full lg:max-h-[calc(100vh-3rem)] lg:border-r lg:border-b-0">
+        <div class="mb-3 flex shrink-0 items-center justify-between gap-2">
+            <img
+                src="/images/colife-logo.png"
+                alt="COLIFE"
+                class="h-7 w-auto max-w-[9rem] object-contain object-left"
+            >
             <button
                 type="button"
-                class="inline-flex items-center justify-center rounded-lg border border-slate-300 p-2 text-slate-700 transition hover:bg-slate-100 dark:border-slate-600 dark:text-slate-200 dark:hover:bg-slate-800"
+                class="inline-flex cursor-pointer items-center justify-center rounded-md border border-slate-300 p-1.5 text-slate-700 transition hover:bg-slate-100 dark:border-slate-600 dark:text-slate-200 dark:hover:bg-slate-800"
                 :aria-label="t(messages, 'menuSettings')"
                 @click="setSettingsOpen(!settingsOpen)"
             >
@@ -46,7 +68,7 @@ defineProps({
         >
             <div class="max-h-52 space-y-2 overflow-auto">
                 <label
-                    v-for="item in menu"
+                    v-for="item in sortedMenu"
                     :key="item.key"
                     class="flex cursor-pointer items-center gap-2 text-sm text-slate-700 dark:text-slate-200"
                 >
@@ -66,14 +88,14 @@ defineProps({
                 {{ t(messages, 'menuEmpty') }}
             </p>
             <div v-else class="space-y-1.5">
-                <div v-for="item in visibleTopLevelMenu" :key="item.key">
+                <div v-for="item in sortedTopLevelMenu" :key="item.key">
                     <button
                         type="button"
-                        class="w-full rounded-lg px-3 py-2.5 text-left text-sm font-medium transition"
-                        :class="selectedKey === item.key ? 'bg-slate-900 text-white shadow-sm dark:bg-slate-100 dark:text-slate-900' : 'text-slate-700 hover:bg-white hover:shadow-sm dark:text-slate-200 dark:hover:bg-slate-800'"
+                        class="w-full cursor-pointer rounded-md px-2.5 py-2 text-left text-sm font-medium transition"
+                        :class="selectedKey === item.key ? 'bg-slate-900 text-white dark:bg-slate-100 dark:text-slate-900' : 'text-slate-700 hover:bg-white dark:text-slate-200 dark:hover:bg-slate-800'"
                         @click="selectDirectory(item.key, item.key === 'contacts')"
                     >
-                        <span v-if="item.icon" class="mr-2 inline-flex items-center justify-center text-base leading-none">{{ item.icon }}</span>
+                        <span v-if="item.icon" class="mr-1.5 inline-flex items-center justify-center text-sm leading-none">{{ item.icon }}</span>
                         <span>{{ translateMenuTitle(item.key, item.title) }}</span>
                     </button>
 
@@ -82,14 +104,14 @@ defineProps({
                         class="mt-1 space-y-1 pl-4"
                     >
                         <button
-                            v-for="child in visibleContactsChildren"
+                            v-for="child in sortedContactsChildren"
                             :key="child.key"
                             type="button"
-                            class="w-full rounded-lg px-3 py-2 text-left text-sm font-medium transition"
-                            :class="selectedKey === child.key ? 'bg-slate-900 text-white shadow-sm dark:bg-slate-100 dark:text-slate-900' : 'text-slate-700 hover:bg-white hover:shadow-sm dark:text-slate-200 dark:hover:bg-slate-800'"
+                            class="w-full cursor-pointer rounded-md px-2.5 py-1.5 text-left text-sm font-medium transition"
+                            :class="selectedKey === child.key ? 'bg-slate-900 text-white dark:bg-slate-100 dark:text-slate-900' : 'text-slate-700 hover:bg-white dark:text-slate-200 dark:hover:bg-slate-800'"
                             @click="selectDirectory(child.key)"
                         >
-                            <span v-if="child.icon" class="mr-2 inline-flex items-center justify-center text-base leading-none">{{ child.icon }}</span>
+                            <span v-if="child.icon" class="mr-1.5 inline-flex items-center justify-center text-sm leading-none">{{ child.icon }}</span>
                             <span>{{ translateMenuTitle(child.key, child.title) }}</span>
                         </button>
                     </div>
@@ -98,22 +120,22 @@ defineProps({
         </div>
         <div
             v-if="inertiaPage.props.auth?.user"
-            class="mt-4 shrink-0 border-t border-slate-200 pt-4 dark:border-slate-700"
+            class="mt-3 shrink-0 border-t border-slate-200 pt-3 dark:border-slate-700"
         >
             <p class="text-[10px] font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">{{ t(messages, 'profile') }}</p>
             <p class="mt-1 truncate text-sm font-medium text-slate-900 dark:text-slate-100">{{ inertiaPage.props.auth.user.name }}</p>
             <p class="truncate text-xs text-slate-500 dark:text-slate-400">{{ inertiaPage.props.auth.user.email }}</p>
-            <div class="mt-3 flex w-full flex-col gap-2">
+            <div class="mt-2.5 flex w-full flex-col gap-1.5">
                 <button
                     type="button"
-                    class="w-full rounded-lg border border-slate-300 px-3 py-2 text-xs font-medium text-slate-700 transition hover:bg-white dark:border-slate-600 dark:text-slate-200 dark:hover:bg-slate-800"
+                    class="w-full cursor-pointer rounded-md border border-slate-300 px-2.5 py-1.5 text-xs font-medium text-slate-700 transition hover:bg-white dark:border-slate-600 dark:text-slate-200 dark:hover:bg-slate-800"
                     @click="toggleLocale"
                 >
                     {{ t(messages, 'lang') }}: {{ locale.toUpperCase() }}
                 </button>
                 <button
                     type="button"
-                    class="inline-flex w-full items-center justify-center gap-2 rounded-lg border border-slate-300 px-3 py-2 text-xs font-medium text-slate-700 transition hover:bg-white dark:border-slate-600 dark:text-slate-200 dark:hover:bg-slate-800"
+                    class="inline-flex w-full cursor-pointer items-center justify-center gap-2 rounded-md border border-slate-300 px-2.5 py-1.5 text-xs font-medium text-slate-700 transition hover:bg-white dark:border-slate-600 dark:text-slate-200 dark:hover:bg-slate-800"
                     @click="toggleTheme"
                     :aria-label="theme === 'dark' ? t(messages, 'light') : t(messages, 'dark')"
                 >
@@ -157,7 +179,7 @@ defineProps({
                 </button>
                 <button
                     type="button"
-                    class="w-full rounded-lg border border-red-600 bg-red-600 px-3 py-2 text-xs font-medium text-white transition hover:bg-red-700 dark:border-red-500 dark:bg-red-500 dark:hover:bg-red-600"
+                    class="w-full cursor-pointer rounded-md border border-red-600 bg-red-600 px-2.5 py-1.5 text-xs font-medium text-white transition hover:bg-red-700 dark:border-red-500 dark:bg-red-500 dark:hover:bg-red-600"
                     @click="logout"
                 >
                     {{ t(messages, 'logout') }}

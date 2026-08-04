@@ -54,7 +54,6 @@ return [
     ],
 
     'bitrix_contacts' => [
-        'timeout' => env('BITRIX_CONTACTS_TIMEOUT', 60),
         'event_token' => env('BITRIX_CONTACTS_EVENT_TOKEN'),
         'push' => [
             'update_method' => 'crm.contact.update.json',

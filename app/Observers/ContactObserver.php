@@ -3,14 +3,14 @@
 namespace App\Observers;
 
 use App\Models\Contact;
-use App\Services\BitrixEntityPushService;
-use App\Support\BitrixSyncContext;
+use App\Services\EntityPush;
+use App\Support\BitrixSync;
 
 class ContactObserver
 {
     public function updated(Contact $contact): void
     {
-        if (app(BitrixSyncContext::class)->isContactPushSuspended()) {
+        if (app(BitrixSync::class)->pushPaused()) {
             return;
         }
 
@@ -31,7 +31,7 @@ class ContactObserver
         $fieldMap = (array) config('services.bitrix_contacts.push.field_map', []);
         $updateMethod = (string) config('services.bitrix_contacts.push.update_method', 'crm.contact.update.json');
 
-        app(BitrixEntityPushService::class)->pushMappedChanges(
+        app(EntityPush::class)->pushMappedChanges(
             bitrixId: (int) $contact->bitrix_id,
             changes: $changes,
             fieldMap: $fieldMap,

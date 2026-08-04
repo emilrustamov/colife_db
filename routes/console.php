@@ -1,15 +1,11 @@
 <?php
 
-use Illuminate\Foundation\Inspiring;
-use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\Schedule;
-
-Artisan::command('inspire', function () {
-    $this->comment(Inspiring::quote());
-})->purpose('Display an inspiring quote');
 
 Schedule::command('bitrix:sync-apartments')->dailyAt('23:20');
 Schedule::command('bitrix:sync-units')->dailyAt('23:30');
+Schedule::command('bitrix:sync-apartment-ownerships')->dailyAt('23:35');
+Schedule::command('bitrix:sync-unit-stays')->dailyAt('23:38');
 Schedule::command('bitrix:sync-units-snapshot')->dailyAt('23:40');
 Schedule::command('bitrix:sync-utilities')->dailyAt('23:45');
 Schedule::command('bitrix:sync-contacts')->dailyAt('23:50');
