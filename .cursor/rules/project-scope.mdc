@@ -11,5 +11,6 @@ alwaysApply: true
 
 - «Пауза» — bizproc activity `custom_wait_v2`, роуты `/api/bp/*`, очередь `bp-pauses`, классы `Bp*`, `*Pause*`, `RegisterBitrixActivityJob`. См. `docs/BP_PAUSE.md`.
 - ChatApp — мониторинг балансов диалогов, `chatapp:collect`, `ChatApp*`, `CollectDialogs*`, `DialogBalance`, `BITRIX_IM_*`. См. `docs/CHATAPP.md`.
+- Twilio — мониторинг денежного баланса аккаунта, `twilio:collect`, `Twilio*`, `CollectTwilioBalance`, `TWILIO_*`. См. `docs/TWILIO.md`.
 
 Не смешивай задачи доп. модулей с логикой основной синхронизации/хранилища без явного запроса.

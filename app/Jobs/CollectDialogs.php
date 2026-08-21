@@ -7,20 +7,69 @@ use App\Services\ChatAppApi;
 use App\Services\ChatAppAlert;
 use Illuminate\Foundation\Bus\Dispatchable;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\Log;
 
 class CollectDialogs
 {
     use Dispatchable;
 
     /**
-     * Collect dialog balances from ChatApp and notify Bitrix when remaining is low.
+     * Collect dialog balances from ChatApp accounts and notify Bitrix when remaining is low.
      */
     public function handle(
         ChatAppApi $chatAppApiService,
         ChatAppAlert $alertService
     ): void {
         $collectedAt = Carbon::today()->toDateString();
-        $licenses = $chatAppApiService->getLicenses();
+        $accounts = config('services.chatapp.accounts', []);
+
+        if (! is_array($accounts)) {
+            return;
+        }
+
+        $failures = [];
+
+        foreach ($accounts as $account => $accountConfig) {
+            if (! is_array($accountConfig) || ! $this->accountReady($accountConfig)) {
+                continue;
+            }
+
+            try {
+                $this->collectAccount($chatAppApiService, $alertService, (string) $account, $collectedAt);
+            } catch (\Throwable $e) {
+                $failures[] = (string) $account;
+                Log::error('ChatApp collect failed', [
+                    'account' => $account,
+                    'error' => $e->getMessage(),
+                ]);
+            }
+        }
+
+        if ($failures !== []) {
+            throw new \RuntimeException('ChatApp collect failed for accounts: '.implode(', ', $failures));
+        }
+    }
+
+    /**
+     * @param  array<string, mixed>  $accountConfig
+     */
+    private function accountReady(array $accountConfig): bool
+    {
+        return trim((string) ($accountConfig['email'] ?? '')) !== ''
+            && trim((string) ($accountConfig['password'] ?? '')) !== ''
+            && trim((string) ($accountConfig['app_id'] ?? '')) !== '';
+    }
+
+    /**
+     * Collect balances for a single ChatApp account.
+     */
+    private function collectAccount(
+        ChatAppApi $chatAppApiService,
+        ChatAppAlert $alertService,
+        string $account,
+        string $collectedAt
+    ): void {
+        $licenses = $chatAppApiService->getLicenses($account);
 
         foreach ($licenses as $license) {
             if (! is_array($license)) {
@@ -46,7 +95,7 @@ class CollectDialogs
 
                 $messengerType = (string) ($messenger['type'] ?? 'unknown');
                 $balance = $this->extractBalance($messenger)
-                    ?? $chatAppApiService->getBalanceConversations($licenseId, $messengerType);
+                    ?? $chatAppApiService->getBalanceConversations($account, $licenseId, $messengerType);
                 if ($balance === null) {
                     continue;
                 }
@@ -57,7 +106,7 @@ class CollectDialogs
 
                 $record = DialogBalance::query()->updateOrCreate(
                     [
-                        'line_id' => $licenseId.':'.$messengerType,
+                        'line_id' => $account.':'.$licenseId.':'.$messengerType,
                         'collected_at' => $collectedAt,
                     ],
                     [
@@ -69,7 +118,7 @@ class CollectDialogs
                     ]
                 );
 
-                $alertService->notifyIfLow($record);
+                $alertService->notifyIfLow($record, $account);
             }
         }
     }

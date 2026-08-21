@@ -70,15 +70,33 @@ return [
     ],
 
     'chatapp' => [
-        'email' => env('CHATAPP_EMAIL'),
-        'password' => env('CHATAPP_PASSWORD'),
-        'app_id' => env('CHATAPP_APP_ID'),
         'api_url' => env('CHATAPP_API_URL', 'https://api.chatapp.online'),
-        'cabinet_line_url' => env(
-            'CHATAPP_CABINET_LINE_URL',
-            'https://cabinet.chatapp.online/businesses/v2/business-page/57834?tabId=pockets'
-        ),
         'alert_threshold' => (int) env('CHATAPP_ALERT_THRESHOLD', 1000),
+        'accounts' => [
+            'ae' => [
+                'email' => env('CHATAPP_EMAIL'),
+                'password' => env('CHATAPP_PASSWORD'),
+                'app_id' => env('CHATAPP_APP_ID'),
+                'cabinet_line_url' => env(
+                    'CHATAPP_CABINET_LINE_URL',
+                    'https://cabinet.chatapp.online/businesses/v2/business-page/57834?tabId=pockets'
+                ),
+                'flag' => '🇦🇪',
+            ],
+            'hk' => [
+                'email' => env('CHATAPP_HK_EMAIL'),
+                'password' => env('CHATAPP_HK_PASSWORD'),
+                'app_id' => env('CHATAPP_HK_APP_ID'),
+                'cabinet_line_url' => env('CHATAPP_HK_CABINET_LINE_URL', ''),
+                'flag' => '🇭🇰',
+            ],
+        ],
+    ],
+
+    'twilio' => [
+        'account_sid' => env('TWILIO_ACCOUNT_SID'),
+        'auth_token' => env('TWILIO_AUTH_TOKEN'),
+        'alert_threshold' => (float) env('TWILIO_ALERT_THRESHOLD', 50),
     ],
 
 ];

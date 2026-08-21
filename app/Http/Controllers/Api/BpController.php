@@ -5,8 +5,9 @@ namespace App\Http\Controllers\Api;
 use App\Enums\WebhookContext;
 use App\Http\Controllers\Controller;
 use App\Jobs\PauseJob;
-use App\Services\TokenVerifier;
+use App\Services\BitrixOAuth;
 use App\Services\PauseDates;
+use App\Services\TokenVerifier;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
@@ -15,7 +16,8 @@ class BpController extends Controller
 {
     public function __construct(
         private readonly PauseDates $pauseDateResolver,
-        private readonly TokenVerifier $tokenVerifier
+        private readonly TokenVerifier $tokenVerifier,
+        private readonly BitrixOAuth $oauth
     ) {}
 
     /**
@@ -25,7 +27,7 @@ class BpController extends Controller
     {
         $logger = Log::channel('bitrix_pauses');
 
-        [$tokenOk] = $this->tokenVerifier->verify($request, WebhookContext::Crm);
+        [$tokenOk] = $this->tokenVerifier->verify($request, WebhookContext::Bizproc);
         if (! $tokenOk) {
             $logger->warning('BP_WAIT_REJECTED', [
                 'workflow_id' => $request->input('workflow_id'),
@@ -38,26 +40,16 @@ class BpController extends Controller
         $payload = $request->all();
         $eventToken = (string) ($payload['event_token'] ?? '');
         $eventTokenFingerprint = $eventToken !== '' ? substr(hash('sha256', $eventToken), 0, 12) : null;
+        $domain = $this->oauth->normalizeDomain((string) $request->input('auth.domain', ''));
 
         $logger->info('BP_WAIT_RECEIVED', [
             'workflow_id' => $payload['workflow_id'] ?? null,
             'code' => $payload['code'] ?? null,
             'document_id' => $payload['document_id'] ?? null,
             'event_token_fp' => $eventTokenFingerprint,
-            'domain' => data_get($payload, 'auth.domain'),
+            'domain' => $domain,
             'properties' => $payload['properties'] ?? null,
         ]);
-
-        $domain = rtrim((string) $request->input('auth.domain', ''), '/');
-        $allowedDomain = rtrim((string) config('services.bitrix.portal_domain', ''), '/');
-        if ($domain === '') {
-            return response()->json(['status' => 'error', 'message' => 'domain is required'], 422);
-        }
-        if ($allowedDomain !== '' && ! hash_equals(strtolower($allowedDomain), strtolower($domain))) {
-            $logger->warning('BP_WAIT_DOMAIN_REJECTED', ['domain' => $domain]);
-
-            return response()->json(['status' => 'error', 'message' => 'Forbidden'], 403);
-        }
 
         if ($eventToken === '') {
             return response()->json(['status' => 'error', 'message' => 'event_token is required'], 422);

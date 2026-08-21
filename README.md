@@ -33,6 +33,14 @@
 
 Маркеры: `chatapp:collect`, `ChatApp*`, `CollectDialogs*`, `DialogBalance`, `BITRIX_IM_*`.
 
+### Twilio
+
+Мониторинг денежного баланса Twilio + алерт в Bitrix IM при остатке ≤ порога. К хранилищу Bitrix почти не относится.
+
+Подробности: [docs/TWILIO.md](docs/TWILIO.md).
+
+Маркеры: `twilio:collect`, `Twilio*`, `CollectTwilioBalance`, `TWILIO_*`.
+
 ## OPS one-off команды
 
 Ручные команды обслуживания (не в schedule): [docs/OPS_COMMANDS.md](docs/OPS_COMMANDS.md).

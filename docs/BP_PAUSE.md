@@ -4,6 +4,8 @@
 
 Активность в портале: `[Эмиль Рустамов] Пауза`, код `custom_wait_v2`.
 
+Порталы: ОАЭ (`B24_PORTAL_DOMAIN`) и ГК (`B24_HK_PORTAL_DOMAIN`).
+
 ## Зачем
 
 Кастомная пауза в бизнес-процессах Bitrix: ожидание N секунд или до выбранной даты, затем продолжение БП через `bizproc.event.send`.
@@ -33,7 +35,7 @@ Bitrix bizproc activity
 | `routes/console.php` | schedule `bitrix:recover-stuck-pauses` каждые 5 минут |
 | `deploy/supervisor/laravel-queue.conf` | worker `laravel-queue-pauses` → очередь `bp-pauses` |
 | `config/services.php` | `services.bitrix.pause_dry_run` |
-| `.env` / `.env.example` | `B24_PAUSE_DRY_RUN`, `B24_PORTAL_TIMEZONE` |
+| `.env` / `.env.example` | `B24_PAUSE_DRY_RUN`, `B24_PORTAL_TIMEZONE`, `B24_HK_*` |
 
 ## Инфраструктура
 

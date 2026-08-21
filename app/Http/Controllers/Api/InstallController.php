@@ -7,6 +7,7 @@ use App\Http\Controllers\Controller;
 use App\Jobs\RegisterActivityJob;
 use App\Models\BitrixToken;
 use App\Services\BitrixAuth;
+use App\Services\BitrixOAuth;
 use App\Services\TokenVerifier;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -16,7 +17,8 @@ class InstallController extends Controller
 {
     public function __construct(
         private readonly BitrixAuth $bitrixAuthService,
-        private readonly TokenVerifier $tokenVerifier
+        private readonly TokenVerifier $tokenVerifier,
+        private readonly BitrixOAuth $oauth
     ) {}
 
     /**
@@ -24,7 +26,7 @@ class InstallController extends Controller
      */
     public function install(Request $request): JsonResponse
     {
-        [$tokenOk] = $this->tokenVerifier->verify($request, WebhookContext::Crm);
+        [$tokenOk] = $this->tokenVerifier->verify($request, WebhookContext::Bizproc);
         if (! $tokenOk) {
             Log::warning('BITRIX_INSTALL_REJECTED', [
                 'domain' => data_get($request->all(), 'auth.domain') ?: $request->input('DOMAIN'),
@@ -34,7 +36,7 @@ class InstallController extends Controller
             return response()->json(['status' => 'error', 'message' => 'Forbidden'], 403);
         }
 
-        $authDomain = rtrim((string) $request->input('auth.domain', ''), '/');
+        $authDomain = $this->oauth->normalizeDomain((string) $request->input('auth.domain', ''));
         $authAccessToken = (string) $request->input('auth.access_token', '');
         $authRefreshToken = (string) $request->input('auth.refresh_token', '');
         $authExpiresIn = (int) $request->input('auth.expires_in', 3600);
@@ -50,13 +52,7 @@ class InstallController extends Controller
             'has_code' => (string) $request->get('CODE', '') !== '',
         ]);
 
-        $allowedDomain = rtrim((string) config('services.bitrix.portal_domain', ''), '/');
-
         if ($authDomain !== '' && $authAccessToken !== '' && $authRefreshToken !== '') {
-            if ($allowedDomain !== '' && ! hash_equals(strtolower($allowedDomain), strtolower($authDomain))) {
-                return response()->json(['status' => 'error', 'message' => 'Forbidden'], 403);
-            }
-
             BitrixToken::query()->updateOrCreate(
                 ['domain' => $authDomain],
                 [
@@ -80,17 +76,13 @@ class InstallController extends Controller
         }
 
         $code = (string) $request->get('CODE', '');
-        $domain = rtrim((string) $request->input('DOMAIN', ''), '/');
+        $domain = $this->oauth->normalizeDomain((string) $request->input('DOMAIN', ''));
         $authId = (string) $request->input('AUTH_ID', '');
         $refreshId = (string) $request->input('REFRESH_ID', '');
         $expires = (int) $request->input('AUTH_EXPIRES', 0);
 
         if ($domain === '') {
             return response()->json(['status' => 'error', 'message' => 'DOMAIN is required'], 422);
-        }
-
-        if ($allowedDomain !== '' && ! hash_equals(strtolower($allowedDomain), strtolower($domain))) {
-            return response()->json(['status' => 'error', 'message' => 'Forbidden'], 403);
         }
 
         $accessToken = $authId;

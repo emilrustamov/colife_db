@@ -35,7 +35,33 @@ class BitrixOAuth
         ];
     }
 
-    private function normalizeDomain(?string $domain): string
+    /**
+     * Check whether domain is a configured portal (AE or HK).
+     */
+    public function isAllowedPortal(?string $domain): bool
+    {
+        $normalized = $this->normalizeDomain($domain);
+        if ($normalized === '') {
+            return false;
+        }
+
+        foreach ([
+            (string) config('services.bitrix.portal_domain', ''),
+            (string) config('services.b24_hk.portal_domain', ''),
+        ] as $allowed) {
+            $allowed = $this->normalizeDomain($allowed);
+            if ($allowed !== '' && strcasecmp($allowed, $normalized) === 0) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /**
+     * Normalize portal domain to host without scheme or trailing slash.
+     */
+    public function normalizeDomain(?string $domain): string
     {
         $domain = $domain ?? '';
         $domain = (string) preg_replace('#^https?://#i', '', $domain);

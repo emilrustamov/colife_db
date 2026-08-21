@@ -6,7 +6,7 @@
 
 ## Зачем
 
-Раз в день (2 раза по расписанию) забирает балансы диалогов из ChatApp API, пишет в локальную таблицу `dialog_balances` и при низком остатке шлёт сообщение в канал Bitrix IM.
+Раз в день (2 раза по расписанию) забирает балансы диалогов из ChatApp API (аккаунты ОАЭ и Гонконг), пишет в локальную таблицу `dialog_balances` и при низком остатке шлёт сообщение в канал Bitrix IM. В тексте алерта флаг региона: 🇦🇪 / 🇭🇰.
 
 ## Flow
 
@@ -14,10 +14,11 @@
 Schedule chatapp:collect (09:00 / 14:00 Europe/Moscow)
   → CollectCmd
   → CollectDialogs
-  → ChatAppApi (лицензии / балансы)
-  → dialog_balances
-  → ChatAppAlert (порог)
-  → BitrixIm (im.message.add)
+  → for each account (ae, hk)
+      → ChatAppApi (лицензии / балансы)
+      → dialog_balances
+      → ChatAppAlert (порог + флаг)
+        → BitrixIm (im.message.add)
 ```
 
 ## Файлы модуля
@@ -36,8 +37,9 @@ Schedule chatapp:collect (09:00 / 14:00 Europe/Moscow)
 
 ## Env
 
-- `CHATAPP_EMAIL`, `CHATAPP_PASSWORD`, `CHATAPP_APP_ID`
+- `CHATAPP_EMAIL`, `CHATAPP_PASSWORD`, `CHATAPP_APP_ID` — аккаунт ОАЭ (🇦🇪)
+- `CHATAPP_HK_EMAIL`, `CHATAPP_HK_PASSWORD`, `CHATAPP_HK_APP_ID` — отдельный кабинет Гонконг (🇭🇰)
 - `CHATAPP_API_URL` (по умолчанию `https://api.chatapp.online`)
 - `CHATAPP_ALERT_THRESHOLD` (по умолчанию `1000`)
-- `CHATAPP_CABINET_LINE_URL` — ссылка в тексте алерта
+- `CHATAPP_CABINET_LINE_URL`, `CHATAPP_HK_CABINET_LINE_URL` — ссылки в тексте алерта
 - `BITRIX_IM_WEBHOOK`, `BITRIX_IM_DIALOG_ID` — куда слать уведомление
