@@ -48,6 +48,33 @@ return [
         'redirect_uri' => env('B24_HK_REDIRECT_URI', env('B24_REDIRECT_URI')),
     ],
 
+    'b24_tr' => [
+        'portal_domain' => env('B24_TR_PORTAL_DOMAIN', 'colife.bitrix24.com.tr'),
+        'client_id' => env('B24_TR_CLIENT_ID'),
+        'client_secret' => env('B24_TR_CLIENT_SECRET'),
+        'redirect_uri' => env('B24_TR_REDIRECT_URI', env('B24_REDIRECT_URI')),
+    ],
+
+    'cleaning' => [
+        'system_user_id' => (int) env('CLEANING_SYSTEM_USER_ID', 71857),
+        'assignee_id' => (int) env('CLEANING_ASSIGNEE_ID', 62997),
+        'participant_id' => (int) env('CLEANING_PARTICIPANT_ID', 110103),
+        'cleaning_group_id' => (int) env('CLEANING_GROUP_ID', 13),
+        'housemaster_group_id' => (int) env('CLEANING_HOUSEMASTER_GROUP_ID', 27),
+        'deadline_days' => (int) env('CLEANING_DEADLINE_DAYS', 2),
+        'apartment_entity_type_id' => (int) env('CLEANING_APARTMENT_ENTITY_TYPE_ID', 165),
+        'unit_entity_type_id' => (int) env('CLEANING_UNIT_ENTITY_TYPE_ID', 144),
+        'apartment_units_field' => env('CLEANING_APARTMENT_UNITS_FIELD', 'ufCrm5_1697012153'),
+        'disk_folder_id' => (int) env('CLEANING_DISK_FOLDER_ID', 396621),
+        'staff' => [
+            'Nursel',
+            'Lena',
+            'Fatma',
+            'Oksana',
+            'İlvira',
+        ],
+    ],
+
     'bitrix_im' => [
         'webhook' => env('BITRIX_IM_WEBHOOK'),
         'dialog_id' => env('BITRIX_IM_DIALOG_ID', 'chat561708'),

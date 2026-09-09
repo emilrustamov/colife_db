@@ -9,4 +9,6 @@ enum WebhookContext
     case OpenLines;
 
     case Bizproc;
+
+    case Cleaning;
 }

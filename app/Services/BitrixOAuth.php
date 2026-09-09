@@ -10,22 +10,29 @@ class BitrixOAuth
     public function forPortalDomain(?string $domain): array
     {
         $normalized = $this->normalizeDomain($domain);
-        $hkDomain = $this->normalizeDomain((string) config('services.b24_hk.portal_domain'));
-        if ($hkDomain !== '' && $normalized !== '' && strcasecmp($normalized, $hkDomain) === 0) {
-            $clientId = (string) config('services.b24_hk.client_id');
-            $clientSecret = (string) config('services.b24_hk.client_secret');
-            if ($clientId !== '' && $clientSecret !== '') {
-                $redirect = (string) config('services.b24_hk.redirect_uri', '');
-                if ($redirect === '') {
-                    $redirect = (string) config('services.bitrix.redirect_uri');
-                }
 
-                return [
-                    'client_id' => $clientId,
-                    'client_secret' => $clientSecret,
-                    'redirect_uri' => $redirect,
-                ];
+        foreach (['b24_hk', 'b24_tr'] as $portalKey) {
+            $portalDomain = $this->normalizeDomain((string) config("services.{$portalKey}.portal_domain"));
+            if ($portalDomain === '' || $normalized === '' || strcasecmp($normalized, $portalDomain) !== 0) {
+                continue;
             }
+
+            $clientId = (string) config("services.{$portalKey}.client_id");
+            $clientSecret = (string) config("services.{$portalKey}.client_secret");
+            if ($clientId === '' || $clientSecret === '') {
+                continue;
+            }
+
+            $redirect = (string) config("services.{$portalKey}.redirect_uri", '');
+            if ($redirect === '') {
+                $redirect = (string) config('services.bitrix.redirect_uri');
+            }
+
+            return [
+                'client_id' => $clientId,
+                'client_secret' => $clientSecret,
+                'redirect_uri' => $redirect,
+            ];
         }
 
         return [
@@ -36,7 +43,7 @@ class BitrixOAuth
     }
 
     /**
-     * Check whether domain is a configured portal (AE or HK).
+     * Check whether domain is a configured portal (AE, HK or TR).
      */
     public function isAllowedPortal(?string $domain): bool
     {
@@ -48,6 +55,7 @@ class BitrixOAuth
         foreach ([
             (string) config('services.bitrix.portal_domain', ''),
             (string) config('services.b24_hk.portal_domain', ''),
+            (string) config('services.b24_tr.portal_domain', ''),
         ] as $allowed) {
             $allowed = $this->normalizeDomain($allowed);
             if ($allowed !== '' && strcasecmp($allowed, $normalized) === 0) {

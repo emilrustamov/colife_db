@@ -15,13 +15,14 @@ class TokenVerifier
      */
     public function verify(Request $request, WebhookContext $context): array
     {
-        if ($context === WebhookContext::Bizproc) {
+        if ($context === WebhookContext::Bizproc || $context === WebhookContext::Cleaning) {
             $incoming = (string) data_get($request->all(), 'auth.application_token', '');
             $domain = $this->oauth->normalizeDomain(
                 (string) (data_get($request->all(), 'auth.domain') ?: $request->input('DOMAIN', ''))
             );
+            $channel = $context === WebhookContext::Cleaning ? 'bitrix_cleaning' : 'bitrix_pauses';
 
-            return [$incoming !== '' && $this->oauth->isAllowedPortal($domain), 'bitrix_pauses'];
+            return [$incoming !== '' && $this->oauth->isAllowedPortal($domain), $channel];
         }
 
         $expected = $this->expectedToken($context);

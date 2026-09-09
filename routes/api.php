@@ -7,6 +7,9 @@ use App\Http\Controllers\Api\WebhookController;
 use App\Http\Controllers\Api\BpController;
 use App\Http\Controllers\Api\BalanceController;
 use App\Http\Controllers\Api\DiskApi;
+use App\Http\Controllers\Api\CleaningInstallController;
+use App\Http\Controllers\Api\CleaningFormController;
+use App\Http\Controllers\Api\CleaningSubmitController;
 use Illuminate\Support\Facades\Route;
 
 Route::middleware(['api.key'])->group(function (): void {
@@ -23,4 +26,13 @@ Route::post('/webhooks/bitrix/open-lines', OpenLinesController::class);
 Route::post('/bp/wait', [BpController::class, 'wait']);
 Route::post('/bp/handler', [BpController::class, 'wait']);
 Route::match(['get', 'post'], '/bp/install', [InstallController::class, 'install'])
+    ->withoutMiddleware(['auth', 'auth:sanctum', 'api.key']);
+
+Route::match(['get', 'post'], '/cleaning/install', [CleaningInstallController::class, 'install'])
+    ->withoutMiddleware(['auth', 'auth:sanctum', 'api.key']);
+Route::post('/cleaning/install/save', [CleaningInstallController::class, 'save'])
+    ->withoutMiddleware(['auth', 'auth:sanctum', 'api.key']);
+Route::match(['get', 'post'], '/cleaning', [CleaningFormController::class, 'index'])
+    ->withoutMiddleware(['auth', 'auth:sanctum', 'api.key']);
+Route::post('/cleaning/submit', [CleaningSubmitController::class, 'submit'])
     ->withoutMiddleware(['auth', 'auth:sanctum', 'api.key']);

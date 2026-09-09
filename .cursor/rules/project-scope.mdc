@@ -10,6 +10,7 @@ alwaysApply: true
 Дополнительные модули (не цель проекта):
 
 - «Пауза» — bizproc activity `custom_wait_v2`, роуты `/api/bp/*`, очередь `bp-pauses`, классы `Bp*`, `*Pause*`, `RegisterBitrixActivityJob`. См. `docs/BP_PAUSE.md`.
+- Cleaning Report — локальное приложение TR-портала, роуты `/api/cleaning/*`, классы `Cleaning*`, `b24_tr` / `CLEANING_*`. См. `docs/CLEANING_REPORT.md`.
 - ChatApp — мониторинг балансов диалогов, `chatapp:collect`, `ChatApp*`, `CollectDialogs*`, `DialogBalance`, `BITRIX_IM_*`. См. `docs/CHATAPP.md`.
 - Twilio — мониторинг денежного баланса аккаунта, `twilio:collect`, `Twilio*`, `CollectTwilioBalance`, `TWILIO_*`. См. `docs/TWILIO.md`.
 - VDSina — мониторинг баланса хостинг-аккаунта, `vdsina:collect`, `Vdsina*`, `CollectVdsinaBalance`, `VDSINA_*`. См. `docs/VDSINA.md`.
