@@ -72,6 +72,7 @@ return [
     'chatapp' => [
         'api_url' => env('CHATAPP_API_URL', 'https://api.chatapp.online'),
         'alert_threshold' => (int) env('CHATAPP_ALERT_THRESHOLD', 1000),
+        'pay_method' => 'Счёт',
         'accounts' => [
             'ae' => [
                 'email' => env('CHATAPP_EMAIL'),
@@ -97,6 +98,68 @@ return [
         'account_sid' => env('TWILIO_ACCOUNT_SID'),
         'auth_token' => env('TWILIO_AUTH_TOKEN'),
         'alert_threshold' => (float) env('TWILIO_ALERT_THRESHOLD', 50),
+        'portal' => env('TWILIO_PORTAL', 'AE'),
+    ],
+
+    'vdsina' => [
+        'api_url' => env('VDSINA_API_URL', 'https://userapi.vdsina.com/v1'),
+        'api_token' => env('VDSINA_API_TOKEN'),
+        'alert_threshold' => (float) env('VDSINA_ALERT_THRESHOLD', 50),
+        'cabinet_url' => env('VDSINA_CABINET_URL', 'https://cp.vdsina.com/vds/list'),
+        'portal' => env('VDSINA_PORTAL', 'AE'),
+        'pay_method' => 'Карта',
+    ],
+
+    'regru' => [
+        'api_url' => env('REGRU_API_URL', 'https://api.reg.ru/api/regru2'),
+        'username' => env('REGRU_USERNAME'),
+        'password' => env('REGRU_PASSWORD'),
+        'alert_days' => (int) env('REGRU_ALERT_DAYS', 30),
+        'cabinet_url' => env('REGRU_CABINET_URL', 'https://www.reg.ru/user/account/#/domains'),
+        'portal' => env('REGRU_PORTAL', 'AE'),
+    ],
+
+    'service_payments' => [
+        'entity_type_id' => 1094,
+        'category_id' => 74,
+        'inactive_stage' => 'DT1094_74:FAIL',
+        'services' => [
+            10828 => 'ChatApp',
+            10830 => 'CallGear',
+            11366 => 'REG.RU',
+            11368 => 'Miro',
+            // 11370 => 'Wikibot',
+        ],
+        'api_owned_services' => [
+            10832 => 'Twilio',
+            11352 => 'VDSina',
+        ],
+        'portals' => [
+            10834 => 'AE',
+            10836 => 'AE',
+            10838 => 'HK',
+            10840 => 'TR',
+        ],
+        'pay_methods' => [
+            16964 => 'Карта',
+            16966 => 'Счёт',
+        ],
+        'default_pay_methods' => [
+            10828 => 'Счёт',
+        ],
+        'cabinet_urls' => [
+            10828 => [
+                'AE' => env(
+                    'CHATAPP_CABINET_LINE_URL',
+                    'https://cabinet.chatapp.online/businesses/v2/business-page/57834?tabId=pockets'
+                ),
+                'HK' => env('CHATAPP_HK_CABINET_LINE_URL', ''),
+            ],
+            10830 => env('CALLGEAR_CABINET_URL', ''),
+            11366 => env('REGRU_CABINET_URL', 'https://www.reg.ru/user/account/#/domains'),
+            11368 => env('MIRO_CABINET_URL', 'https://miro.com/app/dashboard/'),
+            // 11370 => env('WIKIBOT_CABINET_URL', ''),
+        ],
     ],
 
 ];

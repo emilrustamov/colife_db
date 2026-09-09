@@ -34,21 +34,18 @@ class TwilioAlert
             return;
         }
 
-        $date = Carbon::today('Europe/Moscow')->format('d.m.y');
-        $balanceFormatted = number_format($balance, 2, '.', '');
-        $thresholdFormatted = number_format($threshold, 0, '.', '');
-
-        $message = sprintf(
-            "%s В Twilio баланс %s %s и ниже.\nТекущий баланс: [B]%s[/B] %s.\nНужно пополнить.",
-            $date,
-            $thresholdFormatted,
-            $currency,
-            $balanceFormatted,
-            $currency
-        );
+        $amount = number_format($balance, 2, '.', '');
+        $balanceLabel = strtoupper($currency) === 'USD'
+            ? '$'.$amount
+            : $amount.' '.$currency;
 
         try {
-            $this->bitrixImChannel->send($message);
+            $this->bitrixImChannel->notice([
+                'portal' => (string) config('services.twilio.portal', 'AE'),
+                'service' => 'Twilio',
+                'date' => Carbon::today('Europe/Moscow')->format('d.m.Y'),
+                'balance' => '[B]'.$balanceLabel.'[/B]',
+            ]);
             Cache::put($cacheKey, true, Carbon::today('Europe/Moscow')->endOfDay());
         } catch (\Throwable $e) {
             Log::error('Twilio low balance Bitrix alert failed', [

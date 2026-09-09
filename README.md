@@ -41,6 +41,30 @@
 
 Маркеры: `twilio:collect`, `Twilio*`, `CollectTwilioBalance`, `TWILIO_*`.
 
+### VDSina
+
+Мониторинг денежного баланса VDSina + алерт в Bitrix IM при остатке ≤ порога. К хранилищу Bitrix почти не относится.
+
+Подробности: [docs/VDSINA.md](docs/VDSINA.md).
+
+Маркеры: `vdsina:collect`, `Vdsina*`, `CollectVdsinaBalance`, `VDSINA_*`.
+
+### REG.RU
+
+Мониторинг сроков доменов REG.RU + алерт в Bitrix IM перед окончанием. Баланс не собирается.
+
+Подробности: [docs/REGRU.md](docs/REGRU.md).
+
+Маркеры: `regru:collect`, `Regru*`, `CollectRegruDomains`, `REGRU_*`.
+
+### Оплата сервисов (Bitrix SPA)
+
+CallGear, REG.RU, Miro, ChatApp (другие линии) — даты оплаты из SPA type 1094, алерт в Bitrix IM. Twilio, VDSina и WA-линии ChatApp — только из API, карточки SPA по ним не дублируются.
+
+Подробности: [docs/SERVICE_PAYMENTS.md](docs/SERVICE_PAYMENTS.md).
+
+Маркеры: `payments:collect`, `ServicePay*`, `CollectServicePay`.
+
 ## OPS one-off команды
 
 Ручные команды обслуживания (не в schedule): [docs/OPS_COMMANDS.md](docs/OPS_COMMANDS.md).

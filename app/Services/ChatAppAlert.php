@@ -31,29 +31,18 @@ class ChatAppAlert
         }
 
         $accountConfig = config('services.chatapp.accounts.'.$account, []);
-        $flag = is_array($accountConfig) ? (string) ($accountConfig['flag'] ?? '') : '';
-        $flagSuffix = $flag !== '' ? ' '.$flag : '';
-
-        $lineNumber = $this->lineNumber($balance->line_id);
-        $date = Carbon::parse($balance->collected_at)->format('d.m.y');
         $lineUrl = is_array($accountConfig) ? (string) ($accountConfig['cabinet_line_url'] ?? '') : '';
-        $lineLink = $lineUrl !== ''
-            ? '[URL='.$lineUrl.']'.$lineNumber.'[/URL]'
-            : $lineNumber;
-
-        $remainingBold = '[B]'.$balance->remaining.'[/B]';
-
-        $message = sprintf(
-            "%s В ChatApp%s на линии %s осталось меньше %d диалогов.\nТекущий остаток: %s.\nПроверьте необходимость пополнения.",
-            $date,
-            $flagSuffix,
-            $lineLink,
-            $threshold,
-            $remainingBold
-        );
 
         try {
-            $this->bitrixImChannel->send($message);
+            $this->bitrixImChannel->notice([
+                'portal' => strtoupper($account),
+                'service' => 'ChatApp',
+                'line' => $this->lineNumber($balance->line_id),
+                'line_url' => $lineUrl,
+                'pay_method' => (string) config('services.chatapp.pay_method', 'Счёт'),
+                'date' => Carbon::parse($balance->collected_at)->format('d.m.Y'),
+                'balance' => '[B]'.$balance->remaining.'[/B]',
+            ]);
             Cache::put($cacheKey, true, Carbon::parse($balance->collected_at)->endOfDay());
         } catch (\Throwable $e) {
             Log::error('ChatApp low balance Bitrix alert failed', [

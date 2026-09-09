@@ -12,5 +12,8 @@ alwaysApply: true
 - «Пауза» — bizproc activity `custom_wait_v2`, роуты `/api/bp/*`, очередь `bp-pauses`, классы `Bp*`, `*Pause*`, `RegisterBitrixActivityJob`. См. `docs/BP_PAUSE.md`.
 - ChatApp — мониторинг балансов диалогов, `chatapp:collect`, `ChatApp*`, `CollectDialogs*`, `DialogBalance`, `BITRIX_IM_*`. См. `docs/CHATAPP.md`.
 - Twilio — мониторинг денежного баланса аккаунта, `twilio:collect`, `Twilio*`, `CollectTwilioBalance`, `TWILIO_*`. См. `docs/TWILIO.md`.
+- VDSina — мониторинг баланса хостинг-аккаунта, `vdsina:collect`, `Vdsina*`, `CollectVdsinaBalance`, `VDSINA_*`. См. `docs/VDSINA.md`.
+- REG.RU — мониторинг сроков доменов, `regru:collect`, `Regru*`, `CollectRegruDomains`, `REGRU_*`. См. `docs/REGRU.md`.
+- Оплата сервисов — CallGear / REG.RU / Miro / Wikibot из SPA 1094, `payments:collect`, `ServicePay*`, `CollectServicePay`. См. `docs/SERVICE_PAYMENTS.md`.
 
 Не смешивай задачи доп. модулей с логикой основной синхронизации/хранилища без явного запроса.

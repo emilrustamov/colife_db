@@ -42,7 +42,7 @@ class RegisterActivityJob implements ShouldQueue
 
         $activityFields = [
             'DOCUMENT_TYPE' => ['crm', 'CCrmDocumentDeal', 'DEAL'],
-            'HANDLER' => 'https://db.colifeb24apps.ru/api/bp/wait',
+            'HANDLER' => 'https://db.colifeb24apps.com/api/bp/wait',
             'AUTH_USER_ID' => 4,
             'USE_SUBSCRIPTION' => 'Y',
             'NAME' => '[Эмиль Рустамов] Пауза',

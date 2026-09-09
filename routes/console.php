@@ -21,4 +21,12 @@ Schedule::command('twilio:collect')
     ->dailyAt('09:00')
     ->timezone('Europe/Moscow');
 
+Schedule::command('vdsina:collect')
+    ->dailyAt('09:00')
+    ->timezone('Europe/Moscow');
+
+Schedule::command('payments:collect')
+    ->dailyAt('09:00')
+    ->timezone('Europe/Moscow');
+
 Schedule::command('bitrix:recover-stuck-pauses')->everyFiveMinutes();
