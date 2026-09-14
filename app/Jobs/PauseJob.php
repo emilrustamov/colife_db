@@ -54,7 +54,9 @@ class PauseJob implements ShouldQueue
             'target_at' => $targetAt,
             'wait_seconds' => $this->data['wait_seconds'] ?? null,
             'lag_seconds' => $lagSeconds,
-            'server_now_portal' => $now->timezone($pauseDateResolver->portalTimezone())->toIso8601String(),
+            'server_now_portal' => $now->timezone(
+                $pauseDateResolver->portalTimezone($this->data['domain'] ?? null)
+            )->toIso8601String(),
         ]);
 
         if ((bool) config('services.bitrix.pause_dry_run', false)) {
@@ -84,7 +86,9 @@ class PauseJob implements ShouldQueue
                 'workflow_id' => $this->data['workflow_id'] ?? null,
                 'document_id' => $this->data['document_id'] ?? null,
                 'lag_seconds' => $lagSeconds,
-                'server_now_portal' => $now->timezone($pauseDateResolver->portalTimezone())->toIso8601String(),
+                'server_now_portal' => $now->timezone(
+                    $pauseDateResolver->portalTimezone($this->data['domain'] ?? null)
+                )->toIso8601String(),
                 'response' => $response,
             ]);
         } catch (Throwable $e) {

@@ -27,13 +27,20 @@ Bitrix local app install (user 71857)
   → BX24.installFinish()
 
 Staff opens /api/cleaning
-  → BX24: apartments (165) + units (144 by UF)
+  → BX24 crm.item.list apartments (165): pages of 50 via `start`/`next`
+  → filter out FAIL stages; units by UF on select
   → POST /api/cleaning/submit
       → disk upload
       → crm.timeline.comment.add on unit (as 71857)
       → tasks.task.add group 13 (assignee 62997, participant 110103)
       → optional tasks.task.add group 27 bound to apartment
 ```
+
+Каталог апартов **не** хранится в локальной БД (TR). В БД есть таблица `portals` и `portal_id` на `apartments`/`units` для AE-синка основного проекта.
+
+## Пагинация BX24
+
+`crm.item.list` отдаёт максимум 50 записей и поле `next`. В **BX24.js** параметр `start` из `params` **удаляется** при отправке; следующая страница только через `result.more()` → `result.next()` (SDK сам пишет `query.start`). Ручной `callMethod(..., { start: 50 })` всегда возвращает первую страницу.
 
 ## Пользователи и проекты
 

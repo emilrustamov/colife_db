@@ -2,6 +2,7 @@
 
 namespace App\Console\Commands;
 
+use App\Models\Portal;
 use App\Models\Unit;
 use App\Services\BitrixStages;
 use App\Services\BitrixRest;
@@ -69,7 +70,8 @@ class SyncUnitsCommand extends Command
                             $successful,
                             $failedCount
                         ));
-                    }
+                    },
+                    Portal::idByCode('ae')
                 )
             );
 

@@ -65,11 +65,11 @@ class BpController extends Controller
             $mode = 'seconds';
         }
 
+        $timezone = $this->pauseDateResolver->portalTimezone($domain);
         $delay = $mode === 'date'
-            ? $this->pauseDateResolver->resolveDelaySeconds($props['date'] ?? null)
+            ? $this->pauseDateResolver->resolveDelaySeconds($props['date'] ?? null, $domain)
             : $this->pauseDateResolver->resolveSecondsDelay($props['seconds'] ?? null);
 
-        $timezone = $this->pauseDateResolver->portalTimezone();
         $targetAt = now()->addSeconds($delay);
         $enqueuedAt = now()->toIso8601String();
 

@@ -78,6 +78,7 @@ class UnitProfile extends SpaProfile
         return [
             'stageIdMap' => $this->loadStageIdMap(),
             'apartmentIdByBitrixId' => DB::table('apartments')
+                ->where('portal_id', $this->portalId())
                 ->pluck('id', 'bitrix_id')
                 ->mapWithKeys(static fn ($id, $bitrixId): array => [(int) $bitrixId => (string) $id])
                 ->all(),
@@ -118,6 +119,7 @@ class UnitProfile extends SpaProfile
 
         return [
             'id' => $existingId ?? (string) Str::uuid(),
+            'portal_id' => $this->portalId(),
             'bitrix_id' => $bitrixId,
             'apartment_id' => $apartmentId,
             'title' => BitrixValue::str($item['title'] ?? null),

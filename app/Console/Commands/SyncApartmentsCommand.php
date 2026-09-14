@@ -3,6 +3,7 @@
 namespace App\Console\Commands;
 
 use App\Models\Apartment;
+use App\Models\Portal;
 use App\Services\BitrixStages;
 use App\Services\BitrixRest;
 use App\Services\BitrixListSync;
@@ -92,7 +93,8 @@ class SyncApartmentsCommand extends Command
                             $successful,
                             $failedCount
                         ));
-                    }
+                    },
+                    Portal::idByCode('ae')
                 )
             );
 

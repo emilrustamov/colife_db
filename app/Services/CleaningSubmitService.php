@@ -354,6 +354,7 @@ class CleaningSubmitService
             'GROUP_ID' => (int) config('services.cleaning.cleaning_group_id', 13),
             'DEADLINE' => now()->addDays((int) config('services.cleaning.deadline_days', 2))->format('c'),
             'ACCOMPLICES' => [(int) config('services.cleaning.participant_id', 110103)],
+            'AUDITORS' => $this->observerIds(),
             'UF_CRM_TASK' => $this->crmBindings($payload, true, true),
         ];
 
@@ -389,6 +390,7 @@ class CleaningSubmitService
             'CREATED_BY' => (int) config('services.cleaning.system_user_id', 71857),
             'GROUP_ID' => (int) config('services.cleaning.housemaster_group_id', 27),
             'DEADLINE' => now()->addDays((int) config('services.cleaning.deadline_days', 2))->format('c'),
+            'AUDITORS' => $this->observerIds(),
             'UF_CRM_TASK' => $this->crmBindings($payload, true, true),
         ];
 
@@ -401,6 +403,21 @@ class CleaningSubmitService
         ], $domain);
 
         return (int) data_get($response, 'result.task.id', data_get($response, 'result.task.ID', 0));
+    }
+
+    /**
+     * Observers for auto-created tasks (Bitrix field AUDITORS).
+     *
+     * @return list<int>
+     */
+    private function observerIds(): array
+    {
+        $ids = config('services.cleaning.observer_ids', [109833, 87311, 25681]);
+        if (! is_array($ids)) {
+            return [];
+        }
+
+        return array_values(array_filter(array_map('intval', $ids), static fn (int $id): bool => $id > 0));
     }
 
     /**

@@ -2,6 +2,7 @@
 
 namespace App\Services\Profiles;
 
+use App\Models\Portal;
 use App\Services\BitrixRest;
 use App\Services\Contracts\EntityProfile;
 use App\Support\BitrixDiff;
@@ -63,6 +64,14 @@ abstract class SpaProfile implements EntityProfile
     abstract protected function normalizeItem(array $item, mixed $existingId, array $context, Carbon $now): array;
 
     /**
+     * Default portal for AE sync profiles.
+     */
+    protected function portalId(): int
+    {
+        return Portal::idByCode('ae');
+    }
+
+    /**
      * @param  list<array<string, mixed>>  $items
      * @return array{processed:int, created:int, updated:int, successful:int, skipped:int, failed:int, failed_ids:list<int|string>}
      */
@@ -76,6 +85,7 @@ abstract class SpaProfile implements EntityProfile
         $failedIds = [];
         $now = now();
         $modelClass = $this->modelClass();
+        $portalId = $this->portalId();
         $updatedEvent = $this->eventBase().'.updated';
         $createdEvent = $this->eventBase().'.created';
         $syncedEvent = $this->eventBase().'.synced';
@@ -89,6 +99,7 @@ abstract class SpaProfile implements EntityProfile
         }
 
         $existing = $modelClass::query()
+            ->where('portal_id', $portalId)
             ->whereIn('bitrix_id', $incomingBitrixIds)
             ->get(['id', 'bitrix_id', 'bitrix_updated_at']);
         $existingByBitrixId = $existing->keyBy(static fn (Model $row): int => (int) $row->getAttribute('bitrix_id'));
@@ -144,10 +155,11 @@ abstract class SpaProfile implements EntityProfile
         }
 
         if ($rows !== []) {
-            DB::transaction(function () use ($rows, $events, $oldValues, $now, $modelClass, $updatedEvent, $syncedEvent): void {
-                $modelClass::query()->upsert($rows, ['bitrix_id'], $this->updateCols());
+            DB::transaction(function () use ($rows, $events, $oldValues, $now, $modelClass, $portalId, $updatedEvent, $syncedEvent): void {
+                $modelClass::query()->upsert($rows, ['portal_id', 'bitrix_id'], $this->updateCols());
 
                 $models = $modelClass::query()
+                    ->where('portal_id', $portalId)
                     ->whereIn('bitrix_id', array_map(static fn (array $r): int => (int) $r['bitrix_id'], $rows))
                     ->get();
                 $modelByBitrix = $models->keyBy(static fn (Model $row): int => (int) $row->getAttribute('bitrix_id'));
@@ -223,6 +235,7 @@ abstract class SpaProfile implements EntityProfile
     public function markDeleted(int $bitrixId): int
     {
         return $this->modelClass()::query()
+            ->where('portal_id', $this->portalId())
             ->where('bitrix_id', $bitrixId)
             ->update([
                 'is_deleted' => true,

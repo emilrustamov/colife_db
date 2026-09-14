@@ -29,6 +29,7 @@ return [
         'redirect_uri' => env('B24_REDIRECT_URI'),
         'portal_domain' => env('B24_PORTAL_DOMAIN'),
         'portal_timezone' => env('B24_PORTAL_TIMEZONE', 'Europe/Moscow'),
+        'pause_datetime_timezone' => env('B24_PAUSE_DATETIME_TIMEZONE', 'Asia/Tashkent'),
         'pause_dry_run' => (bool) env('B24_PAUSE_DRY_RUN', false),
         'entity_type_id' => env('BITRIX_ENTITY_TYPE_ID', env('BITRIX_UNITS_ENTITY_TYPE_ID', 167)),
         'webhook_token' => env('BITRIX_WEBHOOK_TOKEN', env('BITRIX_CONTACTS_EVENT_TOKEN')),
@@ -46,6 +47,7 @@ return [
         'client_id' => env('B24_HK_CLIENT_ID'),
         'client_secret' => env('B24_HK_CLIENT_SECRET'),
         'redirect_uri' => env('B24_HK_REDIRECT_URI', env('B24_REDIRECT_URI')),
+        'pause_datetime_timezone' => env('B24_HK_PAUSE_DATETIME_TIMEZONE', env('B24_PAUSE_DATETIME_TIMEZONE', 'Asia/Tashkent')),
     ],
 
     'b24_tr' => [
@@ -59,6 +61,10 @@ return [
         'system_user_id' => (int) env('CLEANING_SYSTEM_USER_ID', 71857),
         'assignee_id' => (int) env('CLEANING_ASSIGNEE_ID', 62997),
         'participant_id' => (int) env('CLEANING_PARTICIPANT_ID', 110103),
+        'observer_ids' => array_values(array_filter(array_map(
+            'intval',
+            explode(',', (string) env('CLEANING_OBSERVER_IDS', env('CLEANING_AUDITOR_IDS', '109833,87311,25681')))
+        ))),
         'cleaning_group_id' => (int) env('CLEANING_GROUP_ID', 13),
         'housemaster_group_id' => (int) env('CLEANING_HOUSEMASTER_GROUP_ID', 27),
         'deadline_days' => (int) env('CLEANING_DEADLINE_DAYS', 2),

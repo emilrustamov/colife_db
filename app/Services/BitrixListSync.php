@@ -27,7 +27,8 @@ class BitrixListSync
         array $select,
         string $modelClass,
         Carbon $now,
-        ?callable $onBatch = null
+        ?callable $onBatch = null,
+        ?int $portalId = null
     ): array {
         $start = 0;
         $total = 0;
@@ -88,7 +89,8 @@ class BitrixListSync
             $markedDeleted = BitrixSoftDelete::markMissing(
                 $modelClass,
                 array_values(array_unique($seenBitrixIds)),
-                $now
+                $now,
+                $portalId
             );
         }
 

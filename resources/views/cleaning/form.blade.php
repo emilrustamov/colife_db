@@ -182,20 +182,21 @@
             fill: none;
             stroke-width: 1.7;
         }
-        .control.combobox { z-index: 5; }
+        .control.combobox { z-index: 30; }
+        .field:focus-within { position: relative; z-index: 40; }
         .combobox-list {
             display: none;
             position: absolute;
             left: 0;
             right: 0;
             top: calc(100% + 4px);
-            max-height: 220px;
+            max-height: 260px;
             overflow-y: auto;
             background: #fff;
             border: 1.5px solid var(--border);
             border-radius: 10px;
             box-shadow: 0 10px 24px rgba(43, 78, 155, 0.12);
-            z-index: 20;
+            z-index: 50;
         }
         .combobox-list.open { display: block; }
         .combobox-list button {
@@ -644,7 +645,13 @@
     let apartmentsById = {};
     /** @type {Array<{id:number,title:string,unitIds:number[]}>} */
     let apartmentOptions = [];
+    /** @type {Record<string, Array<{id:number,title:string}>>} */
+    let unitsByApartmentId = {};
     let apartmentHighlight = -1;
+    let apartmentsLoading = false;
+    let apartmentsLoaded = false;
+    /** @type {Promise<void>|null} */
+    let apartmentsLoadPromise = null;
 
     function showToast(type, message) {
         const toast = document.createElement('div');
@@ -671,39 +678,48 @@
     }
 
     function clearStatus() {
-        // toasts are ephemeral
     }
 
-    function callMethod(method, params) {
+    /**
+     * Load all CRM items via BX24 list pagination (result.more / result.next).
+     * start must NOT be passed in params — BX24 strips data.start; only result.next() sets query.start.
+     */
+    function listAllItems(entityTypeId, filter, select) {
         return new Promise(function (resolve, reject) {
-            BX24.callMethod(method, params, function (result) {
+            const items = [];
+            const seenIds = {};
+
+            BX24.callMethod('crm.item.list', {
+                entityTypeId: entityTypeId,
+                filter: filter || {},
+                select: select,
+                order: { id: 'ASC' },
+            }, function onList(result) {
                 if (result.error()) {
                     reject(new Error(result.error()));
                     return;
                 }
-                resolve(result.data());
+
+                const data = result.data() || {};
+                const batch = Array.isArray(data.items) ? data.items : [];
+                for (let i = 0; i < batch.length; i++) {
+                    const item = batch[i];
+                    const id = parseInt(item && item.id, 10);
+                    if (!id || seenIds[id]) {
+                        continue;
+                    }
+                    seenIds[id] = true;
+                    items.push(item);
+                }
+
+                if (result.more()) {
+                    result.next();
+                    return;
+                }
+
+                resolve(items);
             });
         });
-    }
-
-    async function listAllItems(entityTypeId, filter, select) {
-        const items = [];
-        let start = 0;
-        while (true) {
-            const data = await callMethod('crm.item.list', {
-                entityTypeId: entityTypeId,
-                filter: filter,
-                select: select,
-                start: start,
-            });
-            const batch = (data && data.items) ? data.items : [];
-            items.push.apply(items, batch);
-            if (typeof data.next === 'undefined' || data.next === null) {
-                break;
-            }
-            start = data.next;
-        }
-        return items;
     }
 
     function isActiveStage(item) {
@@ -729,54 +745,79 @@
     }
 
     async function loadApartments() {
-        const field = CONFIG.apartmentUnitsField;
-        const items = await listAllItems(
-            CONFIG.apartmentEntityTypeId,
-            {},
-            ['id', 'title', 'stageId', 'stageSemanticId', field, 'UF_CRM_5_1697012153']
-        );
-        apartmentsById = {};
-        apartmentOptions = [];
-        items.filter(isActiveStage).sort(function (a, b) {
-            return String(a.title || '').localeCompare(String(b.title || ''), undefined, {
-                numeric: true,
-                sensitivity: 'base',
-            });
-        }).forEach(function (item) {
-            const id = parseInt(item.id, 10);
-            if (!id) return;
-            const unitIds = extractUnitIds(
-                item[field] ?? item.UF_CRM_5_1697012153 ?? item.ufCrm5_1697012153
-            );
-            const row = {
-                id: id,
-                title: String(item.title || ('#' + id)),
-                unitIds: unitIds,
-            };
-            apartmentsById[id] = row;
-            apartmentOptions.push(row);
-        });
-        clearApartmentSelection(false);
+        if (apartmentsLoadPromise) {
+            return apartmentsLoadPromise;
+        }
+
+        apartmentsLoadPromise = (async function () {
+            apartmentsLoading = true;
+            apartmentsLoaded = false;
+            const field = CONFIG.apartmentUnitsField;
+            try {
+                const items = await listAllItems(
+                    CONFIG.apartmentEntityTypeId,
+                    {},
+                    ['id', 'title', 'stageId', 'stageSemanticId', field]
+                );
+                apartmentsById = {};
+                apartmentOptions = [];
+                items.filter(isActiveStage).sort(function (a, b) {
+                    return String(a.title || '').localeCompare(String(b.title || ''), undefined, {
+                        numeric: true,
+                        sensitivity: 'base',
+                    });
+                }).forEach(function (item) {
+                    const id = parseInt(item.id, 10);
+                    if (!id || apartmentsById[id]) {
+                        return;
+                    }
+                    const row = {
+                        id: id,
+                        title: String(item.title || ('#' + id)),
+                        unitIds: extractUnitIds(item[field] ?? item.ufCrm5_1697012153),
+                    };
+                    apartmentsById[id] = row;
+                    apartmentOptions.push(row);
+                });
+                apartmentsLoaded = true;
+                clearApartmentSelection(false);
+            } finally {
+                apartmentsLoading = false;
+                apartmentsLoadPromise = null;
+            }
+        })();
+
+        return apartmentsLoadPromise;
     }
 
     function filteredApartments(query) {
         const q = String(query || '').trim().toLowerCase();
         if (!q) {
-            return apartmentOptions.slice(0, 50);
+            return apartmentOptions.slice();
         }
         return apartmentOptions.filter(function (item) {
             return item.title.toLowerCase().indexOf(q) !== -1;
-        }).slice(0, 50);
+        });
     }
 
     function renderApartmentList(query) {
-        const items = filteredApartments(query);
         apartmentList.innerHTML = '';
         apartmentHighlight = -1;
+
+        if (apartmentsLoading && !apartmentsLoaded) {
+            const loading = document.createElement('div');
+            loading.className = 'empty';
+            loading.textContent = 'Loading apartments...';
+            apartmentList.appendChild(loading);
+            apartmentList.classList.add('open');
+            return;
+        }
+
+        const items = filteredApartments(query);
         if (items.length === 0) {
             const empty = document.createElement('div');
             empty.className = 'empty';
-            empty.textContent = 'No apartments found';
+            empty.textContent = apartmentsLoaded ? 'No apartments found' : 'Apartments are not loaded yet';
             apartmentList.appendChild(empty);
             apartmentList.classList.add('open');
             return;
@@ -823,6 +864,21 @@
         });
     }
 
+    /**
+     * @param {Array<{id:number,title:string}>} rows
+     * @returns {void}
+     */
+    function fillUnitSelect(rows) {
+        unitSelect.innerHTML = '<option value="">Select room / area</option>';
+        rows.forEach(function (row) {
+            const opt = document.createElement('option');
+            opt.value = String(row.id);
+            opt.textContent = row.title;
+            unitSelect.appendChild(opt);
+        });
+        unitSelect.disabled = rows.length === 0;
+    }
+
     async function loadUnitsForApartment(apartmentId) {
         unitSelect.innerHTML = '<option value="">Select room / area</option>';
         unitSelect.disabled = true;
@@ -830,11 +886,19 @@
         if (!apartment || apartment.unitIds.length === 0) {
             return;
         }
+
+        const memKey = String(apartmentId);
+        if (unitsByApartmentId[memKey]) {
+            fillUnitSelect(unitsByApartmentId[memKey]);
+            return;
+        }
+
         const items = await listAllItems(
             CONFIG.unitEntityTypeId,
             { '@id': apartment.unitIds },
             ['id', 'title', 'stageId', 'stageSemanticId']
         );
+        const rows = [];
         items.filter(isActiveStage).sort(function (a, b) {
             return String(a.title || '').localeCompare(String(b.title || ''), undefined, {
                 numeric: true,
@@ -843,12 +907,13 @@
         }).forEach(function (item) {
             const id = parseInt(item.id, 10);
             if (!id) return;
-            const opt = document.createElement('option');
-            opt.value = String(id);
-            opt.textContent = String(item.title || ('#' + id));
-            unitSelect.appendChild(opt);
+            rows.push({
+                id: id,
+                title: String(item.title || ('#' + id)),
+            });
         });
-        unitSelect.disabled = false;
+        unitsByApartmentId[memKey] = rows;
+        fillUnitSelect(rows);
     }
 
     function renderPhotos() {
@@ -1052,9 +1117,15 @@
     renderPhotos();
 
     BX24.init(function () {
-        loadApartments().catch(function (e) {
-            setStatus('err', 'Failed to load apartments: ' + e.message);
-        });
+        loadApartments()
+            .then(function () {
+                if (document.activeElement === apartmentSearch) {
+                    renderApartmentList(apartmentSearch.value);
+                }
+            })
+            .catch(function (e) {
+                setStatus('err', 'Failed to load apartments: ' + e.message);
+            });
     });
 })();
 </script>

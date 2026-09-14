@@ -13,10 +13,18 @@ class BitrixSoftDelete
      * @param  class-string<Model>  $modelClass
      * @param  list<int>  $presentBitrixIds
      */
-    public static function markMissing(string $modelClass, array $presentBitrixIds, ?Carbon $now = null): int
-    {
+    public static function markMissing(
+        string $modelClass,
+        array $presentBitrixIds,
+        ?Carbon $now = null,
+        ?int $portalId = null
+    ): int {
         $now ??= now();
         $query = $modelClass::query()->where('is_deleted', false);
+
+        if ($portalId !== null) {
+            $query->where('portal_id', $portalId);
+        }
 
         if ($presentBitrixIds === []) {
             return $query->update([

@@ -184,6 +184,7 @@ class ApartmentProfile extends SpaProfile
 
         return [
             'id' => $existingId ?? (string) Str::uuid(),
+            'portal_id' => $this->portalId(),
             'bitrix_id' => $bitrixId,
             'title' => BitrixValue::str($item['title'] ?? null),
             'stage_id' => $stageCode !== '' ? ($stageIdMap[$stageCode] ?? null) : null,

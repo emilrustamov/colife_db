@@ -46,7 +46,7 @@ class RegisterActivityJob implements ShouldQueue
             'AUTH_USER_ID' => 4,
             'USE_SUBSCRIPTION' => 'Y',
             'NAME' => '[Эмиль Рустамов] Пауза',
-            'DESCRIPTION' => 'Пауза минимум 10 секунд. До даты — до 00:00:00 выбранного дня по времени сервера.',
+            'DESCRIPTION' => 'Пауза минимум 10 секунд. До даты — до указанного момента (дата и время); если только дата или 00:00 — до 00:00 этого дня, а если уже прошло — до следующих суток.',
             'PROPERTIES' => [
                 'mode' => [
                     'Name' => 'Тип',
@@ -59,8 +59,8 @@ class RegisterActivityJob implements ShouldQueue
                     ],
                 ],
                 'date' => [
-                    'Name' => 'Дата',
-                    'Type' => 'date',
+                    'Name' => 'Дата и время',
+                    'Type' => 'datetime',
                 ],
                 'seconds' => [
                     'Name' => 'Секунды',

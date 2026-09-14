@@ -4,6 +4,8 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class Apartment extends Model
 {
@@ -20,6 +22,7 @@ class Apartment extends Model
      */
     protected $fillable = [
         'id',
+        'portal_id',
         'bitrix_id',
         'title',
         'stage_id',
@@ -76,6 +79,22 @@ class Apartment extends Model
             'bitrix_updated_at' => 'datetime',
             'last_synced_at' => 'datetime',
         ];
+    }
+
+    /**
+     * @return BelongsTo<Portal, $this>
+     */
+    public function portal(): BelongsTo
+    {
+        return $this->belongsTo(Portal::class);
+    }
+
+    /**
+     * @return HasMany<Unit, $this>
+     */
+    public function units(): HasMany
+    {
+        return $this->hasMany(Unit::class);
     }
 }
 

@@ -6,6 +6,7 @@ use App\Enums\WebhookContext;
 use App\Http\Controllers\Controller;
 use App\Models\Apartment;
 use App\Models\Contact;
+use App\Models\Portal;
 use App\Models\Unit;
 use App\Services\EntitySync;
 use App\Services\TokenVerifier;
@@ -242,11 +243,17 @@ class WebhookController extends Controller
         if ($entity === 'apartments') {
             $subjectType = Apartment::class;
             $event = 'bitrix.apartment.deleted';
-            $row = DB::table('apartments')->where('bitrix_id', $bitrixId)->first(['id', 'bitrix_id']);
+            $row = DB::table('apartments')
+                ->where('portal_id', Portal::idByCode('ae'))
+                ->where('bitrix_id', $bitrixId)
+                ->first(['id', 'bitrix_id']);
         } elseif ($entity === 'units') {
             $subjectType = Unit::class;
             $event = 'bitrix.unit.deleted';
-            $row = DB::table('units')->where('bitrix_id', $bitrixId)->first(['id', 'bitrix_id']);
+            $row = DB::table('units')
+                ->where('portal_id', Portal::idByCode('ae'))
+                ->where('bitrix_id', $bitrixId)
+                ->first(['id', 'bitrix_id']);
         } else {
             return;
         }
