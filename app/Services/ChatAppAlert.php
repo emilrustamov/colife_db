@@ -14,19 +14,23 @@ class ChatAppAlert
     ) {}
 
     /**
-     * Notify Bitrix channel when dialog balance is below threshold (once per line per day).
+     * Notify Bitrix channel when dialog balance is below threshold.
      */
     public function notifyIfLow(DialogBalance $balance, string $account = 'ae'): void
     {
-        $threshold = (int) config('services.chatapp.alert_threshold', 1000);
+        $line = $this->lineNumber($balance->line_id);
+        $threshold = $this->threshold($line);
 
         if ($balance->remaining >= $threshold) {
             return;
         }
 
-        $cacheKey = 'chatapp:low_balance_alert:'.$account.':'.$balance->line_id.':'.$balance->collected_at->format('Y-m-d');
+        $date = $balance->collected_at->format('Y-m-d');
+        $cacheKey = 'chatapp:low_balance_alert:'.$account.':'.$balance->line_id.':'.$date;
+        $dailyLimit = $this->dailyLimit($line);
+        $sent = (int) Cache::get($cacheKey, 0);
 
-        if (Cache::has($cacheKey)) {
+        if ($sent >= $dailyLimit) {
             return;
         }
 
@@ -37,13 +41,13 @@ class ChatAppAlert
             $this->bitrixImChannel->notice([
                 'portal' => strtoupper($account),
                 'service' => 'ChatApp',
-                'line' => $this->lineNumber($balance->line_id),
+                'line' => $line,
                 'line_url' => $lineUrl,
                 'pay_method' => (string) config('services.chatapp.pay_method', 'Счёт'),
                 'date' => Carbon::parse($balance->collected_at)->format('d.m.Y'),
                 'balance' => '[B]'.$balance->remaining.'[/B]',
             ]);
-            Cache::put($cacheKey, true, Carbon::parse($balance->collected_at)->endOfDay());
+            Cache::put($cacheKey, $sent + 1, Carbon::parse($balance->collected_at)->endOfDay());
         } catch (\Throwable $e) {
             Log::error('ChatApp low balance Bitrix alert failed', [
                 'account' => $account,
@@ -54,6 +58,36 @@ class ChatAppAlert
 
             throw $e;
         }
+    }
+
+    /**
+     * Alert remaining-dialogs threshold for a ChatApp line.
+     */
+    private function threshold(string $line): int
+    {
+        $overrides = config('services.chatapp.alert_thresholds', []);
+        $overrides = is_array($overrides) ? $overrides : [];
+
+        if (array_key_exists($line, $overrides)) {
+            return (int) $overrides[$line];
+        }
+
+        return (int) config('services.chatapp.alert_threshold', 1000);
+    }
+
+    /**
+     * Max low-balance notices per day for a ChatApp line.
+     */
+    private function dailyLimit(string $line): int
+    {
+        $limits = config('services.chatapp.alert_daily_limits', []);
+        $limits = is_array($limits) ? $limits : [];
+
+        if (array_key_exists($line, $limits)) {
+            return max(1, (int) $limits[$line]);
+        }
+
+        return 1;
     }
 
     /**

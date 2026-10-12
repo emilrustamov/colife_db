@@ -11,7 +11,7 @@
 ## Flow
 
 ```
-Schedule chatapp:collect (09:00 / 14:00 Europe/Moscow)
+Schedule chatapp:collect (09:00 / 12:00 / 14:00 / 18:00 Europe/Moscow → 11 / 14 / 16 / 20 UTC+5)
   → CollectCmd
   → CollectDialogs
   → for each account (ae, hk)
@@ -40,6 +40,6 @@ Schedule chatapp:collect (09:00 / 14:00 Europe/Moscow)
 - `CHATAPP_EMAIL`, `CHATAPP_PASSWORD`, `CHATAPP_APP_ID` — аккаунт ОАЭ (🇦🇪)
 - `CHATAPP_HK_EMAIL`, `CHATAPP_HK_PASSWORD`, `CHATAPP_HK_APP_ID` — отдельный кабинет Гонконг (🇭🇰)
 - `CHATAPP_API_URL` (по умолчанию `https://api.chatapp.online`)
-- `CHATAPP_ALERT_THRESHOLD` (по умолчанию `1000`)
+- `CHATAPP_ALERT_THRESHOLD` (по умолчанию `1000`; для линии `76787` порог `2000` и до `4` алертов/день в `services.chatapp.alert_thresholds` / `alert_daily_limits`)
 - `CHATAPP_CABINET_LINE_URL`, `CHATAPP_HK_CABINET_LINE_URL` — ссылки в тексте алерта
 - `BITRIX_IM_WEBHOOK`, `BITRIX_IM_DIALOG_ID` — куда слать уведомление

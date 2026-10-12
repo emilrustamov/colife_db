@@ -89,6 +89,14 @@ return [
             'replace_placeholders' => true,
         ],
 
+        'bitrix_landlord_contacts' => [
+            'driver' => 'daily',
+            'path' => storage_path('logs/bitrix_landlord_contacts.log'),
+            'level' => env('LOG_LEVEL', 'info'),
+            'days' => 30,
+            'replace_placeholders' => true,
+        ],
+
         'bitrix_open_lines' => [
             'driver' => 'daily',
             'path' => storage_path('logs/bitrix_open_lines.log'),

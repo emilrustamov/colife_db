@@ -7,6 +7,7 @@ use App\Http\Controllers\Api\WebhookController;
 use App\Http\Controllers\Api\BpController;
 use App\Http\Controllers\Api\BalanceController;
 use App\Http\Controllers\Api\DiskApi;
+use App\Http\Controllers\Api\TerminateListBpApi;
 use App\Http\Controllers\Api\CleaningInstallController;
 use App\Http\Controllers\Api\CleaningFormController;
 use App\Http\Controllers\Api\CleaningSubmitController;
@@ -20,6 +21,7 @@ Route::middleware(['api.key'])->group(function (): void {
 });
 
 Route::match(['get', 'post'], '/disk/pull', [DiskApi::class, 'pull']);
+Route::match(['get', 'post'], '/bp/terminate-list', [TerminateListBpApi::class, 'pull']);
 Route::post('/webhooks/bitrix', WebhookController::class);
 Route::post('/webhooks/bitrix/contacts', WebhookController::class);
 Route::post('/webhooks/bitrix/open-lines', OpenLinesController::class);

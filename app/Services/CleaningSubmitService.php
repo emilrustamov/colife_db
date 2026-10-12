@@ -334,17 +334,7 @@ class CleaningSubmitService
      */
     private function createMaintenanceTask(string $domain, array $payload, array $diskFileRefs): int
     {
-        $cleaningType = trim((string) ($payload['cleaning_type'] ?? 'Cleaning'));
-        if ($cleaningType === '') {
-            $cleaningType = 'Cleaning';
-        }
-
-        $title = sprintf(
-            '%s_ %s_ %s',
-            $cleaningType,
-            $this->formatTitleDate((string) $payload['date']),
-            trim((string) $payload['apartment_title'])
-        );
+        $title = $this->buildCleaningTaskTitle($payload);
 
         $fields = [
             'TITLE' => $title,
@@ -522,6 +512,30 @@ class CleaningSubmitService
         }
 
         return implode("\n", $lines);
+    }
+
+    /**
+     * Build cleaning task title: "{Apartment} Unit {Unit} Cleaning".
+     *
+     * @param  array<string, mixed>  $payload
+     */
+    private function buildCleaningTaskTitle(array $payload): string
+    {
+        $apartment = trim((string) ($payload['apartment_title'] ?? ''));
+        if ($apartment === '') {
+            $apartment = 'Apartment';
+        }
+
+        $unit = trim((string) ($payload['unit_title'] ?? ''));
+        if ($unit === '') {
+            $unit = '#'.(int) ($payload['unit_id'] ?? 0);
+        }
+
+        if (preg_match('/^unit\b/iu', $unit) === 1) {
+            return trim($apartment.' '.$unit.' Cleaning');
+        }
+
+        return trim($apartment.' Unit '.$unit.' Cleaning');
     }
 
     /**

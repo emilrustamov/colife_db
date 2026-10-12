@@ -36,10 +36,12 @@ return [
         'open_lines_application_token' => env('BITRIX_OPEN_LINES_APPLICATION_TOKEN'),
         'webhook' => env('BITRIX_WEBHOOK', env('BITRIX_UNITS_WEBHOOK')),
         'disk_webhook' => env('BITRIX_DISK_WEBHOOK', env('BITRIX_WEBHOOK', env('BITRIX_UNITS_WEBHOOK'))),
+        'bp_webhook' => env('BITRIX_BP_WEBHOOK', env('BITRIX_WEBHOOK', env('BITRIX_UNITS_WEBHOOK'))),
         'lists' => [
             'utilities_iblock_id' => (int) env('BITRIX_UTILITIES_IBLOCK_ID', 156),
             'disk_iblock_id' => (int) env('BITRIX_DISK_IBLOCK_ID', 322),
         ],
+        'bp_list_template_id' => (int) env('BITRIX_BP_LIST_TEMPLATE_ID', 3666),
     ],
 
     'b24_hk' => [
@@ -98,6 +100,14 @@ return [
         ],
     ],
 
+    'bitrix_landlord_contacts' => [
+        'field_active' => env('BITRIX_LANDLORD_FIELD_ACTIVE', 'UF_CRM_1785851164'),
+        'field_ex' => env('BITRIX_LANDLORD_FIELD_EX', 'UF_CRM_1786783496'),
+        'type_actual' => env('BITRIX_LANDLORD_TYPE_ACTUAL', 'UC_7F3HSV'),
+        'type_ex' => env('BITRIX_LANDLORD_TYPE_EX', 'UC_AHAW7N'),
+        'batch_size' => (int) env('BITRIX_LANDLORD_BATCH_SIZE', 50),
+    ],
+
     'client_balance' => [
         'api_key' => env('CLIENT_BALANCE_API_KEY'),
     ],
@@ -105,6 +115,12 @@ return [
     'chatapp' => [
         'api_url' => env('CHATAPP_API_URL', 'https://api.chatapp.online'),
         'alert_threshold' => (int) env('CHATAPP_ALERT_THRESHOLD', 1000),
+        'alert_thresholds' => [
+            '76787' => 2000,
+        ],
+        'alert_daily_limits' => [
+            '76787' => 4,
+        ],
         'pay_method' => 'Счёт',
         'accounts' => [
             'ae' => [

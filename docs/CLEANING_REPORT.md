@@ -52,8 +52,8 @@ Staff opens /api/cleaning
 | Проект cleaning / maintenance | 13 |
 | Проект housemaster | 27 |
 
-Название основной задачи: `[Cleaning Type]_ [Date]_ [Apartment Number]`  
-Пример: `Deep Cleaning_ 09.09.2026_ A-201`  
+Название основной задачи: `[Apartment] Unit [Unit] Cleaning`  
+Пример: `F52- Unit 2.1 Cleaning`  
 Deadline: +2 дня.
 
 Клинеры (статика): Nursel, Lena, Fatma, Oksana, İlvira.

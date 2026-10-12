@@ -14,7 +14,15 @@ Schedule::command('chatapp:collect')
     ->timezone('Europe/Moscow');
 
 Schedule::command('chatapp:collect')
+    ->dailyAt('12:00')
+    ->timezone('Europe/Moscow');
+
+Schedule::command('chatapp:collect')
     ->dailyAt('14:00')
+    ->timezone('Europe/Moscow');
+
+Schedule::command('chatapp:collect')
+    ->dailyAt('18:00')
     ->timezone('Europe/Moscow');
 
 Schedule::command('twilio:collect')

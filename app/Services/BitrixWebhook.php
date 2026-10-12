@@ -36,7 +36,7 @@ class BitrixWebhook
      * @param  array<string, mixed>  $payload
      * @return array<string, mixed>
      */
-    public function callRaw(string $method, array $payload = [], ?string $webhookUrl = null): array
+    public function callRaw(string $method, array $payload = [], ?string $webhookUrl = null, int $timeout = 120): array
     {
         $webhook = rtrim((string) ($webhookUrl ?? $this->defaultWebhook()), '/').'/';
         if ($webhook === '/') {
@@ -44,7 +44,7 @@ class BitrixWebhook
         }
 
         $response = Http::asForm()
-            ->timeout(120)
+            ->timeout(max(1, $timeout))
             ->post($webhook.ltrim($method, '/'), $payload);
 
         $json = $response->json();
@@ -60,6 +60,19 @@ class BitrixWebhook
         $disk = trim((string) config('services.bitrix.disk_webhook', ''));
         if ($disk !== '') {
             return $disk;
+        }
+
+        return $this->defaultWebhook();
+    }
+
+    /**
+     * Resolve webhook URL for bizproc operations (needs bizproc scope).
+     */
+    public function bpWebhook(): string
+    {
+        $bp = trim((string) config('services.bitrix.bp_webhook', ''));
+        if ($bp !== '') {
+            return $bp;
         }
 
         return $this->defaultWebhook();
