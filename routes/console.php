@@ -38,4 +38,8 @@ Schedule::command('payments:collect')
     ->dailyAt('09:00')
     ->timezone('Europe/Moscow');
 
+Schedule::command('alma:collect')
+    ->everyTwoHours()
+    ->timezone('Europe/Moscow');
+
 Schedule::command('bitrix:recover-stuck-pauses')->everyFiveMinutes();

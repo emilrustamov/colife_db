@@ -112,6 +112,12 @@ return [
         'api_key' => env('CLIENT_BALANCE_API_KEY'),
     ],
 
+    'alma' => [
+        'api_url' => env('ALMA_API_URL', 'https://colife.argo.properties:1337/external_api/'),
+        'api_key' => env('ALMA_API_KEY'),
+        'timeout' => (int) env('ALMA_API_TIMEOUT', 120),
+    ],
+
     'chatapp' => [
         'api_url' => env('CHATAPP_API_URL', 'https://api.chatapp.online'),
         'alert_threshold' => (int) env('CHATAPP_ALERT_THRESHOLD', 1000),

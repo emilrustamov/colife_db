@@ -6,6 +6,7 @@ use App\Http\Controllers\Api\UnitsSnapshotController;
 use App\Http\Controllers\Api\WebhookController;
 use App\Http\Controllers\Api\BpController;
 use App\Http\Controllers\Api\BalanceController;
+use App\Http\Controllers\Api\AlmaContactController;
 use App\Http\Controllers\Api\DiskApi;
 use App\Http\Controllers\Api\TerminateListBpApi;
 use App\Http\Controllers\Api\CleaningInstallController;
@@ -16,6 +17,7 @@ use Illuminate\Support\Facades\Route;
 Route::middleware(['api.key'])->group(function (): void {
     Route::post('/client-balances', [BalanceController::class, 'store']);
     Route::post('/client-balances/batch', [BalanceController::class, 'batchStore']);
+    Route::post('/alma/contacts/external-id', [AlmaContactController::class, 'updateExternalId']);
     Route::get('/bitrix-units/idle-apartments', [UnitsSnapshotController::class, 'idleApartments']);
     Route::post('/disk/sync', [DiskApi::class, 'sync']);
 });
