@@ -116,7 +116,11 @@ return [
         'api_url' => env('CHATAPP_API_URL', 'https://api.chatapp.online'),
         'alert_threshold' => (int) env('CHATAPP_ALERT_THRESHOLD', 1000),
         'alert_thresholds' => [
-            '76787' => 2000,
+            '76787' => 3000,
+            '47838' => 3000,
+            '66653' => 3000,
+            '73495' => 3000,
+            '63158' => 3000,
         ],
         'alert_daily_limits' => [
             '76787' => 4,

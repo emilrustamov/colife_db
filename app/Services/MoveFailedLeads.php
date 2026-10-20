@@ -14,7 +14,7 @@ class MoveFailedLeads
 
     public const STAGE_FAILED = 'C52:UC_07GCQU';
 
-    public const DATE_FROM = '2026-01-01T00:00:00';
+    public const DATE_FROM = null;
 
     public const DATE_TO = '2026-09-12T23:59:59';
 
@@ -123,12 +123,17 @@ class MoveFailedLeads
      */
     private function filter(): array
     {
-        return [
+        $filter = [
             'CATEGORY_ID' => self::CATEGORY_ID,
-            'STAGE_ID' => [self::STAGE_QUALIFIED, self::STAGE_POSTPONED],
-            '>=DATE_CREATE' => self::DATE_FROM,
+            'STAGE_ID' => self::STAGE_QUALIFIED,
             '<=DATE_CREATE' => self::DATE_TO,
         ];
+
+        if (is_string(self::DATE_FROM) && self::DATE_FROM !== '') {
+            $filter['>=DATE_CREATE'] = self::DATE_FROM;
+        }
+
+        return $filter;
     }
 
     /**

@@ -41,7 +41,7 @@ class ChatAppAlert
             $this->bitrixImChannel->notice([
                 'portal' => strtoupper($account),
                 'service' => 'ChatApp',
-                'line' => $line,
+                'line' => $this->lineLabel($line, $balance->line_name),
                 'line_url' => $lineUrl,
                 'pay_method' => (string) config('services.chatapp.pay_method', 'Счёт'),
                 'date' => Carbon::parse($balance->collected_at)->format('d.m.Y'),
@@ -88,6 +88,21 @@ class ChatAppAlert
         }
 
         return 1;
+    }
+
+    /**
+     * Build notice line label with ChatApp license name when available.
+     */
+    private function lineLabel(string $line, ?string $lineName): string
+    {
+        $name = trim((string) $lineName);
+        if ($name === '') {
+            return $line;
+        }
+
+        $base = trim(explode(' / ', $name, 2)[0]);
+
+        return $base !== '' ? $line.' — '.$base : $line;
     }
 
     /**

@@ -40,6 +40,6 @@ Schedule chatapp:collect (09:00 / 12:00 / 14:00 / 18:00 Europe/Moscow → 11 / 1
 - `CHATAPP_EMAIL`, `CHATAPP_PASSWORD`, `CHATAPP_APP_ID` — аккаунт ОАЭ (🇦🇪)
 - `CHATAPP_HK_EMAIL`, `CHATAPP_HK_PASSWORD`, `CHATAPP_HK_APP_ID` — отдельный кабинет Гонконг (🇭🇰)
 - `CHATAPP_API_URL` (по умолчанию `https://api.chatapp.online`)
-- `CHATAPP_ALERT_THRESHOLD` (по умолчанию `1000`; для линии `76787` порог `2000` и до `4` алертов/день в `services.chatapp.alert_thresholds` / `alert_daily_limits`)
+- `CHATAPP_ALERT_THRESHOLD` (по умолчанию `1000`; порог `3000` для линий `76787` / `47838` / `66653` / `73495` / `63158`; у `76787` до `4` алертов/день в `alert_daily_limits`)
 - `CHATAPP_CABINET_LINE_URL`, `CHATAPP_HK_CABINET_LINE_URL` — ссылки в тексте алерта
 - `BITRIX_IM_WEBHOOK`, `BITRIX_IM_DIALOG_ID` — куда слать уведомление

@@ -15,7 +15,7 @@ class MoveFailedLeadsCommand extends Command
                             {--batch=15 : Deals per iteration (split into Bitrix chunks of 5)}
                             {--sleep-ms=0 : Optional pause after each Bitrix chunk}';
 
-    protected $description = '[OPS] Move category 52 Qualified/Postponed leads (created 2026-01-01..2026-09-12) to Failed Leads.';
+    protected $description = '[OPS] Move category 52 Qualified leads (created ..2026-09-12) to Failed Leads.';
 
     /**
      * Execute the console command.
@@ -23,11 +23,14 @@ class MoveFailedLeadsCommand extends Command
     public function handle(MoveFailedLeads $service): int
     {
         $count = $service->count();
+        $dateFrom = is_string(MoveFailedLeads::DATE_FROM) && MoveFailedLeads::DATE_FROM !== ''
+            ? MoveFailedLeads::DATE_FROM
+            : '…';
         $this->info(sprintf(
-            'Matches: %d deals (category %d, stages Qualified+Postponed, DATE_CREATE %s .. %s) → %s',
+            'Matches: %d deals (category %d, stage Qualified, DATE_CREATE %s .. %s) → %s',
             $count,
             MoveFailedLeads::CATEGORY_ID,
-            MoveFailedLeads::DATE_FROM,
+            $dateFrom,
             MoveFailedLeads::DATE_TO,
             MoveFailedLeads::STAGE_FAILED
         ));
