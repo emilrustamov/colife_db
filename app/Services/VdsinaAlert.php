@@ -9,7 +9,8 @@ use Illuminate\Support\Facades\Log;
 class VdsinaAlert
 {
     public function __construct(
-        private readonly BitrixIm $bitrixImChannel
+        private readonly BitrixIm $bitrixImChannel,
+        private readonly ServiceAlertTask $serviceAlertTask
     ) {}
 
     /**
@@ -38,14 +39,17 @@ class VdsinaAlert
             : Carbon::today('Europe/Moscow')->format('d.m.Y');
 
         try {
-            $this->bitrixImChannel->notice([
+            $notice = [
                 'portal' => (string) config('services.vdsina.portal', 'AE'),
                 'service' => 'VDSina',
                 'url' => (string) config('services.vdsina.cabinet_url'),
                 'pay_method' => (string) config('services.vdsina.pay_method', 'Карта'),
                 'date' => $paymentDate,
                 'balance' => '[B]$'.number_format($balance, 2, '.', '').'[/B]',
-            ]);
+            ];
+            $taskId = $this->serviceAlertTask->ensureOpen($notice, 'vdsina:'.strtoupper((string) $notice['portal']));
+            $notice['task_url'] = $this->serviceAlertTask->taskUrl($taskId);
+            $this->bitrixImChannel->notice($notice);
             Cache::put($cacheKey, true, Carbon::today('Europe/Moscow')->endOfDay());
         } catch (\Throwable $e) {
             Log::error('VDSina low balance Bitrix alert failed', [

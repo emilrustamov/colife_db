@@ -31,7 +31,7 @@ class BitrixIm
     /**
      * Send a unified low-balance notice to the Bitrix IM channel.
      *
-     * @param  array{portal: string, service: string, url?: string, line?: string|null, line_url?: string, pay_method?: string, date: string, balance?: string}  $payload
+     * @param  array{portal: string, service: string, url?: string, line?: string|null, line_url?: string, pay_method?: string, date: string, balance?: string, task_url?: string}  $payload
      */
     public function notice(array $payload): void
     {
@@ -41,7 +41,7 @@ class BitrixIm
     /**
      * Build a unified low-balance notice.
      *
-     * @param  array{portal: string, service: string, url?: string, line?: string|null, line_url?: string, pay_method?: string, date: string, balance?: string}  $payload
+     * @param  array{portal: string, service: string, url?: string, line?: string|null, line_url?: string, pay_method?: string, date: string, balance?: string, task_url?: string}  $payload
      */
     public function noticeMessage(array $payload): string
     {
@@ -70,6 +70,12 @@ class BitrixIm
         }
 
         $lines[] = $payment;
+
+        $taskUrl = trim((string) ($payload['task_url'] ?? ''));
+        if ($taskUrl !== '') {
+            $lines[] = 'Задача: '.$this->url('открыть', $taskUrl);
+        }
+
         $lines[] = '⚠️ Требуемое действие:';
         $lines[] = $this->action($payMethod);
 

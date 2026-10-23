@@ -88,6 +88,19 @@ return [
         'dialog_id' => env('BITRIX_IM_DIALOG_ID', 'chat561708'),
     ],
 
+    'service_alert_tasks' => [
+        'enabled' => (bool) env('SERVICE_ALERT_TASKS_ENABLED', true),
+        'webhook' => env('BITRIX_TASK_WEBHOOK', env('BITRIX_WEBHOOK', env('BITRIX_UNITS_WEBHOOK'))),
+        'sample_task_id' => (int) env('SERVICE_ALERT_TASK_SAMPLE_ID', 514152),
+        'group_id' => (int) env('SERVICE_ALERT_TASK_GROUP_ID', 86),
+        'responsible_id' => (int) env('SERVICE_ALERT_TASK_RESPONSIBLE_ID', 186098),
+        'created_by' => (int) env('SERVICE_ALERT_TASK_CREATED_BY', 4),
+        'auditor_ids' => array_values(array_filter(array_map(
+            'intval',
+            explode(',', (string) env('SERVICE_ALERT_TASK_AUDITOR_IDS', '90152,10'))
+        ))),
+    ],
+
     'bitrix_contacts' => [
         'event_token' => env('BITRIX_CONTACTS_EVENT_TOKEN'),
         'push' => [
@@ -169,13 +182,16 @@ return [
         'pay_method' => 'Карта',
     ],
 
-    'regru' => [
-        'api_url' => env('REGRU_API_URL', 'https://api.reg.ru/api/regru2'),
-        'username' => env('REGRU_USERNAME'),
-        'password' => env('REGRU_PASSWORD'),
-        'alert_days' => (int) env('REGRU_ALERT_DAYS', 30),
-        'cabinet_url' => env('REGRU_CABINET_URL', 'https://www.reg.ru/user/account/#/domains'),
-        'portal' => env('REGRU_PORTAL', 'AE'),
+    'wazzup' => [
+        'api_url' => env('WAZZUP_API_URL', 'https://api.wazzup24.com/v3'),
+        'api_key' => env('WAZZUP_API_KEY'),
+        'portal' => env('WAZZUP_PORTAL', 'HK'),
+        'cabinet_url' => env('WAZZUP_CABINET_URL', 'https://app.wazzup24.com/'),
+        'pay_method' => env('WAZZUP_PAY_METHOD', 'Карта'),
+        'alert_states' => array_values(array_filter(array_map(
+            static fn (string $value): string => strtolower(trim($value)),
+            explode(',', (string) env('WAZZUP_ALERT_STATES', 'notEnoughMoney,disabled'))
+        ))),
     ],
 
     'service_payments' => [
@@ -185,7 +201,6 @@ return [
         'services' => [
             10828 => 'ChatApp',
             10830 => 'CallGear',
-            11366 => 'REG.RU',
             11368 => 'Miro',
             // 11370 => 'Wikibot',
         ],
@@ -215,7 +230,6 @@ return [
                 'HK' => env('CHATAPP_HK_CABINET_LINE_URL', ''),
             ],
             10830 => env('CALLGEAR_CABINET_URL', ''),
-            11366 => env('REGRU_CABINET_URL', 'https://www.reg.ru/user/account/#/domains'),
             11368 => env('MIRO_CABINET_URL', 'https://miro.com/app/dashboard/'),
             // 11370 => env('WIKIBOT_CABINET_URL', ''),
         ],

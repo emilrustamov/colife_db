@@ -14,8 +14,8 @@ alwaysApply: true
 - ChatApp — мониторинг балансов диалогов, `chatapp:collect`, `ChatApp*`, `CollectDialogs*`, `DialogBalance`, `BITRIX_IM_*`. См. `docs/CHATAPP.md`.
 - Twilio — мониторинг денежного баланса аккаунта, `twilio:collect`, `Twilio*`, `CollectTwilioBalance`, `TWILIO_*`. См. `docs/TWILIO.md`.
 - VDSina — мониторинг баланса хостинг-аккаунта, `vdsina:collect`, `Vdsina*`, `CollectVdsinaBalance`, `VDSINA_*`. См. `docs/VDSINA.md`.
-- REG.RU — мониторинг сроков доменов, `regru:collect`, `Regru*`, `CollectRegruDomains`, `REGRU_*`. См. `docs/REGRU.md`.
-- Оплата сервисов — CallGear / REG.RU / Miro / Wikibot из SPA 1094, `payments:collect`, `ServicePay*`, `CollectServicePay`. См. `docs/SERVICE_PAYMENTS.md`.
+- Wazzup — мониторинг оплаты линий (статусы каналов), `wazzup:collect`, `Wazzup*`, `CollectWazzupChannels`, `WAZZUP_*`. См. `docs/WAZZUP.md`.
+- Оплата сервисов — CallGear / Miro / ChatApp из SPA 1094, `payments:collect`, `ServicePay*`, `CollectServicePay`; по API-алертам (ChatApp/Twilio/VDSina/Wazzup) ещё `ServiceAlertTask`. См. `docs/SERVICE_PAYMENTS.md`.
 - Alma contacts — кэш клиентов Alma и API смены `external_id` по email, `alma:collect`, `Alma*`, `CollectAlmaContacts`, `ALMA_*`. См. `docs/ALMA.md`.
 - Open Lines Source — автопостановка `SOURCE_ID` сделки ГК по первому сообщению OL, роуты `/api/open-lines/*` и `/api/webhooks/bitrix/open-lines`, `DealSourceFromMessage`, `OpenLines*`, `UF_CRM_1792743514293`. См. `docs/OPEN_LINES_SOURCE.md`.
 

@@ -49,17 +49,17 @@
 
 Маркеры: `vdsina:collect`, `Vdsina*`, `CollectVdsinaBalance`, `VDSINA_*`.
 
-### REG.RU
+### Wazzup
 
-Мониторинг сроков доменов REG.RU + алерт в Bitrix IM перед окончанием. Баланс не собирается.
+Мониторинг статусов линий Wazzup (HK) + алерт/задача при неоплате (`notEnoughMoney` / `disabled`). Баланса в API нет.
 
-Подробности: [docs/REGRU.md](docs/REGRU.md).
+Подробности: [docs/WAZZUP.md](docs/WAZZUP.md).
 
-Маркеры: `regru:collect`, `Regru*`, `CollectRegruDomains`, `REGRU_*`.
+Маркеры: `wazzup:collect`, `Wazzup*`, `CollectWazzupChannels`, `WAZZUP_*`.
 
 ### Оплата сервисов (Bitrix SPA)
 
-CallGear, REG.RU, Miro, ChatApp (другие линии) — даты оплаты из SPA type 1094, алерт в Bitrix IM. Twilio, VDSina и WA-линии ChatApp — только из API, карточки SPA по ним не дублируются.
+CallGear, Miro, ChatApp (другие линии) — даты оплаты из SPA type 1094, алерт в Bitrix IM. Twilio, VDSina и WA-линии ChatApp — только из API, карточки SPA по ним не дублируются.
 
 Подробности: [docs/SERVICE_PAYMENTS.md](docs/SERVICE_PAYMENTS.md).
 

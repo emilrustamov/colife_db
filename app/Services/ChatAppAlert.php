@@ -10,7 +10,8 @@ use Illuminate\Support\Facades\Log;
 class ChatAppAlert
 {
     public function __construct(
-        private readonly BitrixIm $bitrixImChannel
+        private readonly BitrixIm $bitrixImChannel,
+        private readonly ServiceAlertTask $serviceAlertTask
     ) {}
 
     /**
@@ -38,7 +39,7 @@ class ChatAppAlert
         $lineUrl = is_array($accountConfig) ? (string) ($accountConfig['cabinet_line_url'] ?? '') : '';
 
         try {
-            $this->bitrixImChannel->notice([
+            $notice = [
                 'portal' => strtoupper($account),
                 'service' => 'ChatApp',
                 'line' => $this->lineLabel($line, $balance->line_name),
@@ -46,7 +47,15 @@ class ChatAppAlert
                 'pay_method' => (string) config('services.chatapp.pay_method', 'Счёт'),
                 'date' => Carbon::parse($balance->collected_at)->format('d.m.Y'),
                 'balance' => '[B]'.$balance->remaining.'[/B]',
-            ]);
+            ];
+            if ($sent === 0) {
+                $taskId = $this->serviceAlertTask->ensureOpen(
+                    $notice,
+                    'chatapp:'.strtoupper($account).':'.$line
+                );
+                $notice['task_url'] = $this->serviceAlertTask->taskUrl($taskId);
+            }
+            $this->bitrixImChannel->notice($notice);
             Cache::put($cacheKey, $sent + 1, Carbon::parse($balance->collected_at)->endOfDay());
         } catch (\Throwable $e) {
             Log::error('ChatApp low balance Bitrix alert failed', [

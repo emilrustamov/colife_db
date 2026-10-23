@@ -9,7 +9,8 @@ use Illuminate\Support\Facades\Log;
 class TwilioAlert
 {
     public function __construct(
-        private readonly BitrixIm $bitrixImChannel
+        private readonly BitrixIm $bitrixImChannel,
+        private readonly ServiceAlertTask $serviceAlertTask
     ) {}
 
     /**
@@ -40,12 +41,15 @@ class TwilioAlert
             : $amount.' '.$currency;
 
         try {
-            $this->bitrixImChannel->notice([
+            $notice = [
                 'portal' => (string) config('services.twilio.portal', 'AE'),
                 'service' => 'Twilio',
                 'date' => Carbon::today('Europe/Moscow')->format('d.m.Y'),
                 'balance' => '[B]'.$balanceLabel.'[/B]',
-            ]);
+            ];
+            $taskId = $this->serviceAlertTask->ensureOpen($notice, 'twilio:'.strtoupper((string) $notice['portal']));
+            $notice['task_url'] = $this->serviceAlertTask->taskUrl($taskId);
+            $this->bitrixImChannel->notice($notice);
             Cache::put($cacheKey, true, Carbon::today('Europe/Moscow')->endOfDay());
         } catch (\Throwable $e) {
             Log::error('Twilio low balance Bitrix alert failed', [

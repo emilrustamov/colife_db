@@ -4,7 +4,9 @@
 
 SPA: [Оплата сервисов](https://colifeae.bitrix24.eu/page/chatapp_linessimcards/oplata_servisov/type/1094/list/category/74/), `entityTypeId=1094`, воронка `74`.
 
-ChatApp WA-линии, Twilio и VDSina собираются своими API — они приоритетнее SPA. Из SPA берутся только сервисы без API-сборщика и **ChatApp другие линии** (не WA): **CallGear, REG.RU, Miro, ChatApp**. Карточки Twilio / VDSina в SPA игнорируются.
+ChatApp WA-линии, Twilio и VDSina собираются своими API — они приоритетнее SPA. Из SPA берутся только сервисы без API-сборщика и **ChatApp другие линии** (не WA): **CallGear, Miro, ChatApp**. Карточки Twilio / VDSina в SPA игнорируются.
+
+По **внешним API**-алертам (ChatApp / Twilio / VDSina / Wazzup) дополнительно создаётся задача в проекте `IT Dubai Tracker` (`GROUP_ID=86`): ответственный `186098`, наблюдатели `90152` и `10`, постановщик `4`, название вида `Оплата сервиса Twilio портал colifeae.bitrix24.eu`. Если задача по этому ключу ещё в работе — повторно не создаём (ни в тот же день, ни на следующий). SPA-алерты (`payments:collect`) задачи не ставят. Задачи — через `BITRIX_UNITS_WEBHOOK` (`4i28218…`). Канал IM — `BITRIX_IM_WEBHOOK`, bp — `BITRIX_BP_WEBHOOK`.
 
 ## Зачем
 
