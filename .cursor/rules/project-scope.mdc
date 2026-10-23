@@ -17,5 +17,6 @@ alwaysApply: true
 - REG.RU — мониторинг сроков доменов, `regru:collect`, `Regru*`, `CollectRegruDomains`, `REGRU_*`. См. `docs/REGRU.md`.
 - Оплата сервисов — CallGear / REG.RU / Miro / Wikibot из SPA 1094, `payments:collect`, `ServicePay*`, `CollectServicePay`. См. `docs/SERVICE_PAYMENTS.md`.
 - Alma contacts — кэш клиентов Alma и API смены `external_id` по email, `alma:collect`, `Alma*`, `CollectAlmaContacts`, `ALMA_*`. См. `docs/ALMA.md`.
+- Open Lines Source — автопостановка `SOURCE_ID` сделки ГК по первому сообщению OL, роуты `/api/open-lines/*` и `/api/webhooks/bitrix/open-lines`, `DealSourceFromMessage`, `OpenLines*`, `UF_CRM_1792743514293`. См. `docs/OPEN_LINES_SOURCE.md`.
 
 Не смешивай задачи доп. модулей с логикой основной синхронизации/хранилища без явного запроса.

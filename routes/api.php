@@ -12,6 +12,7 @@ use App\Http\Controllers\Api\TerminateListBpApi;
 use App\Http\Controllers\Api\CleaningInstallController;
 use App\Http\Controllers\Api\CleaningFormController;
 use App\Http\Controllers\Api\CleaningSubmitController;
+use App\Http\Controllers\Api\OpenLinesInstallController;
 use Illuminate\Support\Facades\Route;
 
 Route::middleware(['api.key'])->group(function (): void {
@@ -27,6 +28,10 @@ Route::match(['get', 'post'], '/bp/terminate-list', [TerminateListBpApi::class, 
 Route::post('/webhooks/bitrix', WebhookController::class);
 Route::post('/webhooks/bitrix/contacts', WebhookController::class);
 Route::post('/webhooks/bitrix/open-lines', OpenLinesController::class);
+Route::match(['get', 'post'], '/open-lines/install', [OpenLinesInstallController::class, 'install'])
+    ->withoutMiddleware(['auth', 'auth:sanctum', 'api.key']);
+Route::post('/open-lines/install/save', [OpenLinesInstallController::class, 'save'])
+    ->withoutMiddleware(['auth', 'auth:sanctum', 'api.key']);
 Route::post('/bp/wait', [BpController::class, 'wait']);
 Route::post('/bp/handler', [BpController::class, 'wait']);
 Route::match(['get', 'post'], '/bp/install', [InstallController::class, 'install'])

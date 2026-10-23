@@ -25,10 +25,12 @@ class TokenVerifier
             return [$incoming !== '' && $this->oauth->isAllowedPortal($domain), $channel];
         }
 
+        if ($context === WebhookContext::OpenLines) {
+            return $this->verifyOpenLines($request);
+        }
+
         $expected = $this->expectedToken($context);
-        $channel = $context === WebhookContext::OpenLines
-            ? 'bitrix_open_lines'
-            : 'bitrix_contacts';
+        $channel = 'bitrix_contacts';
 
         if ($expected === '') {
             Log::channel($channel)->error('Bitrix webhook token config is empty');
@@ -44,15 +46,33 @@ class TokenVerifier
         return [hash_equals($expected, $incoming), $channel];
     }
 
-    private function expectedToken(WebhookContext $context): string
+    /**
+     * @return array{0: bool, 1: string}
+     */
+    private function verifyOpenLines(Request $request): array
     {
-        if ($context === WebhookContext::OpenLines) {
-            $dedicated = (string) config('services.bitrix.open_lines_application_token', '');
-            if ($dedicated !== '') {
-                return $dedicated;
-            }
+        $channel = 'bitrix_open_lines';
+        $incoming = (string) data_get($request->all(), 'auth.application_token', '');
+        if ($incoming === '') {
+            return [false, $channel];
         }
 
+        $domain = $this->oauth->normalizeDomain((string) data_get($request->all(), 'auth.domain', ''));
+        $expectedDomain = $this->oauth->normalizeDomain((string) config('open_lines_source.portal_domain'));
+        if ($domain === '' || $expectedDomain === '' || strcasecmp($domain, $expectedDomain) !== 0) {
+            return [false, $channel];
+        }
+
+        $dedicated = (string) config('services.bitrix.open_lines_application_token', '');
+        if ($dedicated !== '') {
+            return [hash_equals($dedicated, $incoming), $channel];
+        }
+
+        return [true, $channel];
+    }
+
+    private function expectedToken(WebhookContext $context): string
+    {
         $expected = (string) config('services.bitrix.webhook_token', '');
         if ($expected === '') {
             $expected = (string) config('services.bitrix_contacts.event_token', '');
