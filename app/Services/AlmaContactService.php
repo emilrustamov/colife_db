@@ -52,7 +52,7 @@ class AlmaContactService
         $contact->bitrix_id = $externalId;
         $contact->save();
 
-        Log::info('Alma contact external_id updated', [
+        Log::channel('alma_contacts')->info('Alma contact external_id updated', [
             'alma_id' => $contact->alma_id,
             'email' => $contact->email,
             'bitrix_id' => $externalId,

@@ -2,6 +2,8 @@
 
 > **Не основная цель репозитория.** Основной проект — хранение и синхронизация данных Bitrix24. Alma contacts — локальный кэш клиентов Alma и API для смены `external_id` (Bitrix contact id) по email.
 
+Не путать с **Alma Bridge** (апартаменты / контракты B24→Alma) — см. [ALMA_BRIDGE.md](ALMA_BRIDGE.md). Bridge пока на `/var/www/alma`, в Laravel не перенесён.
+
 В Alma поиск клиента доступен только по внутреннему `id` или `external_id`, поэтому email-индекс хранится у нас.
 
 ## Зачем
@@ -79,6 +81,13 @@ POST /api/alma/contacts/external-id (X-Api-Key)
 - `ALMA_API_KEY` — ключ Alma (`Api-Key`)
 - `ALMA_API_TIMEOUT` — таймаут HTTP в секундах (по умолчанию `120`)
 - `CLIENT_BALANCE_API_KEY` — ключ для нашего API (`X-Api-Key`)
+
+## Логи
+
+Канал `alma_contacts` → `storage/logs/alma_contacts-YYYY-MM-DD.log` (30 дней):
+
+- каждый вызов `POST /api/alma/contacts/external-id` (ok / rejected / failed)
+- `alma:collect` (finished / failed)
 
 ## Команды
 

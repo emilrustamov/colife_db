@@ -76,4 +76,64 @@ class BitrixOAuth
 
         return rtrim(trim($domain), '/');
     }
+
+    /**
+     * Map domain to short portal code (AE / HK / TR).
+     */
+    public function portalCode(?string $domain): string
+    {
+        $normalized = $this->normalizeDomain($domain);
+        if ($normalized === '') {
+            return '?';
+        }
+
+        $map = [
+            'AE' => $this->normalizeDomain((string) config('services.bitrix.portal_domain', '')),
+            'HK' => $this->normalizeDomain((string) config('services.b24_hk.portal_domain', '')),
+            'TR' => $this->normalizeDomain((string) config('services.b24_tr.portal_domain', '')),
+        ];
+
+        foreach ($map as $code => $portalDomain) {
+            if ($portalDomain !== '' && strcasecmp($portalDomain, $normalized) === 0) {
+                return $code;
+            }
+        }
+
+        return '?';
+    }
+
+    /**
+     * HTTPS URL for a portal domain.
+     */
+    public function portalUrl(?string $domain): string
+    {
+        $normalized = $this->normalizeDomain($domain);
+        if ($normalized === '') {
+            return '';
+        }
+
+        return 'https://'.$normalized;
+    }
+
+    /**
+     * Configured portals: code => domain.
+     *
+     * @return array<string, string>
+     */
+    public function configuredPortals(): array
+    {
+        $out = [];
+        foreach ([
+            'AE' => (string) config('services.bitrix.portal_domain', ''),
+            'HK' => (string) config('services.b24_hk.portal_domain', ''),
+            'TR' => (string) config('services.b24_tr.portal_domain', ''),
+        ] as $code => $domain) {
+            $domain = $this->normalizeDomain($domain);
+            if ($domain !== '') {
+                $out[$code] = $domain;
+            }
+        }
+
+        return $out;
+    }
 }

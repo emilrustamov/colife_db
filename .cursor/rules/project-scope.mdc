@@ -17,6 +17,8 @@ alwaysApply: true
 - Wazzup — мониторинг оплаты линий (статусы каналов), `wazzup:collect`, `Wazzup*`, `CollectWazzupChannels`, `WAZZUP_*`. См. `docs/WAZZUP.md`.
 - Оплата сервисов — CallGear / Miro / ChatApp из SPA 1094, `payments:collect`, `ServicePay*`, `CollectServicePay`; по API-алертам (ChatApp/Twilio/VDSina/Wazzup) ещё `ServiceAlertTask`. См. `docs/SERVICE_PAYMENTS.md`.
 - Alma contacts — кэш клиентов Alma и API смены `external_id` по email, `alma:collect`, `Alma*`, `CollectAlmaContacts`, `ALMA_*`. См. `docs/ALMA.md`.
+- Alma Bridge — **планируется** перенос `/var/www/alma` (B24 → Alma realty/contracts) в Laravel; пока только аудит/архитектура, код не в проде. Не смешивать с DB-sync SPA 144/167/183. См. `docs/ALMA_BRIDGE.md`.
 - Open Lines Source — автопостановка `SOURCE_ID` сделки ГК по первому сообщению OL, роуты `/api/open-lines/*` и `/api/webhooks/bitrix/open-lines`, `DealSourceFromMessage`, `OpenLines*`, `UF_CRM_1792743514293`. См. `docs/OPEN_LINES_SOURCE.md`.
+- Telegram alerts — редкие крит. алерты в ColifeErrorsBot (OAuth Bitrix / disk sync / паузы queue / supervisor / `/up`), `health:telegram-alerts`, `telegram:setup`, `Telegram*`, `TELEGRAM_*`. См. `docs/TELEGRAM_ALERTS.md`.
 
 Не смешивай задачи доп. модулей с логикой основной синхронизации/хранилища без явного запроса.

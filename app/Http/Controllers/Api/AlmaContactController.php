@@ -6,7 +6,9 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\UpdateAlmaContactExternalIdRequest;
 use App\Services\AlmaContactService;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Support\Facades\Log;
 use RuntimeException;
+use Throwable;
 
 class AlmaContactController extends Controller
 {
@@ -18,21 +20,34 @@ class AlmaContactController extends Controller
         AlmaContactService $contactService
     ): JsonResponse {
         $data = $request->validated();
+        $email = (string) $data['email'];
+        $externalId = (string) $data['external_id'];
+        $logger = Log::channel('alma_contacts');
 
         try {
-            $result = $contactService->updateExternalIdByEmail(
-                (string) $data['email'],
-                (string) $data['external_id']
-            );
+            $result = $contactService->updateExternalIdByEmail($email, $externalId);
         } catch (RuntimeException $e) {
             $message = $e->getMessage();
             $status = $message === 'Alma contact not found for email.' ? 404 : 422;
+            $logger->warning('Alma external-id API rejected', [
+                'email' => $email,
+                'external_id' => $externalId,
+                'status' => $status,
+                'message' => $message,
+            ]);
 
             return response()->json([
                 'success' => false,
                 'message' => $message,
             ], $status);
-        } catch (\Throwable $e) {
+        } catch (Throwable $e) {
+            $logger->error('Alma external-id API failed', [
+                'email' => $email,
+                'external_id' => $externalId,
+                'status' => 502,
+                'error' => $e->getMessage(),
+            ]);
+
             return response()->json([
                 'success' => false,
                 'message' => 'Alma API request failed.',
@@ -40,6 +55,13 @@ class AlmaContactController extends Controller
         }
 
         $contact = $result['contact'];
+        $logger->info('Alma external-id API ok', [
+            'email' => $contact->email,
+            'external_id' => $externalId,
+            'alma_id' => $contact->alma_id,
+            'bitrix_id' => $contact->bitrix_id,
+            'changed' => $result['changed'],
+        ]);
 
         return response()->json([
             'success' => true,

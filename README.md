@@ -57,6 +57,30 @@
 
 Маркеры: `wazzup:collect`, `Wazzup*`, `CollectWazzupChannels`, `WAZZUP_*`.
 
+### Telegram alerts
+
+Редкие крит. алерты в `@ColifeErrorsBot` (OAuth / disk / паузы queue / supervisor / `/up`), без спама.
+
+Подробности: [docs/TELEGRAM_ALERTS.md](docs/TELEGRAM_ALERTS.md).
+
+Маркеры: `health:telegram-alerts`, `telegram:setup`, `Telegram*`, `TELEGRAM_*`.
+
+### Alma contacts
+
+Кэш клиентов Alma + API смены `external_id` по email. Не путать с bridge недвижимости.
+
+Подробности: [docs/ALMA.md](docs/ALMA.md).
+
+Маркеры: `alma:collect`, `AlmaContact*`, `CollectAlmaContacts`, `ALMA_*`, `CLIENT_BALANCE_API_KEY`.
+
+### Alma Bridge (планируется)
+
+Перенос `/var/www/alma` (Bitrix → Alma External API: апартаменты, юниты, контракты) в Laravel. Пока только аудит и архитектура; прод на `alma.colifeb24apps.com`. Не смешивать с DB-sync SPA.
+
+Подробности: [docs/ALMA_BRIDGE.md](docs/ALMA_BRIDGE.md).
+
+Маркеры (после этапа B): `ALMA_BRIDGE_*`, `AlmaBridge*`, `/api/webhooks/bitrix/alma`.
+
 ### Оплата сервисов (Bitrix SPA)
 
 CallGear, Miro, ChatApp (другие линии) — даты оплаты из SPA type 1094, алерт в Bitrix IM. Twilio, VDSina и WA-линии ChatApp — только из API, карточки SPA по ним не дублируются.

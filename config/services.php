@@ -235,4 +235,13 @@ return [
         ],
     ],
 
+    'telegram' => [
+        'enabled' => filter_var(env('TELEGRAM_ALERTS_ENABLED', true), FILTER_VALIDATE_BOOL),
+        'bot_token' => env('TELEGRAM_BOT_TOKEN'),
+        'chat_id' => env('TELEGRAM_CHAT_ID'),
+        'disk_lookback_hours' => (int) env('TELEGRAM_DISK_LOOKBACK_HOURS', 6),
+        'pause_failed_lookback_hours' => (int) env('TELEGRAM_PAUSE_FAILED_LOOKBACK_HOURS', 6),
+        'dedupe_ttl' => (int) env('TELEGRAM_ALERT_DEDUPE_TTL', 86400),
+    ],
+
 ];

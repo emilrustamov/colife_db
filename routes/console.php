@@ -51,3 +51,5 @@ Schedule::command('alma:collect')
     ->timezone('Europe/Moscow');
 
 Schedule::command('bitrix:recover-stuck-pauses')->everyFiveMinutes();
+
+Schedule::command('health:telegram-alerts')->everyFifteenMinutes();

@@ -22,8 +22,10 @@ class CollectAlmaContacts
         $apiUrl = trim((string) config('services.alma.api_url'));
         $apiKey = trim((string) config('services.alma.api_key'));
 
+        $logger = Log::channel('alma_contacts');
+
         if ($apiUrl === '' || $apiKey === '') {
-            Log::warning('Alma contacts collect skipped: credentials are not configured.');
+            $logger->warning('Alma contacts collect skipped: credentials are not configured.');
 
             return;
         }
@@ -76,14 +78,14 @@ class CollectAlmaContacts
                 }
             }
 
-            Log::info('Alma contacts collect finished', [
+            $logger->info('Alma contacts collect finished', [
                 'total' => count($clients),
                 'created' => $created,
                 'updated' => $updated,
                 'unchanged' => $unchanged,
             ]);
         } catch (\Throwable $e) {
-            Log::error('Alma contacts collect failed', [
+            $logger->error('Alma contacts collect failed', [
                 'error' => $e->getMessage(),
             ]);
 
