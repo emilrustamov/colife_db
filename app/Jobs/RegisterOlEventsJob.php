@@ -4,13 +4,14 @@ namespace App\Jobs;
 
 use App\Models\BitrixToken;
 use App\Services\BitrixOAuth;
+use App\Services\BitrixRest;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Bus\Dispatchable;
 use Illuminate\Queue\InteractsWithQueue;
 use Illuminate\Queue\SerializesModels;
-use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
+use Throwable;
 
 class RegisterOlEventsJob implements ShouldQueue
 {
@@ -26,23 +27,19 @@ class RegisterOlEventsJob implements ShouldQueue
     /**
      * Bind Open Lines event handlers for the HK local app.
      */
-    public function handle(BitrixOAuth $oauth): void
+    public function handle(BitrixOAuth $oauth, BitrixRest $bitrixRest): void
     {
         $logger = Log::channel('bitrix_open_lines');
         $domain = $oauth->normalizeDomain($this->domain);
-        $expectedDomain = $oauth->normalizeDomain((string) config('open_lines_source.portal_domain'));
+        $portalDomain = $oauth->normalizeDomain((string) config('open_lines_source.portal_domain'));
 
-        if ($domain === '' || strcasecmp($domain, $expectedDomain) !== 0) {
+        if ($domain === '' || strcasecmp($domain, $portalDomain) !== 0) {
             $logger->warning('OL_EVENT_BIND_SKIP_DOMAIN', ['domain' => $domain]);
 
             return;
         }
 
-        $accessToken = (string) BitrixToken::query()
-            ->where('domain', $domain)
-            ->value('access_token');
-
-        if ($accessToken === '') {
+        if (BitrixToken::query()->where('domain', $domain)->doesntExist()) {
             $logger->warning('OL_EVENT_BIND_NO_TOKEN', ['domain' => $domain]);
 
             return;
@@ -66,13 +63,15 @@ class RegisterOlEventsJob implements ShouldQueue
                 continue;
             }
 
-            $response = Http::asForm()->post('https://'.$domain.'/rest/event.bind', [
-                'event' => $eventName,
-                'handler' => $handler,
-                'auth' => $accessToken,
-            ]);
+            try {
+                $body = $bitrixRest->postJson('event.bind', [
+                    'event' => $eventName,
+                    'handler' => $handler,
+                ], $domain);
+            } catch (Throwable $e) {
+                $body = ['error' => $e->getMessage()];
+            }
 
-            $body = $response->json();
             $error = is_array($body) ? (string) ($body['error'] ?? '') : '';
             $alreadyBound = str_contains(strtolower($error), 'already')
                 || str_contains(strtolower((string) data_get($body, 'error_description', '')), 'already');
@@ -81,19 +80,18 @@ class RegisterOlEventsJob implements ShouldQueue
                 'domain' => $domain,
                 'event' => $eventName,
                 'handler' => $handler,
-                'status' => $response->status(),
                 'body' => $body,
                 'already_bound' => $alreadyBound,
             ]);
 
-            if ($response->failed() && ! $alreadyBound) {
+            if ($error !== '' && ! $alreadyBound) {
                 $logger->warning('OL_EVENT_BIND_FAILED', [
                     'domain' => $domain,
                     'event' => $eventName,
-                    'status' => $response->status(),
                     'body' => $body,
-                    'hint' => $error === 'ERROR_EVENT_NOT_FOUND'
-                        ? 'Add imopenlines (+ crm) scopes to the local app and reinstall'
+                    'hint' => str_contains(strtolower($error), 'error_event_not_found')
+                        || str_contains(strtolower($error), 'insufficient_scope')
+                        ? 'Reinstall HK app with crm + bizproc + imopenlines via /api/bp/install'
                         : null,
                 ]);
             }

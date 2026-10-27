@@ -21,9 +21,8 @@
 | Приложение само завершает установку | да |
 | Путь обработчика событий | `https://db.colifeb24apps.com/api/webhooks/bitrix/open-lines` |
 
-Права приложения: **CRM**, **Открытые линии** (`crm`, `imopenlines`). Без скоупа `imopenlines` `event.bind` вернёт `ERROR_EVENT_NOT_FOUND`.
-
-Можно расширить права существующего HK local-приложения (`B24_HK_CLIENT_ID`) или завести отдельное с install URL ниже. Токены пишутся в `bitrix_tokens` по `domain` — на один портал один OAuth-ряд.
+Одно HK local-приложение (`B24_HK_CLIENT_ID`) — общие OAuth-токены с паузами.  
+Права: **CRM + Bizproc + Открытые линии** (`crm`, `bizproc`, `imopenlines`). Без `imopenlines` `event.bind` / `dialog.get` не работают. Отдельное OL-приложение не использовать.
 
 ## Flow
 
@@ -40,7 +39,11 @@ ONOPENLINEMESSAGEADD (HK)
 
 Стоп-флаг: `UF_CRM_1792743514293` (`[тех поле] Источник проставлен автоматикой?`). Если заполнено — skip.
 
-Если `SOURCE_ID` уже заполнен вручную, а текст совпал: техполе + комментарий без смены источника.
+Если `SOURCE_ID` пустой или это источник коннектора OL (`5|ANK_…` и т.п.) — пишем сматченный источник.  
+Ручной CRM-источник (без `|`) не перезаписываем: только техполе + комментарий.
+
+Job стартует с задержкой **60 с** (сделка успевает создаться и привязаться к чату).  
+Если всё ещё `OL_SOURCE_NO_DEAL` — ещё до 5 ретраев раз в ~60 с. При успехе: `SOURCE_ID` + техполе + комментарий в таймлайне.
 
 ## Маппинг v1
 
@@ -67,7 +70,7 @@ ONOPENLINEMESSAGEADD (HK)
 ## Env
 
 - `B24_HK_PORTAL_DOMAIN=colifepacific.bitrix24.com`
-- `B24_HK_CLIENT_ID`, `B24_HK_CLIENT_SECRET`
+- `B24_HK_CLIENT_ID`, `B24_HK_CLIENT_SECRET` — то же приложение, что для пауз
 - `BITRIX_OPEN_LINES_HANDLER_URL` (по умолчанию `{APP_URL}/api/webhooks/bitrix/open-lines`)
 - `BITRIX_OPEN_LINES_APPLICATION_TOKEN` (**обязателен**; пустой = reject всех OL webhook / install/save)
 

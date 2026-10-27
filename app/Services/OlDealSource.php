@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use App\Exceptions\OlDealNotReadyException;
 use Illuminate\Support\Facades\Log;
 use Throwable;
 
@@ -64,13 +65,14 @@ class OlDealSource
                 'user_code' => $this->buildUserCode($packet),
             ]);
 
-            return;
+            throw new OlDealNotReadyException(
+                'Open Lines dialog has no deal yet for chat '.$chatId
+            );
         }
 
         $ufFlag = (string) config('open_lines_source.uf_flag');
         $ufValue = (string) config('open_lines_source.uf_flag_value', 'Y');
         $categoryId = (int) config('open_lines_source.category_id', 0);
-
         $deal = $this->bitrixRest->postJson('crm.deal.get', ['id' => $dealId], $domain);
         $fields = is_array($deal['result'] ?? null) ? $deal['result'] : [];
 
@@ -115,7 +117,7 @@ class OlDealSource
         ];
 
         $sourceChanged = false;
-        if ($existingSource === '') {
+        if ($existingSource === '' || $this->isConnectorSource($existingSource)) {
             $updateFields['SOURCE_ID'] = $rule['source_id'];
             $sourceChanged = true;
         }
@@ -126,7 +128,6 @@ class OlDealSource
                 'fields' => $updateFields,
             ], $domain);
 
-            $commentSource = $sourceChanged ? $rule['name'] : ($existingSource !== '' ? $existingSource : $rule['name']);
             $comment = $sourceChanged
                 ? sprintf(
                     'Источник «%s» проставлен автоматикой по сообщению: «%s»',
@@ -241,7 +242,12 @@ class OlDealSource
         foreach ($payloads as $payload) {
             try {
                 $dialog = $this->bitrixRest->postJson('imopenlines.dialog.get', $payload, $domain);
-            } catch (Throwable) {
+            } catch (Throwable $e) {
+                Log::channel('bitrix_open_lines')->warning('OL_SOURCE_DIALOG_GET_FAILED', [
+                    'payload' => $payload,
+                    'error' => $e->getMessage(),
+                ]);
+
                 continue;
             }
 
@@ -258,6 +264,14 @@ class OlDealSource
         }
 
         return 0;
+    }
+
+    /**
+     * Bitrix OL connector sources look like "5|ANK_CHATS_APP24_WHATS_APP".
+     */
+    private function isConnectorSource(string $sourceId): bool
+    {
+        return str_contains($sourceId, '|');
     }
 
     /**

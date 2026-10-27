@@ -52,20 +52,20 @@ Route::middleware(['throttle:60,1'])->group(function (): void {
 });
 
 Route::match(['get', 'post'], '/open-lines/install', [OpenLinesInstallController::class, 'install'])
-    ->middleware('throttle:30,1')
+    ->middleware('throttle:bitrix-install')
     ->withoutMiddleware(['auth', 'auth:sanctum', 'api.key']);
 Route::post('/open-lines/install/save', [OpenLinesInstallController::class, 'save'])
-    ->middleware('throttle:30,1')
+    ->middleware('throttle:bitrix-install')
     ->withoutMiddleware(['auth', 'auth:sanctum', 'api.key']);
 Route::match(['get', 'post'], '/bp/install', [InstallController::class, 'install'])
-    ->middleware('throttle:30,1')
+    ->middleware('throttle:bitrix-install')
     ->withoutMiddleware(['auth', 'auth:sanctum', 'api.key']);
 
 Route::match(['get', 'post'], '/cleaning/install', [CleaningInstallController::class, 'install'])
-    ->middleware('throttle:30,1')
+    ->middleware('throttle:bitrix-install')
     ->withoutMiddleware(['auth', 'auth:sanctum', 'api.key']);
 Route::post('/cleaning/install/save', [CleaningInstallController::class, 'save'])
-    ->middleware('throttle:30,1')
+    ->middleware('throttle:bitrix-install')
     ->withoutMiddleware(['auth', 'auth:sanctum', 'api.key']);
 Route::match(['get', 'post'], '/cleaning', [CleaningFormController::class, 'index'])
     ->middleware('throttle:60,1')

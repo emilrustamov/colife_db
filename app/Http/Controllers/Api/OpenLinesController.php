@@ -81,7 +81,8 @@ class OpenLinesController extends Controller
                 'text_preview' => mb_substr(trim((string) data_get($packet, 'message.text', '')), 0, 80),
             ];
 
-            OpenLineMessageJob::dispatch($domain, $packet);
+            OpenLineMessageJob::dispatch($domain, $packet)
+                ->delay(now()->addSeconds(OpenLineMessageJob::INITIAL_DELAY_SECONDS));
             $queued++;
         }
 

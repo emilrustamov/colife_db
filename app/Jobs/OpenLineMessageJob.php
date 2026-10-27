@@ -2,6 +2,7 @@
 
 namespace App\Jobs;
 
+use App\Exceptions\OlDealNotReadyException;
 use App\Services\OlDealSource;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
@@ -18,9 +19,19 @@ class OpenLineMessageJob implements ShouldQueue
     use Queueable;
     use SerializesModels;
 
-    public int $tries = 3;
+    public int $tries = 6;
 
     public int $timeout = 60;
+
+    /**
+     * Initial delay before first attempt (seconds) — chat→deal link usually ready by then.
+     */
+    public const INITIAL_DELAY_SECONDS = 60;
+
+    /**
+     * Delay between NO_DEAL retries (seconds).
+     */
+    public const RETRY_DELAY_SECONDS = 60;
 
     /**
      * @param  array<string, mixed>  $packet
@@ -35,7 +46,26 @@ class OpenLineMessageJob implements ShouldQueue
      */
     public function handle(OlDealSource $service): void
     {
-        $service->handle($this->domain, $this->packet);
+        try {
+            $service->handle($this->domain, $this->packet);
+        } catch (OlDealNotReadyException $e) {
+            if ($this->attempts() < $this->tries) {
+                Log::channel('bitrix_open_lines')->info('OL_SOURCE_NO_DEAL_RETRY', [
+                    'chat_id' => (int) data_get($this->packet, 'chat.id', 0),
+                    'attempt' => $this->attempts(),
+                    'release_in' => self::RETRY_DELAY_SECONDS,
+                ]);
+                $this->release(self::RETRY_DELAY_SECONDS);
+
+                return;
+            }
+
+            Log::channel('bitrix_open_lines')->warning('OL_SOURCE_NO_DEAL_GAVE_UP', [
+                'chat_id' => (int) data_get($this->packet, 'chat.id', 0),
+                'attempts' => $this->attempts(),
+                'error' => $e->getMessage(),
+            ]);
+        }
     }
 
     /**
