@@ -12,6 +12,7 @@ use Carbon\Carbon;
 use Illuminate\Support\Arr;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
 
 class ContactProfile implements EntityProfile
@@ -129,8 +130,13 @@ class ContactProfile implements EntityProfile
                 $changedByBitrixUserNameByBitrixId[$bitrixId] = $this->resolveBitrixUserName($changedByBitrixUserId);
                 $currentBatchBitrixIds[] = $bitrixId;
                 $successful++;
-            } catch (\Throwable) {
+            } catch (\Throwable $e) {
                 $failedIds[] = $item['ID'] ?? 'unknown';
+                Log::warning('CONTACT_PROFILE_ITEM_FAILED', [
+                    'bitrix_id' => $item['ID'] ?? null,
+                    'error' => $e->getMessage(),
+                    'exception' => $e::class,
+                ]);
             }
         }
 

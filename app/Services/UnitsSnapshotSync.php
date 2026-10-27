@@ -4,6 +4,7 @@ namespace App\Services;
 
 use App\Models\BitrixUnitsSnapshot;
 use Carbon\Carbon;
+use Illuminate\Support\Facades\Log;
 use Throwable;
 
 class UnitsSnapshotSync
@@ -53,8 +54,13 @@ class UnitsSnapshotSync
                 try {
                     $rows[] = $this->normalizeItem($item, $now);
                     $successful++;
-                } catch (Throwable) {
+                } catch (Throwable $e) {
                     $failedUnitIds[] = $item['id'] ?? 'unknown';
+                    Log::warning('UNITS_SNAPSHOT_ITEM_FAILED', [
+                        'bitrix_id' => $item['id'] ?? null,
+                        'error' => $e->getMessage(),
+                        'exception' => $e::class,
+                    ]);
                 }
             }
 

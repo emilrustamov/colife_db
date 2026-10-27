@@ -2,7 +2,7 @@
 
 namespace App\Jobs;
 
-use App\Services\DealSourceFromMessage;
+use App\Services\OlDealSource;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Bus\Dispatchable;
@@ -11,7 +11,7 @@ use Illuminate\Queue\SerializesModels;
 use Illuminate\Support\Facades\Log;
 use Throwable;
 
-class ProcessOpenLineMessageJob implements ShouldQueue
+class OpenLineMessageJob implements ShouldQueue
 {
     use Dispatchable;
     use InteractsWithQueue;
@@ -33,7 +33,7 @@ class ProcessOpenLineMessageJob implements ShouldQueue
     /**
      * Apply deal SOURCE_ID from Open Lines message text.
      */
-    public function handle(DealSourceFromMessage $service): void
+    public function handle(OlDealSource $service): void
     {
         $service->handle($this->domain, $this->packet);
     }

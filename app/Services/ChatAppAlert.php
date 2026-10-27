@@ -11,7 +11,7 @@ class ChatAppAlert
 {
     public function __construct(
         private readonly BitrixIm $bitrixImChannel,
-        private readonly ServiceAlertTask $serviceAlertTask
+        private readonly AlertTask $alertTask
     ) {}
 
     /**
@@ -49,11 +49,11 @@ class ChatAppAlert
                 'balance' => '[B]'.$balance->remaining.'[/B]',
             ];
             if ($sent === 0) {
-                $taskId = $this->serviceAlertTask->ensureOpen(
+                $taskId = $this->alertTask->ensureOpen(
                     $notice,
                     'chatapp:'.strtoupper($account).':'.$line
                 );
-                $notice['task_url'] = $this->serviceAlertTask->taskUrl($taskId);
+                $notice['task_url'] = $this->alertTask->taskUrl($taskId);
             }
             $this->bitrixImChannel->notice($notice);
             Cache::put($cacheKey, $sent + 1, Carbon::parse($balance->collected_at)->endOfDay());

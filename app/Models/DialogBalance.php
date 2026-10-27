@@ -17,12 +17,15 @@ class DialogBalance extends Model
     ];
 
     /**
-     * @var array<string, string>
+     * @return array<string, string>
      */
-    protected $casts = [
-        'total_limit' => 'integer',
-        'used' => 'integer',
-        'remaining' => 'integer',
-        'collected_at' => 'date',
-    ];
+    protected function casts(): array
+    {
+        return [
+            'total_limit' => 'integer',
+            'used' => 'integer',
+            'remaining' => 'integer',
+            'collected_at' => 'date',
+        ];
+    }
 }

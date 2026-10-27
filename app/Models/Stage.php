@@ -4,6 +4,7 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class Stage extends Model
 {
@@ -41,6 +42,14 @@ class Stage extends Model
             'bitrix_updated_at' => 'datetime',
             'last_synced_at' => 'datetime',
         ];
+    }
+
+    /**
+     * @return BelongsTo<Pipeline, $this>
+     */
+    public function pipeline(): BelongsTo
+    {
+        return $this->belongsTo(Pipeline::class);
     }
 }
 

@@ -2,8 +2,10 @@
 
 namespace App\Http\Controllers\Api;
 
+use App\Enums\WebhookContext;
 use App\Http\Controllers\Controller;
 use App\Services\CleaningSubmitService;
+use App\Services\TokenVerifier;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
@@ -12,7 +14,8 @@ use Throwable;
 class CleaningSubmitController extends Controller
 {
     public function __construct(
-        private readonly CleaningSubmitService $submitService
+        private readonly CleaningSubmitService $submitService,
+        private readonly TokenVerifier $tokenVerifier,
     ) {}
 
     /**
@@ -20,6 +23,13 @@ class CleaningSubmitController extends Controller
      */
     public function submit(Request $request): JsonResponse
     {
+        [$tokenOk] = $this->tokenVerifier->verify($request, WebhookContext::Cleaning);
+        if (! $tokenOk) {
+            Log::channel('bitrix_cleaning')->warning('CLEANING_SUBMIT_REJECTED');
+
+            return response()->json(['status' => 'error', 'message' => 'Forbidden'], 403);
+        }
+
         $validated = $request->validate([
             'apartment_id' => ['required', 'integer', 'min:1'],
             'apartment_title' => ['required', 'string', 'max:255'],

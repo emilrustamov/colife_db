@@ -1077,6 +1077,11 @@
         formData.append('needs_repair', needsRepairInput.checked ? '1' : '0');
         formData.append('notes', notesInput.value || '');
         selectedFiles.forEach(function (file) { formData.append('photos[]', file, file.name); });
+        const bxAuth = (typeof BX24 !== 'undefined' && BX24.getAuth) ? BX24.getAuth() : null;
+        if (bxAuth) {
+            formData.append('auth[domain]', bxAuth.domain || '');
+            formData.append('auth[application_token]', bxAuth.application_token || '');
+        }
 
         loadingEl.classList.add('show');
         submitBtn.disabled = true;

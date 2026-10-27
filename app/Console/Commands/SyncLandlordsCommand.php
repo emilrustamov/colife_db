@@ -2,14 +2,14 @@
 
 namespace App\Console\Commands;
 
-use App\Services\LandlordContactsSync;
+use App\Services\LandlordSync;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\Log;
 use Throwable;
 
-class SyncLandlordContactsCommand extends Command
+class SyncLandlordsCommand extends Command
 {
-    protected $signature = 'bitrix:sync-landlord-contacts
+    protected $signature = 'bitrix:sync-landlords
         {--dry-run : Compute diffs without writing to Bitrix}
         {--limit= : Process only first N landlord contacts}';
 
@@ -18,7 +18,7 @@ class SyncLandlordContactsCommand extends Command
     /**
      * Push landlord TYPE_ID and apartment bindings to Bitrix contacts.
      */
-    public function handle(LandlordContactsSync $sync): int
+    public function handle(LandlordSync $sync): int
     {
         $dryRun = (bool) $this->option('dry-run');
         $limitOption = $this->option('limit');

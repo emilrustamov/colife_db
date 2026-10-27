@@ -267,6 +267,7 @@ class DirectoryController extends Controller
                 'table' => 'metro_stations',
                 'id' => 'bitrix_id',
                 'morph' => 'App\\Models\\MetroStation',
+                'static_reference' => true,
             ],
             'apartment-types' => [
                 'key' => 'apartment-types',
@@ -275,6 +276,7 @@ class DirectoryController extends Controller
                 'table' => 'apartment_types',
                 'id' => 'id',
                 'morph' => 'App\\Models\\ApartmentType',
+                'static_reference' => true,
             ],
             'pipelines' => [
                 'key' => 'pipelines',
@@ -299,6 +301,7 @@ class DirectoryController extends Controller
                 'table' => 'buildings',
                 'id' => 'bitrix_id',
                 'morph' => 'App\\Models\\Building',
+                'static_reference' => true,
             ],
             'apartments' => [
                 'key' => 'apartments',
@@ -472,7 +475,7 @@ class DirectoryController extends Controller
         }
 
         foreach ($this->foreignKeyMappings($directoryKey) as $mapping) {
-            $this->formatForeignKeyFieldBatch($rows, $mapping);
+            $this->applyFkLabels($rows, $mapping);
         }
     }
 
@@ -524,7 +527,7 @@ class DirectoryController extends Controller
      * @param  list<object>  $rows
      * @param  array<string, mixed>  $mapping
      */
-    private function formatForeignKeyFieldBatch(array $rows, array $mapping): void
+    private function applyFkLabels(array $rows, array $mapping): void
     {
         $field = (string) $mapping['field'];
         $table = (string) $mapping['table'];

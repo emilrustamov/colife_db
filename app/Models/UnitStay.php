@@ -4,6 +4,7 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class UnitStay extends Model
 {
@@ -67,6 +68,38 @@ class UnitStay extends Model
             'months_of_stay' => 'integer',
             'is_deleted' => 'boolean',
         ];
+    }
+
+    /**
+     * @return BelongsTo<Unit, $this>
+     */
+    public function unit(): BelongsTo
+    {
+        return $this->belongsTo(Unit::class);
+    }
+
+    /**
+     * @return BelongsTo<Stage, $this>
+     */
+    public function stage(): BelongsTo
+    {
+        return $this->belongsTo(Stage::class);
+    }
+
+    /**
+     * @return BelongsTo<Contact, $this>
+     */
+    public function tenantContact(): BelongsTo
+    {
+        return $this->belongsTo(Contact::class, 'tenant_contact_id');
+    }
+
+    /**
+     * @return BelongsTo<Contact, $this>
+     */
+    public function coTenantContact(): BelongsTo
+    {
+        return $this->belongsTo(Contact::class, 'co_tenant_contact_id');
     }
 }
 

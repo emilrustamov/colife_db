@@ -7,6 +7,7 @@ use App\Models\Utility;
 use App\Support\BitrixSoftDelete;
 use App\Support\BitrixValue;
 use Carbon\Carbon;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
 use Throwable;
 
@@ -78,8 +79,13 @@ class UtilitiesSync
             try {
                 $rows[] = $this->normalizeItem($item, $fieldMap, $existingIds, $apartmentIdByBitrixId, $now);
                 $successful++;
-            } catch (Throwable) {
+            } catch (Throwable $e) {
                 $failedIds[] = $item['ID'] ?? 'unknown';
+                Log::warning('UTILITIES_SYNC_ITEM_FAILED', [
+                    'bitrix_id' => $item['ID'] ?? null,
+                    'error' => $e->getMessage(),
+                    'exception' => $e::class,
+                ]);
             }
         }
 

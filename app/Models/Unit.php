@@ -5,6 +5,7 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class Unit extends Model
 {
@@ -60,6 +61,22 @@ class Unit extends Model
     public function apartment(): BelongsTo
     {
         return $this->belongsTo(Apartment::class);
+    }
+
+    /**
+     * @return BelongsTo<Stage, $this>
+     */
+    public function stage(): BelongsTo
+    {
+        return $this->belongsTo(Stage::class);
+    }
+
+    /**
+     * @return HasMany<UnitStay, $this>
+     */
+    public function stays(): HasMany
+    {
+        return $this->hasMany(UnitStay::class);
     }
 }
 

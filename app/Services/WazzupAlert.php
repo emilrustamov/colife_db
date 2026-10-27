@@ -2,15 +2,10 @@
 
 namespace App\Services;
 
-use Illuminate\Support\Carbon;
-use Illuminate\Support\Facades\Cache;
-use Illuminate\Support\Facades\Log;
-
 class WazzupAlert
 {
     public function __construct(
-        private readonly BitrixIm $bitrixImChannel,
-        private readonly ServiceAlertTask $serviceAlertTask
+        private readonly DailyAlert $dailyAlert,
     ) {}
 
     /**
@@ -39,41 +34,24 @@ class WazzupAlert
             return;
         }
 
-        $today = Carbon::today('Europe/Moscow')->format('Y-m-d');
-        $cacheKey = 'wazzup:channel_alert:'.$channelId.':'.$today;
-        if (Cache::has($cacheKey)) {
-            return;
-        }
-
         $portal = strtoupper((string) config('services.wazzup.portal', 'HK'));
         $label = $this->channelLabel($channel);
 
-        try {
-            $notice = [
+        $this->dailyAlert->notifyOnce(
+            'wazzup:channel_alert:'.$channelId.':'.$this->dailyAlert->todayKey(),
+            'wazzup:'.strtolower($portal).':'.$channelId,
+            [
                 'portal' => $portal,
                 'service' => 'Wazzup — '.$label,
                 'url' => (string) config('services.wazzup.cabinet_url', ''),
                 'line' => $label,
                 'pay_method' => (string) config('services.wazzup.pay_method', 'Карта'),
-                'date' => Carbon::today('Europe/Moscow')->format('d.m.Y'),
+                'date' => $this->dailyAlert->todayNoticeDate(),
                 'balance' => '[B]'.$state.'[/B]',
-            ];
-            $taskId = $this->serviceAlertTask->ensureOpen(
-                $notice,
-                'wazzup:'.strtolower($portal).':'.$channelId
-            );
-            $notice['task_url'] = $this->serviceAlertTask->taskUrl($taskId);
-            $this->bitrixImChannel->notice($notice);
-            Cache::put($cacheKey, true, Carbon::today('Europe/Moscow')->endOfDay());
-        } catch (\Throwable $e) {
-            Log::error('Wazzup channel Bitrix alert failed', [
-                'channel_id' => $channelId,
-                'state' => $state,
-                'error' => $e->getMessage(),
-            ]);
-
-            throw $e;
-        }
+            ],
+            'Wazzup channel Bitrix alert failed',
+            ['channel_id' => $channelId, 'state' => $state],
+        );
     }
 
     /**

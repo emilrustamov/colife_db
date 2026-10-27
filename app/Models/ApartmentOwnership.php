@@ -4,6 +4,7 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class ApartmentOwnership extends Model
 {
@@ -56,5 +57,21 @@ class ApartmentOwnership extends Model
             'bitrix_updated_at' => 'datetime',
             'last_synced_at' => 'datetime',
         ];
+    }
+
+    /**
+     * @return BelongsTo<Apartment, $this>
+     */
+    public function apartment(): BelongsTo
+    {
+        return $this->belongsTo(Apartment::class);
+    }
+
+    /**
+     * @return BelongsTo<Stage, $this>
+     */
+    public function stage(): BelongsTo
+    {
+        return $this->belongsTo(Stage::class);
     }
 }

@@ -11,6 +11,7 @@ use Carbon\Carbon;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Arr;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
 
 abstract class SpaProfile implements EntityProfile
@@ -149,8 +150,14 @@ abstract class SpaProfile implements EntityProfile
 
                 $rows[] = $normalized;
                 $successful++;
-            } catch (\Throwable) {
+            } catch (\Throwable $e) {
                 $failedIds[] = $item['id'] ?? 'unknown';
+                Log::warning('SPA_PROFILE_ITEM_FAILED', [
+                    'entity' => $modelClass,
+                    'bitrix_id' => $item['id'] ?? null,
+                    'error' => $e->getMessage(),
+                    'exception' => $e::class,
+                ]);
             }
         }
 

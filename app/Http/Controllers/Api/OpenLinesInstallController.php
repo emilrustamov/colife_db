@@ -2,11 +2,13 @@
 
 namespace App\Http\Controllers\Api;
 
+use App\Enums\WebhookContext;
 use App\Http\Controllers\Controller;
-use App\Jobs\RegisterOpenLinesEventsJob;
+use App\Jobs\RegisterOlEventsJob;
 use App\Models\BitrixToken;
 use App\Services\BitrixAuth;
 use App\Services\BitrixOAuth;
+use App\Services\TokenVerifier;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
@@ -16,7 +18,8 @@ class OpenLinesInstallController extends Controller
 {
     public function __construct(
         private readonly BitrixAuth $bitrixAuthService,
-        private readonly BitrixOAuth $oauth
+        private readonly BitrixOAuth $oauth,
+        private readonly TokenVerifier $tokenVerifier,
     ) {}
 
     /**
@@ -30,31 +33,35 @@ class OpenLinesInstallController extends Controller
             (string) (data_get($payload, 'auth.domain') ?: $request->input('DOMAIN', ''))
         );
         $expectedDomain = $this->oauth->normalizeDomain((string) config('open_lines_source.portal_domain'));
-        $allowed = $domain !== '' && strcasecmp($domain, $expectedDomain) === 0;
+        [$tokenOk] = $this->tokenVerifier->verify($request, WebhookContext::OpenLines);
+        $domainAllowed = $domain !== '' && strcasecmp($domain, $expectedDomain) === 0;
 
         $logger->info('OL_INSTALL_HIT', [
             'domain' => $domain !== '' ? $domain : null,
             'keys' => array_keys($payload),
             'has_auth' => is_array(data_get($payload, 'auth')),
-            'allowed' => $allowed,
+            'domain_allowed' => $domainAllowed,
+            'token_ok' => $tokenOk,
         ]);
 
         $saved = false;
         $message = 'Finishing installation…';
 
-        if ($allowed) {
+        if ($domainAllowed && $tokenOk) {
             $saved = $this->persistFromRequest($request, $domain);
             if ($saved) {
-                RegisterOpenLinesEventsJob::dispatchSync($domain);
+                RegisterOlEventsJob::dispatchSync($domain);
                 $message = 'Open Lines Source app installed.';
             }
-        } elseif ($domain !== '') {
+        } elseif ($domain !== '' && ! $domainAllowed) {
             $message = 'Portal domain is not allowed: '.$domain;
             $logger->warning('OL_INSTALL_DOMAIN_REJECTED', ['domain' => $domain]);
+        } elseif ($domainAllowed && ! $tokenOk) {
+            $logger->warning('OL_INSTALL_TOKEN_PENDING', ['domain' => $domain]);
         }
 
         return view('open_lines.install', [
-            'ok' => $allowed || $domain === '',
+            'ok' => $domainAllowed || $domain === '',
             'saved' => $saved,
             'message' => $message,
             'saveUrl' => url('/api/open-lines/install/save'),
@@ -67,16 +74,18 @@ class OpenLinesInstallController extends Controller
     public function save(Request $request): JsonResponse
     {
         $logger = Log::channel('bitrix_open_lines');
+        [$tokenOk] = $this->tokenVerifier->verify($request, WebhookContext::OpenLines);
+        if (! $tokenOk) {
+            $logger->warning('OL_INSTALL_SAVE_REJECTED', [
+                'domain' => $request->input('domain') ?: data_get($request->all(), 'auth.domain'),
+            ]);
+
+            return response()->json(['status' => 'error', 'message' => 'Forbidden'], 403);
+        }
+
         $domain = $this->oauth->normalizeDomain(
             (string) ($request->input('domain') ?: data_get($request->all(), 'auth.domain', ''))
         );
-        $expectedDomain = $this->oauth->normalizeDomain((string) config('open_lines_source.portal_domain'));
-
-        if ($domain === '' || strcasecmp($domain, $expectedDomain) !== 0) {
-            $logger->warning('OL_INSTALL_SAVE_REJECTED', ['domain' => $domain]);
-
-            return response()->json(['status' => 'error', 'message' => 'Forbidden portal'], 403);
-        }
 
         $accessToken = (string) ($request->input('access_token') ?: data_get($request->all(), 'auth.access_token', ''));
         $refreshToken = (string) ($request->input('refresh_token') ?: data_get($request->all(), 'auth.refresh_token', ''));
@@ -89,21 +98,26 @@ class OpenLinesInstallController extends Controller
             return response()->json(['status' => 'error', 'message' => 'Tokens required'], 422);
         }
 
+        $attributes = [
+            'access_token' => $accessToken,
+            'auth_id' => $accessToken,
+            'refresh_token' => $refreshToken,
+            'refresh_id' => $refreshToken,
+            'expires_in' => $expiresIn > 0 ? $expiresIn : 3600,
+            'expires_at' => now()->addSeconds($expiresIn > 0 ? $expiresIn : 3600),
+            'member_id' => $memberId !== '' ? $memberId : null,
+            'user_id' => is_numeric($userId) ? (int) $userId : null,
+        ];
+        if ($applicationToken !== '') {
+            $attributes['application_token'] = $applicationToken;
+        }
+
         BitrixToken::query()->updateOrCreate(
             ['domain' => $domain],
-            [
-                'access_token' => $accessToken,
-                'auth_id' => $accessToken,
-                'refresh_token' => $refreshToken,
-                'refresh_id' => $refreshToken,
-                'expires_in' => $expiresIn > 0 ? $expiresIn : 3600,
-                'expires_at' => now()->addSeconds($expiresIn > 0 ? $expiresIn : 3600),
-                'member_id' => $memberId !== '' ? $memberId : null,
-                'user_id' => is_numeric($userId) ? (int) $userId : null,
-            ]
+            $attributes
         );
 
-        RegisterOpenLinesEventsJob::dispatchSync($domain);
+        RegisterOlEventsJob::dispatchSync($domain);
 
         $logger->info('OL_INSTALL_SAVE_OK', [
             'domain' => $domain,
@@ -120,6 +134,7 @@ class OpenLinesInstallController extends Controller
      */
     private function persistFromRequest(Request $request, string $domain): bool
     {
+        $applicationToken = (string) data_get($request->all(), 'auth.application_token', '');
         $authAccessToken = (string) $request->input('auth.access_token', '');
         $authRefreshToken = (string) $request->input('auth.refresh_token', '');
         $authExpiresIn = (int) $request->input('auth.expires_in', 3600);
@@ -127,18 +142,23 @@ class OpenLinesInstallController extends Controller
         $authUserId = $request->input('auth.user_id');
 
         if ($authAccessToken !== '' && $authRefreshToken !== '') {
+            $attributes = [
+                'access_token' => $authAccessToken,
+                'auth_id' => $authAccessToken,
+                'refresh_token' => $authRefreshToken,
+                'refresh_id' => $authRefreshToken,
+                'expires_in' => $authExpiresIn,
+                'expires_at' => now()->addSeconds($authExpiresIn > 0 ? $authExpiresIn : 3600),
+                'member_id' => $authMemberId !== '' ? $authMemberId : null,
+                'user_id' => is_numeric($authUserId) ? (int) $authUserId : null,
+            ];
+            if ($applicationToken !== '') {
+                $attributes['application_token'] = $applicationToken;
+            }
+
             BitrixToken::query()->updateOrCreate(
                 ['domain' => $domain],
-                [
-                    'access_token' => $authAccessToken,
-                    'auth_id' => $authAccessToken,
-                    'refresh_token' => $authRefreshToken,
-                    'refresh_id' => $authRefreshToken,
-                    'expires_in' => $authExpiresIn,
-                    'expires_at' => now()->addSeconds($authExpiresIn > 0 ? $authExpiresIn : 3600),
-                    'member_id' => $authMemberId !== '' ? $authMemberId : null,
-                    'user_id' => is_numeric($authUserId) ? (int) $authUserId : null,
-                ]
+                $attributes
             );
 
             return true;
@@ -164,18 +184,23 @@ class OpenLinesInstallController extends Controller
             return false;
         }
 
+        $attributes = [
+            'access_token' => $accessToken,
+            'auth_id' => $accessToken,
+            'refresh_token' => $refreshToken,
+            'refresh_id' => $refreshToken,
+            'expires_in' => $expiresIn,
+            'expires_at' => is_int($expiresIn) && $expiresIn > 0 ? now()->addSeconds($expiresIn) : null,
+            'member_id' => null,
+            'user_id' => null,
+        ];
+        if ($applicationToken !== '') {
+            $attributes['application_token'] = $applicationToken;
+        }
+
         BitrixToken::query()->updateOrCreate(
             ['domain' => $domain],
-            [
-                'access_token' => $accessToken,
-                'auth_id' => $accessToken,
-                'refresh_token' => $refreshToken,
-                'refresh_id' => $refreshToken,
-                'expires_in' => $expiresIn,
-                'expires_at' => is_int($expiresIn) && $expiresIn > 0 ? now()->addSeconds($expiresIn) : null,
-                'member_id' => null,
-                'user_id' => null,
-            ]
+            $attributes
         );
 
         return true;

@@ -4,7 +4,7 @@ namespace App\Services;
 
 use RuntimeException;
 
-class EnsureApartmentRepairFolders
+class RepairFolders
 {
     public const ENTITY_TYPE_ID = 144;
 
@@ -393,7 +393,7 @@ class EnsureApartmentRepairFolders
             return true;
         }
 
-        return ! in_array($stageId, LandlordContactsSync::EXCLUDED_STAGE_IDS, true);
+        return ! in_array($stageId, LandlordSync::EXCLUDED_STAGE_IDS, true);
     }
 
     /**

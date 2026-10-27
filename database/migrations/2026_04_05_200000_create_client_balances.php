@@ -15,8 +15,7 @@ return new class extends Migration
         Schema::create('client_balances', function (Blueprint $table) {
             $table->id();
 
-            $table->unsignedBigInteger('client_id')->nullable();
-            $table->unsignedBigInteger('apartment_id');
+            $table->char('apartment_bitrix_id', 36);
 
             $table->unsignedSmallInteger('year');
             $table->unsignedTinyInteger('month');
@@ -25,7 +24,7 @@ return new class extends Migration
 
             $table->timestamps();
 
-            $table->unique(['apartment_id', 'year', 'month'], 'client_balances_unique_period');
+            $table->unique(['apartment_bitrix_id', 'year', 'month'], 'client_balances_unique_period');
         });
     }
 

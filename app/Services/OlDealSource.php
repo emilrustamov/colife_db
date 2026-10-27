@@ -5,7 +5,7 @@ namespace App\Services;
 use Illuminate\Support\Facades\Log;
 use Throwable;
 
-class DealSourceFromMessage
+class OlDealSource
 {
     public function __construct(
         private readonly BitrixRest $bitrixRest,
@@ -246,12 +246,12 @@ class DealSourceFromMessage
             }
 
             $result = is_array($dialog['result'] ?? null) ? $dialog['result'] : [];
-            $dealId = $this->parseDealIdFromEntityData((string) ($result['entity_data_2'] ?? ''));
+            $dealId = $this->dealIdFromData((string) ($result['entity_data_2'] ?? ''));
             if ($dealId > 0) {
                 return $dealId;
             }
 
-            $dealId = $this->parseDealIdFromEntityData1((string) ($result['entity_data_1'] ?? ''));
+            $dealId = $this->dealIdFromData1((string) ($result['entity_data_1'] ?? ''));
             if ($dealId > 0) {
                 return $dealId;
             }
@@ -277,7 +277,7 @@ class DealSourceFromMessage
         return $connectorId.'|'.$lineId.'|'.$chatId.'|'.$userId;
     }
 
-    private function parseDealIdFromEntityData(string $entityData2): int
+    private function dealIdFromData(string $entityData2): int
     {
         if ($entityData2 === '') {
             return 0;
@@ -290,7 +290,7 @@ class DealSourceFromMessage
         return 0;
     }
 
-    private function parseDealIdFromEntityData1(string $entityData1): int
+    private function dealIdFromData1(string $entityData1): int
     {
         if ($entityData1 === '') {
             return 0;

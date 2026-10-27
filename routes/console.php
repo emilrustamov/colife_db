@@ -3,7 +3,7 @@
 use Illuminate\Support\Facades\Schedule;
 
 Schedule::command('bitrix:sync-apartments')->dailyAt('23:20');
-Schedule::command('bitrix:sync-landlord-contacts')->dailyAt('23:25');
+Schedule::command('bitrix:sync-landlords')->dailyAt('23:25');
 Schedule::command('bitrix:sync-units')->dailyAt('23:30');
 Schedule::command('bitrix:sync-apartment-ownerships')->dailyAt('23:35');
 Schedule::command('bitrix:sync-unit-stays')->dailyAt('23:38');
@@ -52,4 +52,4 @@ Schedule::command('alma:collect')
 
 Schedule::command('bitrix:recover-stuck-pauses')->everyFiveMinutes();
 
-Schedule::command('health:telegram-alerts')->everyFifteenMinutes();
+Schedule::command('telegram:health')->everyFifteenMinutes();

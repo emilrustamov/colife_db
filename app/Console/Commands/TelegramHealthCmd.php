@@ -12,9 +12,9 @@ use App\Services\TelegramAlertText;
 use App\Services\TelegramBot;
 use Illuminate\Console\Command;
 
-class HealthTelegramAlertsCmd extends Command
+class TelegramHealthCmd extends Command
 {
-    protected $signature = 'health:telegram-alerts {--demo : Send sample alert texts for every check type}';
+    protected $signature = 'telegram:health {--demo : Send sample alert texts for every check type}';
 
     protected $description = 'Check OAuth, disk, pauses queue, supervisor, /up; alert Telegram on critical issues';
 
@@ -79,6 +79,8 @@ class HealthTelegramAlertsCmd extends Command
             $text->message('💾', 'Disk sync отвалился', $ae, 'Проверь логи bitrix_disk и список 322.'),
             $text->message('⏸️', 'Паузы отвалились · очередь стоит', null, 'Проверь supervisor laravel-queue-pauses.'),
             $text->message('❌', 'Паузы отвалились', $hk, 'Проверь OAuth и failed_jobs — BP могут зависнуть.'),
+            $text->message('⏸️', 'Паузы: wait отклонён', $hk, 'Bitrix шлёт wait, сервер отвечает 403 — BP зависают на паузе.'),
+            $text->message('❌', 'Паузы: job упал', $hk, 'Bitrix OAuth refresh failed.'),
             $text->message('⚙️', 'Воркеры очереди отвалились', null, 'Паузы и фоновые job не обрабатываются.'),
             $text->message('🌐', 'API отвалился', null, 'Bitrix не достучится до пауз и вебхуков.'),
         ];

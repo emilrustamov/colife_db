@@ -2,6 +2,7 @@
 
 namespace App\Services\Disk;
 
+use App\Support\DownloadHost;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Storage;
 use RuntimeException;
@@ -78,6 +79,10 @@ class LocalStorage
      */
     public function downloadTo(string $downloadUrl, string $relativePath): void
     {
+        if (! DownloadHost::isAllowed($downloadUrl)) {
+            throw new RuntimeException('Bitrix file download host is not allowed.');
+        }
+
         $directory = dirname($relativePath);
         if ($directory !== '.' && $directory !== '') {
             Storage::disk('local')->makeDirectory($directory);

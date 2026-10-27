@@ -6,6 +6,7 @@ use App\Enums\WebhookContext;
 use App\Http\Controllers\Controller;
 use App\Jobs\PauseJob;
 use App\Services\BitrixOAuth;
+use App\Services\PauseAlert;
 use App\Services\PauseDates;
 use App\Services\TokenVerifier;
 use Illuminate\Http\JsonResponse;
@@ -17,7 +18,8 @@ class BpController extends Controller
     public function __construct(
         private readonly PauseDates $pauseDateResolver,
         private readonly TokenVerifier $tokenVerifier,
-        private readonly BitrixOAuth $oauth
+        private readonly BitrixOAuth $oauth,
+        private readonly PauseAlert $pauseAlert,
     ) {}
 
     /**
@@ -29,10 +31,13 @@ class BpController extends Controller
 
         [$tokenOk] = $this->tokenVerifier->verify($request, WebhookContext::Bizproc);
         if (! $tokenOk) {
+            $domain = (string) data_get($request->all(), 'auth.domain', '');
+            $workflowId = (string) $request->input('workflow_id', '');
             $logger->warning('BP_WAIT_REJECTED', [
-                'workflow_id' => $request->input('workflow_id'),
-                'domain' => data_get($request->all(), 'auth.domain'),
+                'workflow_id' => $workflowId !== '' ? $workflowId : null,
+                'domain' => $domain !== '' ? $domain : null,
             ]);
+            $this->pauseAlert->waitRejected($domain, $workflowId !== '' ? $workflowId : null);
 
             return response()->json(['status' => 'error', 'message' => 'Forbidden'], 403);
         }

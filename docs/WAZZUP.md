@@ -14,7 +14,7 @@ Schedule wazzup:collect (09:00 и 14:00 Europe/Moscow)
   → CollectWazzupChannels
   → WazzupApi (channels)
   → WazzupAlert (unpaid states, once/day per channel)
-      → ServiceAlertTask
+      → AlertTask
       → BitrixIm
 ```
 

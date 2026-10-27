@@ -14,7 +14,7 @@ class UnitsSnapshotController extends Controller
     /**
      * @return array{year: int, month: int}
      */
-    private function balancePeriodForDisplay(Carbon $now): array
+    private function balancePeriod(Carbon $now): array
     {
         if ($now->day <= 15) {
             $balanceFor = $now->copy()->subMonthsNoOverflow(2);
@@ -33,13 +33,13 @@ class UnitsSnapshotController extends Controller
      */
     public function idleApartments(): JsonResponse
     {
-        $period = $this->balancePeriodForDisplay(now());
+        $period = $this->balancePeriod(now());
 
         $balances = ClientBalance::query()
             ->where('year', $period['year'])
             ->where('month', $period['month'])
-            ->get(['apartment_id', 'balance'])
-            ->keyBy(static fn ($row): int => (int) $row->apartment_id);
+            ->get(['apartment_bitrix_id', 'balance'])
+            ->keyBy(static fn ($row): int => (int) $row->apartment_bitrix_id);
 
         $items = BitrixUnitsSnapshot::query()
             ->select([

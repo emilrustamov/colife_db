@@ -3,19 +3,26 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
-use App\Services\TerminateListWorkflows;
+use App\Services\TerminateWorkflows;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
 use Throwable;
 
-class TerminateListBpApi extends Controller
+class TerminateBpApi extends Controller
 {
     /**
      * Bitrix-friendly trigger: stop all running BPs on a list element.
      */
-    public function pull(Request $request, TerminateListWorkflows $service): JsonResponse
+    public function pull(Request $request, TerminateWorkflows $service): JsonResponse
     {
+        if (! $this->pullOk($request)) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Unauthorized.',
+            ], 401);
+        }
+
         $elementId = $this->elementId($request);
         if ($elementId === null) {
             return response()->json([
@@ -55,6 +62,24 @@ class TerminateListBpApi extends Controller
             'start_error' => $result['start_error'],
             'workflows' => $result['workflows'],
         ]);
+    }
+
+    /**
+     * Authorize Bitrix URL calls via X-Api-Key header only.
+     */
+    private function pullOk(Request $request): bool
+    {
+        $expected = (string) config('services.client_balance.api_key', '');
+        if ($expected === '') {
+            return false;
+        }
+
+        $provided = (string) $request->header('X-Api-Key', '');
+        if ($provided === '') {
+            return false;
+        }
+
+        return hash_equals($expected, $provided);
     }
 
     /**

@@ -147,7 +147,7 @@ class MoveFailedLeads
             $topError = (string) data_get($response, 'error', '');
 
             if (in_array($topError, ['QUERY_LIMIT_EXCEEDED', 'OPERATION_TIME_LIMIT'], true)) {
-                $this->sleepUntilOperatingReset($response, 15);
+                $this->waitForReset($response, 15);
 
                 continue;
             }
@@ -161,7 +161,7 @@ class MoveFailedLeads
             }
 
             if ($this->batchHasOperatingLimit($response)) {
-                $this->sleepUntilOperatingReset($response, 15);
+                $this->waitForReset($response, 15);
 
                 continue;
             }
@@ -218,7 +218,7 @@ class MoveFailedLeads
     /**
      * @param  array<string, mixed>  $response
      */
-    private function sleepUntilOperatingReset(array $response, int $fallbackSeconds): void
+    private function waitForReset(array $response, int $fallbackSeconds): void
     {
         $resetAt = (int) data_get($response, 'time.operating_reset_at', 0);
         $wait = $fallbackSeconds;
@@ -290,7 +290,7 @@ class MoveFailedLeads
 
             $error = (string) data_get($response, 'error', '');
             if (in_array($error, ['QUERY_LIMIT_EXCEEDED', 'OPERATION_TIME_LIMIT'], true)) {
-                $this->sleepUntilOperatingReset($response, 15);
+                $this->waitForReset($response, 15);
                 $response = $this->webhookClient->callRaw('crm.deal.update', [
                     'id' => $dealId,
                     'fields' => ['STAGE_ID' => self::STAGE_FAILED],

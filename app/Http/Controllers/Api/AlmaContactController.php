@@ -3,7 +3,7 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
-use App\Http\Requests\UpdateAlmaContactExternalIdRequest;
+use App\Http\Requests\UpdateExternalIdRequest;
 use App\Services\AlmaContactService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Facades\Log;
@@ -16,7 +16,7 @@ class AlmaContactController extends Controller
      * Update Alma contact external_id by email from local cache.
      */
     public function updateExternalId(
-        UpdateAlmaContactExternalIdRequest $request,
+        UpdateExternalIdRequest $request,
         AlmaContactService $contactService
     ): JsonResponse {
         $data = $request->validated();

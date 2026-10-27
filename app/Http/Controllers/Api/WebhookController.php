@@ -8,8 +8,10 @@ use App\Models\Apartment;
 use App\Models\Contact;
 use App\Models\Portal;
 use App\Models\Unit;
+use App\Services\BitrixOAuth;
 use App\Services\EntitySync;
 use App\Services\TokenVerifier;
+use App\Support\EntityMap;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -19,7 +21,8 @@ use Illuminate\Support\Str;
 class WebhookController extends Controller
 {
     public function __construct(
-        private readonly TokenVerifier $tokenVerifier
+        private readonly TokenVerifier $tokenVerifier,
+        private readonly BitrixOAuth $oauth,
     ) {}
 
     public function __invoke(Request $request, EntitySync $syncService): JsonResponse
@@ -27,12 +30,13 @@ class WebhookController extends Controller
         $event = (string) $request->input('event', '');
         $bitrixId = (int) data_get($request->all(), 'data.FIELDS.ID', 0);
         $entityTypeId = $this->resolveEntityTypeId($request);
+        $domain = $this->oauth->normalizeDomain((string) data_get($request->all(), 'auth.domain', ''));
 
         Log::channel('bitrix_contacts')->info('Bitrix webhook received', [
             'event' => $event,
             'bitrix_id' => $bitrixId,
             'entity_type_id' => $entityTypeId > 0 ? $entityTypeId : null,
-            'domain' => (string) data_get($request->all(), 'auth.domain', ''),
+            'domain' => $domain,
             'member_id' => (string) data_get($request->all(), 'auth.member_id', ''),
             'event_handler_id' => (string) $request->input('event_handler_id', ''),
         ]);
@@ -47,6 +51,18 @@ class WebhookController extends Controller
             ]);
 
             return response()->json(['success' => false, 'message' => 'Forbidden'], 403);
+        }
+
+        $aeDomain = $this->oauth->normalizeDomain((string) config('services.bitrix.portal_domain', ''));
+        if ($aeDomain === '' || $domain === '' || strcasecmp($domain, $aeDomain) !== 0) {
+            Log::channel('bitrix_contacts')->warning('Bitrix webhook rejected: AE portal required', [
+                'event' => $event,
+                'bitrix_id' => $bitrixId,
+                'domain' => $domain,
+                'entity_type_id' => $entityTypeId > 0 ? $entityTypeId : null,
+            ]);
+
+            return response()->json(['success' => false, 'message' => 'Forbidden portal'], 403);
         }
 
         if ($bitrixId <= 0) {
@@ -203,13 +219,7 @@ class WebhookController extends Controller
 
     private function resolveDynamicEntity(int $entityTypeId): ?string
     {
-        return match ($entityTypeId) {
-            144 => 'apartments',
-            148 => 'apartment_ownerships',
-            167 => 'units',
-            183 => 'unit_stays',
-            default => null,
-        };
+        return EntityMap::entityName('ae', $entityTypeId);
     }
 
     private function logContactDelete(int $bitrixId): void

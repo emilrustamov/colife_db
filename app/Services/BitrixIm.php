@@ -73,7 +73,7 @@ class BitrixIm
 
         $taskUrl = trim((string) ($payload['task_url'] ?? ''));
         if ($taskUrl !== '') {
-            $lines[] = 'Задача: '.$this->url('открыть', $taskUrl);
+            $lines[] = $this->url('Задача', $taskUrl);
         }
 
         $lines[] = '⚠️ Требуемое действие:';

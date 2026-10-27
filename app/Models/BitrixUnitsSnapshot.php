@@ -28,15 +28,18 @@ class BitrixUnitsSnapshot extends Model
     ];
 
     /**
-     * @var array<string, string>
+     * @return array<string, string>
      */
-    protected $casts = [
-        'is_idle' => 'boolean',
-        'is_booked' => 'boolean',
-        'is_moved_from_termination' => 'boolean',
-        'is_stage_status' => 'boolean',
-        'is_sharing' => 'boolean',
-        'check_in_date' => 'datetime',
-        'synced_at' => 'datetime',
-    ];
+    protected function casts(): array
+    {
+        return [
+            'is_idle' => 'boolean',
+            'is_booked' => 'boolean',
+            'is_moved_from_termination' => 'boolean',
+            'is_stage_status' => 'boolean',
+            'is_sharing' => 'boolean',
+            'check_in_date' => 'datetime',
+            'synced_at' => 'datetime',
+        ];
+    }
 }

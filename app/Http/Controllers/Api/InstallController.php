@@ -52,19 +52,26 @@ class InstallController extends Controller
             'has_code' => (string) $request->get('CODE', '') !== '',
         ]);
 
+        $applicationToken = (string) data_get($request->all(), 'auth.application_token', '');
+
         if ($authDomain !== '' && $authAccessToken !== '' && $authRefreshToken !== '') {
+            $attributes = [
+                'access_token' => $authAccessToken,
+                'auth_id' => $authAccessToken,
+                'refresh_token' => $authRefreshToken,
+                'refresh_id' => $authRefreshToken,
+                'expires_in' => $authExpiresIn,
+                'expires_at' => now()->addSeconds($authExpiresIn),
+                'member_id' => $authMemberId !== '' ? $authMemberId : null,
+                'user_id' => is_numeric($authUserId) ? (int) $authUserId : null,
+            ];
+            if ($applicationToken !== '') {
+                $attributes['application_token'] = $applicationToken;
+            }
+
             BitrixToken::query()->updateOrCreate(
                 ['domain' => $authDomain],
-                [
-                    'access_token' => $authAccessToken,
-                    'auth_id' => $authAccessToken,
-                    'refresh_token' => $authRefreshToken,
-                    'refresh_id' => $authRefreshToken,
-                    'expires_in' => $authExpiresIn,
-                    'expires_at' => now()->addSeconds($authExpiresIn),
-                    'member_id' => $authMemberId !== '' ? $authMemberId : null,
-                    'user_id' => is_numeric($authUserId) ? (int) $authUserId : null,
-                ]
+                $attributes
             );
 
             RegisterActivityJob::dispatch($authDomain);
@@ -100,18 +107,23 @@ class InstallController extends Controller
             return response()->json(['status' => 'error', 'message' => 'Access and refresh tokens are required'], 422);
         }
 
+        $legacyAttributes = [
+            'access_token' => $accessToken,
+            'auth_id' => $accessToken,
+            'refresh_token' => $refreshToken,
+            'refresh_id' => $refreshToken,
+            'expires_in' => $expiresIn,
+            'expires_at' => is_int($expiresIn) && $expiresIn > 0 ? now()->addSeconds($expiresIn) : null,
+            'member_id' => null,
+            'user_id' => null,
+        ];
+        if ($applicationToken !== '') {
+            $legacyAttributes['application_token'] = $applicationToken;
+        }
+
         BitrixToken::query()->updateOrCreate(
             ['domain' => $domain],
-            [
-                'access_token' => $accessToken,
-                'auth_id' => $accessToken,
-                'refresh_token' => $refreshToken,
-                'refresh_id' => $refreshToken,
-                'expires_in' => $expiresIn,
-                'expires_at' => is_int($expiresIn) && $expiresIn > 0 ? now()->addSeconds($expiresIn) : null,
-                'member_id' => null,
-                'user_id' => null,
-            ]
+            $legacyAttributes
         );
 
         RegisterActivityJob::dispatch($domain);

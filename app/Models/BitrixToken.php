@@ -15,15 +15,19 @@ class BitrixToken extends Model
         'expires_in',
         'expires_at',
         'member_id',
+        'application_token',
         'user_id',
     ];
 
     /**
-     * @var array<string, string>
+     * @return array<string, string>
      */
-    protected $casts = [
-        'expires_in' => 'integer',
-        'user_id' => 'integer',
-        'expires_at' => 'datetime',
-    ];
+    protected function casts(): array
+    {
+        return [
+            'expires_in' => 'integer',
+            'user_id' => 'integer',
+            'expires_at' => 'datetime',
+        ];
+    }
 }

@@ -16,7 +16,7 @@ class RepairDiskSync
     public function __construct(
         private readonly BitrixWebhook $webhookClient,
         private readonly LocalStorage $localStorage,
-        private readonly EnsureApartmentRepairFolders $apartments,
+        private readonly RepairFolders $apartments,
     ) {}
 
     /**
@@ -87,14 +87,14 @@ class RepairDiskSync
     {
         $apartmentId = (int) ($item['id'] ?? 0);
         $title = trim((string) ($item['title'] ?? ''));
-        $repairFolderId = (int) ($item[EnsureApartmentRepairFolders::FIELD_REPAIR_FOLDER_ID] ?? 0);
+        $repairFolderId = (int) ($item[RepairFolders::FIELD_REPAIR_FOLDER_ID] ?? 0);
         $stageId = (string) ($item['stageId'] ?? '');
 
         if ($apartmentId <= 0 || $repairFolderId <= 0) {
             return ['skipped' => true, 'downloaded' => 0, 'unchanged' => 0];
         }
 
-        if (in_array($stageId, LandlordContactsSync::EXCLUDED_STAGE_IDS, true)) {
+        if (in_array($stageId, LandlordSync::EXCLUDED_STAGE_IDS, true)) {
             return ['skipped' => true, 'downloaded' => 0, 'unchanged' => 0];
         }
 
@@ -102,7 +102,7 @@ class RepairDiskSync
         $downloaded = 0;
         $unchanged = 0;
 
-        foreach (EnsureApartmentRepairFolders::CHILD_NAMES as $name) {
+        foreach (RepairFolders::CHILD_NAMES as $name) {
             $childId = $this->findFolderId($repairChildren, $name);
             if ($childId === null) {
                 continue;

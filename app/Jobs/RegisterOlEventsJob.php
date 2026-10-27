@@ -12,7 +12,7 @@ use Illuminate\Queue\SerializesModels;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
 
-class RegisterOpenLinesEventsJob implements ShouldQueue
+class RegisterOlEventsJob implements ShouldQueue
 {
     use Dispatchable;
     use InteractsWithQueue;

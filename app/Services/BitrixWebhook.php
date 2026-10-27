@@ -57,12 +57,7 @@ class BitrixWebhook
      */
     public function diskWebhook(): string
     {
-        $disk = trim((string) config('services.bitrix.disk_webhook', ''));
-        if ($disk !== '') {
-            return $disk;
-        }
-
-        return $this->defaultWebhook();
+        return trim((string) config('services.bitrix.disk_webhook', ''));
     }
 
     /**
@@ -70,12 +65,7 @@ class BitrixWebhook
      */
     public function bpWebhook(): string
     {
-        $bp = trim((string) config('services.bitrix.bp_webhook', ''));
-        if ($bp !== '') {
-            return $bp;
-        }
-
-        return $this->defaultWebhook();
+        return trim((string) config('services.bitrix.bp_webhook', ''));
     }
 
     /**

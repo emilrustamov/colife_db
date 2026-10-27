@@ -43,23 +43,6 @@ return [
             ],
         ],
         [
-            'name' => 'Telegram groups',
-            'source_id' => 'UC_TELEGRAM_GRP',
-            'patterns' => [
-                'promo code: telegram',
-                'promo code telegram',
-                'telegram group',
-                'promo code TELEGRAM',
-            ],
-        ],
-        [
-            'name' => 'LinkedIn',
-            'source_id' => '13',
-            'patterns' => [
-                'saw your rooms on Instagram',
-            ],
-        ],
-        [
             'name' => 'WA - NovDec',
             'source_id' => 'UC_TJK8ZS',
             'patterns' => [

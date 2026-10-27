@@ -30,7 +30,7 @@
 ```
 ONOPENLINEMESSAGEADD (HK)
   → POST /api/webhooks/bitrix/open-lines
-  → ProcessOpenLineMessageJob
+  → OpenLineMessageJob
       → client inbound + text match
       → imopenlines.dialog.get → DEAL
       → category 0 + UF empty?
@@ -49,11 +49,7 @@ ONOPENLINEMESSAGEADD (HK)
 | 28hse | `UC_JNWVQW` | `property listing from 28hse`, `我在 28Hse 見到`, `28hse.com/rent` |
 | FB Groups | `UC_P3614V` | `facebook post`, `saw your facebook` |
 | Website organic | `WEB` | `found your website`, `your website and would like` |
-| Telegram groups | `UC_TELEGRAM_GRP` | `telegram group`, `promo code telegram` |
-| LinkedIn | `13` | `saw your rooms on Instagram` |
 | WA - NovDec | `UC_TJK8ZS` | `book a room in advance` |
-
-Источник `Telegram groups` создан на портале как `UC_TELEGRAM_GRP` (раньше отсутствовал в справочнике).
 
 ## Файлы модуля
 
@@ -61,9 +57,9 @@ ONOPENLINEMESSAGEADD (HK)
 |------|------|
 | `app/Http/Controllers/Api/OpenLinesInstallController.php` | Установка + OAuth + queue event.bind |
 | `app/Http/Controllers/Api/OpenLinesController.php` | Приём событий OL |
-| `app/Jobs/RegisterOpenLinesEventsJob.php` | `event.bind` |
-| `app/Jobs/ProcessOpenLineMessageJob.php` | Очередь обработки сообщения |
-| `app/Services/DealSourceFromMessage.php` | Матч + update deal + timeline |
+| `app/Jobs/RegisterOlEventsJob.php` | `event.bind` |
+| `app/Jobs/OpenLineMessageJob.php` | Очередь обработки сообщения |
+| `app/Services/OlDealSource.php` | Матч + update deal + timeline |
 | `config/open_lines_source.php` | Domain, category, UF, rules |
 | `resources/views/open_lines/install.blade.php` | Мастер установки |
 | `routes/api.php` | `/api/open-lines/*`, webhook |
@@ -73,7 +69,7 @@ ONOPENLINEMESSAGEADD (HK)
 - `B24_HK_PORTAL_DOMAIN=colifepacific.bitrix24.com`
 - `B24_HK_CLIENT_ID`, `B24_HK_CLIENT_SECRET`
 - `BITRIX_OPEN_LINES_HANDLER_URL` (по умолчанию `{APP_URL}/api/webhooks/bitrix/open-lines`)
-- `BITRIX_OPEN_LINES_APPLICATION_TOKEN` (опционально; если пусто — принимаются события с ГК при любом non-empty `application_token`)
+- `BITRIX_OPEN_LINES_APPLICATION_TOKEN` (**обязателен**; пустой = reject всех OL webhook / install/save)
 
 ## Логи
 

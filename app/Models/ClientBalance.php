@@ -7,21 +7,22 @@ use Illuminate\Database\Eloquent\Model;
 class ClientBalance extends Model
 {
     protected $fillable = [
-        'client_id',
-        'apartment_id',
+        'apartment_bitrix_id',
         'year',
         'month',
         'balance',
     ];
 
     /**
-     * @var array<string, string>
+     * @return array<string, string>
      */
-    protected $casts = [
-        'client_id' => 'integer',
-        'apartment_id' => 'string',
-        'year' => 'integer',
-        'month' => 'integer',
-        'balance' => 'decimal:2',
-    ];
+    protected function casts(): array
+    {
+        return [
+            'apartment_bitrix_id' => 'string',
+            'year' => 'integer',
+            'month' => 'integer',
+            'balance' => 'decimal:2',
+        ];
+    }
 }

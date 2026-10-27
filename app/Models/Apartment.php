@@ -90,11 +90,67 @@ class Apartment extends Model
     }
 
     /**
+     * @return BelongsTo<Building, $this>
+     */
+    public function building(): BelongsTo
+    {
+        return $this->belongsTo(Building::class);
+    }
+
+    /**
+     * @return BelongsTo<Stage, $this>
+     */
+    public function stage(): BelongsTo
+    {
+        return $this->belongsTo(Stage::class);
+    }
+
+    /**
+     * @return BelongsTo<ApartmentType, $this>
+     */
+    public function apartmentType(): BelongsTo
+    {
+        return $this->belongsTo(ApartmentType::class);
+    }
+
+    /**
+     * @return BelongsTo<MetroStation, $this>
+     */
+    public function metroStation(): BelongsTo
+    {
+        return $this->belongsTo(MetroStation::class);
+    }
+
+    /**
+     * @return BelongsTo<Contact, $this>
+     */
+    public function landlordContact(): BelongsTo
+    {
+        return $this->belongsTo(Contact::class, 'landlord_contact_id');
+    }
+
+    /**
      * @return HasMany<Unit, $this>
      */
     public function units(): HasMany
     {
         return $this->hasMany(Unit::class);
+    }
+
+    /**
+     * @return HasMany<ApartmentOwnership, $this>
+     */
+    public function ownerships(): HasMany
+    {
+        return $this->hasMany(ApartmentOwnership::class);
+    }
+
+    /**
+     * @return HasMany<Utility, $this>
+     */
+    public function utilities(): HasMany
+    {
+        return $this->hasMany(Utility::class);
     }
 }
 

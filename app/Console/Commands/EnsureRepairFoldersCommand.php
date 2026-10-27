@@ -2,7 +2,7 @@
 
 namespace App\Console\Commands;
 
-use App\Services\EnsureApartmentRepairFolders;
+use App\Services\RepairFolders;
 use Illuminate\Console\Command;
 use Throwable;
 
@@ -19,7 +19,7 @@ class EnsureRepairFoldersCommand extends Command
     /**
      * Execute the console command.
      */
-    public function handle(EnsureApartmentRepairFolders $service): int
+    public function handle(RepairFolders $service): int
     {
         $execute = (bool) $this->option('execute');
         $sleepMs = max(0, (int) $this->option('sleep-ms'));
@@ -111,7 +111,7 @@ class EnsureRepairFoldersCommand extends Command
      * Fill Repair SPA disk URL from apartment Repair folder id.
      */
     private function handleDiskLinks(
-        EnsureApartmentRepairFolders $service,
+        RepairFolders $service,
         bool $execute,
         int $sleepMs,
         ?int $onlyApartmentId

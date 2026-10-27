@@ -2,7 +2,7 @@
 
 namespace App\Services;
 
-class TerminateListWorkflows
+class TerminateWorkflows
 {
     public function __construct(
         private readonly BitrixWebhook $webhookClient,

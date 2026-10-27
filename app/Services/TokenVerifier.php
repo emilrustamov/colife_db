@@ -16,10 +16,8 @@ class TokenVerifier
     public function verify(Request $request, WebhookContext $context): array
     {
         if ($context === WebhookContext::Bizproc || $context === WebhookContext::Cleaning) {
-            $incoming = (string) data_get($request->all(), 'auth.application_token', '');
-            $domain = $this->oauth->normalizeDomain(
-                (string) (data_get($request->all(), 'auth.domain') ?: $request->input('DOMAIN', ''))
-            );
+            $incoming = $this->requestToken($request);
+            $domain = $this->requestDomain($request);
             $channel = $context === WebhookContext::Cleaning ? 'bitrix_cleaning' : 'bitrix_pauses';
 
             return [$incoming !== '' && $this->oauth->isAllowedPortal($domain), $channel];
@@ -29,7 +27,7 @@ class TokenVerifier
             return $this->verifyOpenLines($request);
         }
 
-        $expected = $this->expectedToken($context);
+        $expected = $this->expectedCrmToken();
         $channel = 'bitrix_contacts';
 
         if ($expected === '') {
@@ -38,7 +36,7 @@ class TokenVerifier
             return [false, $channel];
         }
 
-        $incoming = (string) data_get($request->all(), 'auth.application_token', '');
+        $incoming = $this->requestToken($request);
         if ($incoming === '') {
             return [false, $channel];
         }
@@ -52,12 +50,12 @@ class TokenVerifier
     private function verifyOpenLines(Request $request): array
     {
         $channel = 'bitrix_open_lines';
-        $incoming = (string) data_get($request->all(), 'auth.application_token', '');
+        $incoming = $this->requestToken($request);
         if ($incoming === '') {
             return [false, $channel];
         }
 
-        $domain = $this->oauth->normalizeDomain((string) data_get($request->all(), 'auth.domain', ''));
+        $domain = $this->requestDomain($request);
         $expectedDomain = $this->oauth->normalizeDomain((string) config('open_lines_source.portal_domain'));
         if ($domain === '' || $expectedDomain === '' || strcasecmp($domain, $expectedDomain) !== 0) {
             return [false, $channel];
@@ -71,7 +69,42 @@ class TokenVerifier
         return [true, $channel];
     }
 
-    private function expectedToken(WebhookContext $context): string
+    /**
+     * Portal auth: non-empty application_token + allowlisted domain (legacy Pause/Cleaning behavior).
+     */
+    public function matchesDomainToken(Request $request, WebhookContext $context = WebhookContext::Bizproc): bool
+    {
+        [$ok] = $this->verify($request, $context);
+
+        return $ok;
+    }
+
+    /**
+     * Incoming Bitrix application_token from request payload.
+     */
+    public function requestToken(Request $request): string
+    {
+        return (string) (
+            data_get($request->all(), 'auth.application_token')
+            ?: $request->input('application_token', '')
+            ?: $request->input('token', '')
+            ?: $request->header('X-Alma-Bridge-Token', '')
+        );
+    }
+
+    /**
+     * Portal domain from Bitrix auth payload.
+     */
+    public function requestDomain(Request $request): string
+    {
+        return $this->oauth->normalizeDomain((string) (
+            data_get($request->all(), 'auth.domain')
+            ?: $request->input('DOMAIN', '')
+            ?: $request->input('domain', '')
+        ));
+    }
+
+    private function expectedCrmToken(): string
     {
         $expected = (string) config('services.bitrix.webhook_token', '');
         if ($expected === '') {

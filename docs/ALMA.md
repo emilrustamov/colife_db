@@ -2,7 +2,9 @@
 
 > **Не основная цель репозитория.** Основной проект — хранение и синхронизация данных Bitrix24. Alma contacts — локальный кэш клиентов Alma и API для смены `external_id` (Bitrix contact id) по email.
 
-Не путать с **Alma Bridge** (апартаменты / контракты B24→Alma) — см. [ALMA_BRIDGE.md](ALMA_BRIDGE.md). Bridge пока на `/var/www/alma`, в Laravel не перенесён.
+Не путать с **Alma Bridge** (апартаменты / контракты B24→Alma) — см. [ALMA_BRIDGE.md](ALMA_BRIDGE.md). Код bridge в Laravel есть, cutover выключен (`ALMA_BRIDGE_ENABLED=false`); прод handlers пока на `/var/www/alma`.
+
+**Ownership `external_id`:** единственный владелец PATCH API смены `external_id` по email — `AlmaContactService` (`POST /api/alma/contacts/external-id`). Alma Bridge при контрактах может только `createClient` с уже известным Bitrix contact id; Bridge **не** должен гоняться с contacts-модулем за PATCH `external_id`. Create сериализован через `Cache::lock('alma-bridge:create-client:{external_id}')`.
 
 В Alma поиск клиента доступен только по внутреннему `id` или `external_id`, поэтому email-индекс хранится у нас.
 
@@ -37,7 +39,7 @@ POST /api/alma/contacts/external-id (X-Api-Key)
 | `app/Console/Commands/AlmaCollectCmd.php` | `alma:collect` |
 | `app/Models/AlmaContact.php` | Модель `alma_contacts` |
 | `app/Http/Controllers/Api/AlmaContactController.php` | HTTP API |
-| `app/Http/Requests/UpdateAlmaContactExternalIdRequest.php` | Валидация |
+| `app/Http/Requests/UpdateExternalIdRequest.php` | Валидация |
 | `routes/api.php` | `POST /api/alma/contacts/external-id` |
 | `routes/console.php` | schedule `alma:collect` |
 | `config/services.php` | `alma.*` |

@@ -60,7 +60,8 @@
                     refresh_token: auth.refresh_token,
                     expires_in: auth.expires_in || 3600,
                     member_id: auth.member_id || '',
-                    user_id: auth.user_id || null
+                    user_id: auth.user_id || null,
+                    application_token: auth.application_token || ''
                 })
             }).then(function (r) { return r.json().then(function (data) {
                 return r.ok && data.status === 'ok';
@@ -78,7 +79,7 @@
                     if (saved) {
                         setMsg('Cleaning Report app installed.', true);
                     }
-                    if (canFinish && typeof BX24.installFinish === 'function') {
+                    if ((saved || canFinish) && typeof BX24.installFinish === 'function') {
                         BX24.installFinish();
                     }
                 }).catch(function () {

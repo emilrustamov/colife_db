@@ -4,7 +4,7 @@ namespace App\Http\Controllers\Api;
 
 use App\Enums\WebhookContext;
 use App\Http\Controllers\Controller;
-use App\Jobs\ProcessOpenLineMessageJob;
+use App\Jobs\OpenLineMessageJob;
 use App\Services\BitrixOAuth;
 use App\Services\TokenVerifier;
 use Illuminate\Http\JsonResponse;
@@ -81,7 +81,7 @@ class OpenLinesController extends Controller
                 'text_preview' => mb_substr(trim((string) data_get($packet, 'message.text', '')), 0, 80),
             ];
 
-            ProcessOpenLineMessageJob::dispatch($domain, $packet);
+            OpenLineMessageJob::dispatch($domain, $packet);
             $queued++;
         }
 

@@ -8,10 +8,19 @@
 
 Ключевые зоны:
 
-- **Sync / artisan** — команды `bitrix:sync-*` в `app/Console/Commands`, расписание в `routes/console.php`
+- **Sync / artisan** — `bitrix:sync-spa {entity}` (+ aliases `bitrix:sync-*`), расписание в `routes/console.php`
 - **Webhooks** — `POST /api/webhooks/bitrix*` в `routes/api.php`
 - **Disk** — синхронизация и просмотр диска Bitrix
 - **Admin UI** — веб-интерфейс каталогов и пользователей
+
+### Identifiers (dual ID)
+
+| Контур | Ключ | Пример |
+|--------|------|--------|
+| Core sync | UUID `id` + `bitrix_id` | `apartments`, `units`, `contacts` |
+| Snapshot / balance | raw Bitrix id | `bitrix_units_snapshot.apart_id`, `client_balances.apartment_bitrix_id` |
+
+Не джойнить `apartment_bitrix_id` / `apart_id` к `apartments.id`. Reference `buildings` / `metro_stations` / `apartment_types` — static/manual (без schedule sync).
 
 ## Дополнительные модули (не цель проекта)
 
@@ -63,7 +72,7 @@
 
 Подробности: [docs/TELEGRAM_ALERTS.md](docs/TELEGRAM_ALERTS.md).
 
-Маркеры: `health:telegram-alerts`, `telegram:setup`, `Telegram*`, `TELEGRAM_*`.
+Маркеры: `telegram:health`, `telegram:setup`, `Telegram*`, `TELEGRAM_*`.
 
 ### Alma contacts
 
@@ -73,13 +82,13 @@
 
 Маркеры: `alma:collect`, `AlmaContact*`, `CollectAlmaContacts`, `ALMA_*`, `CLIENT_BALANCE_API_KEY`.
 
-### Alma Bridge (планируется)
+### Alma Bridge
 
-Перенос `/var/www/alma` (Bitrix → Alma External API: апартаменты, юниты, контракты) в Laravel. Пока только аудит и архитектура; прод на `alma.colifeb24apps.com`. Не смешивать с DB-sync SPA.
+Перенос `/var/www/alma` (Bitrix → Alma: апартаменты, юниты, контракты) в Laravel. По умолчанию `ALMA_BRIDGE_ENABLED=false` (прод ещё на `alma.colifeb24apps.com`). Не смешивать с DB-sync SPA.
 
 Подробности: [docs/ALMA_BRIDGE.md](docs/ALMA_BRIDGE.md).
 
-Маркеры (после этапа B): `ALMA_BRIDGE_*`, `AlmaBridge*`, `/api/webhooks/bitrix/alma`.
+Маркеры: `ALMA_BRIDGE_*`, `AlmaBridge*`, `alma-bridge:upsert`, `/api/webhooks/bitrix/alma`, `/api/alma-bridge/*`.
 
 ### Оплата сервисов (Bitrix SPA)
 

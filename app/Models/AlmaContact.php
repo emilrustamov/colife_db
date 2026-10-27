@@ -13,9 +13,12 @@ class AlmaContact extends Model
     ];
 
     /**
-     * @var array<string, string>
+     * @return array<string, string>
      */
-    protected $casts = [
-        'alma_id' => 'integer',
-    ];
+    protected function casts(): array
+    {
+        return [
+            'alma_id' => 'integer',
+        ];
+    }
 }

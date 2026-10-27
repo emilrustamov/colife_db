@@ -31,49 +31,53 @@ return [
         'portal_timezone' => env('B24_PORTAL_TIMEZONE', 'Europe/Moscow'),
         'pause_datetime_timezone' => env('B24_PAUSE_DATETIME_TIMEZONE', 'Asia/Tashkent'),
         'pause_dry_run' => (bool) env('B24_PAUSE_DRY_RUN', false),
-        'entity_type_id' => env('BITRIX_ENTITY_TYPE_ID', env('BITRIX_UNITS_ENTITY_TYPE_ID', 167)),
-        'webhook_token' => env('BITRIX_WEBHOOK_TOKEN', env('BITRIX_CONTACTS_EVENT_TOKEN')),
+        'entity_type_id' => env('BITRIX_ENTITY_TYPE_ID'),
+        'webhook_token' => env('BITRIX_WEBHOOK_TOKEN'),
+        'application_token' => env('B24_APPLICATION_TOKEN'),
         'open_lines_application_token' => env('BITRIX_OPEN_LINES_APPLICATION_TOKEN'),
-        'webhook' => env('BITRIX_WEBHOOK', env('BITRIX_UNITS_WEBHOOK')),
-        'disk_webhook' => env('BITRIX_DISK_WEBHOOK', env('BITRIX_WEBHOOK', env('BITRIX_UNITS_WEBHOOK'))),
-        'bp_webhook' => env('BITRIX_BP_WEBHOOK', env('BITRIX_WEBHOOK', env('BITRIX_UNITS_WEBHOOK'))),
+        'webhook' => env('BITRIX_WEBHOOK'),
+        'disk_webhook' => env('BITRIX_DISK_WEBHOOK'),
+        'bp_webhook' => env('BITRIX_BP_WEBHOOK'),
         'lists' => [
             'utilities_iblock_id' => (int) env('BITRIX_UTILITIES_IBLOCK_ID', 156),
             'disk_iblock_id' => (int) env('BITRIX_DISK_IBLOCK_ID', 322),
         ],
-        'bp_list_template_id' => (int) env('BITRIX_BP_LIST_TEMPLATE_ID', 3666),
+        'bp_list_template_id' => (int) env('BITRIX_BP_LIST_TEMPLATE_ID', 0),
     ],
 
     'b24_hk' => [
         'portal_domain' => env('B24_HK_PORTAL_DOMAIN'),
         'client_id' => env('B24_HK_CLIENT_ID'),
         'client_secret' => env('B24_HK_CLIENT_SECRET'),
-        'redirect_uri' => env('B24_HK_REDIRECT_URI', env('B24_REDIRECT_URI')),
-        'pause_datetime_timezone' => env('B24_HK_PAUSE_DATETIME_TIMEZONE', env('B24_PAUSE_DATETIME_TIMEZONE', 'Asia/Tashkent')),
+        'redirect_uri' => env('B24_HK_REDIRECT_URI'),
+        'application_token' => env('B24_HK_APPLICATION_TOKEN'),
+        'pause_datetime_timezone' => env('B24_HK_PAUSE_DATETIME_TIMEZONE', 'Asia/Tashkent'),
     ],
 
     'b24_tr' => [
-        'portal_domain' => env('B24_TR_PORTAL_DOMAIN', 'colife.bitrix24.com.tr'),
+        'portal_domain' => env('B24_TR_PORTAL_DOMAIN'),
         'client_id' => env('B24_TR_CLIENT_ID'),
         'client_secret' => env('B24_TR_CLIENT_SECRET'),
-        'redirect_uri' => env('B24_TR_REDIRECT_URI', env('B24_REDIRECT_URI')),
+        'redirect_uri' => env('B24_TR_REDIRECT_URI'),
+        'application_token' => env('B24_TR_APPLICATION_TOKEN'),
     ],
 
     'cleaning' => [
-        'system_user_id' => (int) env('CLEANING_SYSTEM_USER_ID', 71857),
-        'assignee_id' => (int) env('CLEANING_ASSIGNEE_ID', 62997),
-        'participant_id' => (int) env('CLEANING_PARTICIPANT_ID', 110103),
+        'application_token' => env('CLEANING_APPLICATION_TOKEN'),
+        'system_user_id' => (int) env('CLEANING_SYSTEM_USER_ID', 0),
+        'assignee_id' => (int) env('CLEANING_ASSIGNEE_ID', 0),
+        'participant_id' => (int) env('CLEANING_PARTICIPANT_ID', 0),
         'observer_ids' => array_values(array_filter(array_map(
             'intval',
-            explode(',', (string) env('CLEANING_OBSERVER_IDS', env('CLEANING_AUDITOR_IDS', '109833,87311,25681')))
+            explode(',', (string) env('CLEANING_OBSERVER_IDS', ''))
         ))),
-        'cleaning_group_id' => (int) env('CLEANING_GROUP_ID', 13),
-        'housemaster_group_id' => (int) env('CLEANING_HOUSEMASTER_GROUP_ID', 27),
+        'cleaning_group_id' => (int) env('CLEANING_GROUP_ID', 0),
+        'housemaster_group_id' => (int) env('CLEANING_HOUSEMASTER_GROUP_ID', 0),
         'deadline_days' => (int) env('CLEANING_DEADLINE_DAYS', 2),
-        'apartment_entity_type_id' => (int) env('CLEANING_APARTMENT_ENTITY_TYPE_ID', 165),
-        'unit_entity_type_id' => (int) env('CLEANING_UNIT_ENTITY_TYPE_ID', 144),
-        'apartment_units_field' => env('CLEANING_APARTMENT_UNITS_FIELD', 'ufCrm5_1697012153'),
-        'disk_folder_id' => (int) env('CLEANING_DISK_FOLDER_ID', 396621),
+        'apartment_entity_type_id' => (int) env('CLEANING_APARTMENT_ENTITY_TYPE_ID', 0),
+        'unit_entity_type_id' => (int) env('CLEANING_UNIT_ENTITY_TYPE_ID', 0),
+        'apartment_units_field' => env('CLEANING_APARTMENT_UNITS_FIELD'),
+        'disk_folder_id' => (int) env('CLEANING_DISK_FOLDER_ID', 0),
         'staff' => [
             'Nursel',
             'Lena',
@@ -85,19 +89,19 @@ return [
 
     'bitrix_im' => [
         'webhook' => env('BITRIX_IM_WEBHOOK'),
-        'dialog_id' => env('BITRIX_IM_DIALOG_ID', 'chat561708'),
+        'dialog_id' => env('BITRIX_IM_DIALOG_ID'),
     ],
 
     'service_alert_tasks' => [
         'enabled' => (bool) env('SERVICE_ALERT_TASKS_ENABLED', true),
-        'webhook' => env('BITRIX_TASK_WEBHOOK', env('BITRIX_WEBHOOK', env('BITRIX_UNITS_WEBHOOK'))),
-        'sample_task_id' => (int) env('SERVICE_ALERT_TASK_SAMPLE_ID', 514152),
-        'group_id' => (int) env('SERVICE_ALERT_TASK_GROUP_ID', 86),
-        'responsible_id' => (int) env('SERVICE_ALERT_TASK_RESPONSIBLE_ID', 186098),
-        'created_by' => (int) env('SERVICE_ALERT_TASK_CREATED_BY', 4),
+        'webhook' => env('BITRIX_TASK_WEBHOOK'),
+        'sample_task_id' => (int) env('SERVICE_ALERT_TASK_SAMPLE_ID', 0),
+        'group_id' => (int) env('SERVICE_ALERT_TASK_GROUP_ID', 0),
+        'responsible_id' => (int) env('SERVICE_ALERT_TASK_RESPONSIBLE_ID', 0),
+        'created_by' => (int) env('SERVICE_ALERT_TASK_CREATED_BY', 0),
         'auditor_ids' => array_values(array_filter(array_map(
             'intval',
-            explode(',', (string) env('SERVICE_ALERT_TASK_AUDITOR_IDS', '90152,10'))
+            explode(',', (string) env('SERVICE_ALERT_TASK_AUDITOR_IDS', ''))
         ))),
     ],
 
@@ -242,6 +246,7 @@ return [
         'disk_lookback_hours' => (int) env('TELEGRAM_DISK_LOOKBACK_HOURS', 6),
         'pause_failed_lookback_hours' => (int) env('TELEGRAM_PAUSE_FAILED_LOOKBACK_HOURS', 6),
         'dedupe_ttl' => (int) env('TELEGRAM_ALERT_DEDUPE_TTL', 86400),
+        'instant_dedupe_ttl' => (int) env('TELEGRAM_INSTANT_DEDUPE_TTL', 3600),
     ],
 
 ];

@@ -3,6 +3,7 @@
 namespace App\Services\Profiles;
 
 use App\Models\Unit;
+use App\Support\EntityMap;
 use App\Support\BitrixValue;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\DB;
@@ -24,7 +25,9 @@ class UnitProfile extends SpaProfile
 
     protected function typeId(): int
     {
-        return self::ENTITY_TYPE_ID;
+        $typeId = EntityMap::typeId('ae', 'units');
+
+        return $typeId > 0 ? $typeId : self::ENTITY_TYPE_ID;
     }
 
     protected function eventBase(): string

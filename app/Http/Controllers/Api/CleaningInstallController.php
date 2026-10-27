@@ -2,10 +2,12 @@
 
 namespace App\Http\Controllers\Api;
 
+use App\Enums\WebhookContext;
 use App\Http\Controllers\Controller;
 use App\Models\BitrixToken;
 use App\Services\BitrixAuth;
 use App\Services\BitrixOAuth;
+use App\Services\TokenVerifier;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
@@ -15,7 +17,8 @@ class CleaningInstallController extends Controller
 {
     public function __construct(
         private readonly BitrixAuth $bitrixAuthService,
-        private readonly BitrixOAuth $oauth
+        private readonly BitrixOAuth $oauth,
+        private readonly TokenVerifier $tokenVerifier,
     ) {}
 
     /**
@@ -39,19 +42,23 @@ class CleaningInstallController extends Controller
 
         $saved = false;
         $message = 'Finishing installation…';
+        [$tokenOk] = $this->tokenVerifier->verify($request, WebhookContext::Cleaning);
+        $domainAllowed = $domain !== '' && $this->oauth->isAllowedPortal($domain);
 
-        if ($domain !== '' && $this->oauth->isAllowedPortal($domain)) {
+        if ($domainAllowed && $tokenOk) {
             $saved = $this->persistFromRequest($request, $domain);
             if ($saved) {
                 $message = 'Cleaning Report app installed.';
             }
-        } elseif ($domain !== '') {
+        } elseif ($domain !== '' && ! $domainAllowed) {
             $message = 'Portal domain is not allowed: '.$domain;
             $logger->warning('CLEANING_INSTALL_DOMAIN_REJECTED', ['domain' => $domain]);
+        } elseif ($domainAllowed && ! $tokenOk) {
+            $logger->warning('CLEANING_INSTALL_TOKEN_PENDING', ['domain' => $domain]);
         }
 
         return view('cleaning.install', [
-            'ok' => $domain === '' || $this->oauth->isAllowedPortal($domain),
+            'ok' => $domainAllowed || $domain === '',
             'saved' => $saved,
             'message' => $message,
             'saveUrl' => url('/api/cleaning/install/save'),
@@ -64,21 +71,25 @@ class CleaningInstallController extends Controller
     public function save(Request $request): JsonResponse
     {
         $logger = Log::channel('bitrix_cleaning');
+        [$tokenOk] = $this->tokenVerifier->verify($request, WebhookContext::Cleaning);
+        if (! $tokenOk) {
+            $logger->warning('CLEANING_INSTALL_SAVE_REJECTED', [
+                'domain' => $request->input('domain') ?: data_get($request->all(), 'auth.domain'),
+            ]);
+
+            return response()->json(['status' => 'error', 'message' => 'Forbidden'], 403);
+        }
+
         $domain = $this->oauth->normalizeDomain(
             (string) ($request->input('domain') ?: data_get($request->all(), 'auth.domain', ''))
         );
-
-        if ($domain === '' || ! $this->oauth->isAllowedPortal($domain)) {
-            $logger->warning('CLEANING_INSTALL_SAVE_REJECTED', ['domain' => $domain]);
-
-            return response()->json(['status' => 'error', 'message' => 'Forbidden portal'], 403);
-        }
 
         $accessToken = (string) ($request->input('access_token') ?: data_get($request->all(), 'auth.access_token', ''));
         $refreshToken = (string) ($request->input('refresh_token') ?: data_get($request->all(), 'auth.refresh_token', ''));
         $expiresIn = (int) ($request->input('expires_in') ?: data_get($request->all(), 'auth.expires_in', 3600));
         $memberId = (string) ($request->input('member_id') ?: data_get($request->all(), 'auth.member_id', ''));
         $userId = $request->input('user_id', data_get($request->all(), 'auth.user_id'));
+        $applicationToken = (string) ($request->input('application_token') ?: data_get($request->all(), 'auth.application_token', ''));
 
         if ($accessToken === '' || $refreshToken === '') {
             return response()->json(['status' => 'error', 'message' => 'Tokens required'], 422);
@@ -92,18 +103,23 @@ class CleaningInstallController extends Controller
             ]);
         }
 
+        $attributes = [
+            'access_token' => $accessToken,
+            'auth_id' => $accessToken,
+            'refresh_token' => $refreshToken,
+            'refresh_id' => $refreshToken,
+            'expires_in' => $expiresIn > 0 ? $expiresIn : 3600,
+            'expires_at' => now()->addSeconds($expiresIn > 0 ? $expiresIn : 3600),
+            'member_id' => $memberId !== '' ? $memberId : null,
+            'user_id' => is_numeric($userId) ? (int) $userId : null,
+        ];
+        if ($applicationToken !== '') {
+            $attributes['application_token'] = $applicationToken;
+        }
+
         BitrixToken::query()->updateOrCreate(
             ['domain' => $domain],
-            [
-                'access_token' => $accessToken,
-                'auth_id' => $accessToken,
-                'refresh_token' => $refreshToken,
-                'refresh_id' => $refreshToken,
-                'expires_in' => $expiresIn > 0 ? $expiresIn : 3600,
-                'expires_at' => now()->addSeconds($expiresIn > 0 ? $expiresIn : 3600),
-                'member_id' => $memberId !== '' ? $memberId : null,
-                'user_id' => is_numeric($userId) ? (int) $userId : null,
-            ]
+            $attributes
         );
 
         $logger->info('CLEANING_INSTALL_SAVE_OK', [
@@ -121,6 +137,7 @@ class CleaningInstallController extends Controller
     {
         $logger = Log::channel('bitrix_cleaning');
         $systemUserId = (int) config('services.cleaning.system_user_id', 71857);
+        $applicationToken = (string) data_get($request->all(), 'auth.application_token', '');
 
         $authAccessToken = (string) $request->input('auth.access_token', '');
         $authRefreshToken = (string) $request->input('auth.refresh_token', '');
@@ -136,18 +153,23 @@ class CleaningInstallController extends Controller
                 ]);
             }
 
+            $attributes = [
+                'access_token' => $authAccessToken,
+                'auth_id' => $authAccessToken,
+                'refresh_token' => $authRefreshToken,
+                'refresh_id' => $authRefreshToken,
+                'expires_in' => $authExpiresIn,
+                'expires_at' => now()->addSeconds($authExpiresIn > 0 ? $authExpiresIn : 3600),
+                'member_id' => $authMemberId !== '' ? $authMemberId : null,
+                'user_id' => is_numeric($authUserId) ? (int) $authUserId : null,
+            ];
+            if ($applicationToken !== '') {
+                $attributes['application_token'] = $applicationToken;
+            }
+
             BitrixToken::query()->updateOrCreate(
                 ['domain' => $domain],
-                [
-                    'access_token' => $authAccessToken,
-                    'auth_id' => $authAccessToken,
-                    'refresh_token' => $authRefreshToken,
-                    'refresh_id' => $authRefreshToken,
-                    'expires_in' => $authExpiresIn,
-                    'expires_at' => now()->addSeconds($authExpiresIn > 0 ? $authExpiresIn : 3600),
-                    'member_id' => $authMemberId !== '' ? $authMemberId : null,
-                    'user_id' => is_numeric($authUserId) ? (int) $authUserId : null,
-                ]
+                $attributes
             );
 
             return true;
@@ -173,18 +195,23 @@ class CleaningInstallController extends Controller
             return false;
         }
 
+        $attributes = [
+            'access_token' => $accessToken,
+            'auth_id' => $accessToken,
+            'refresh_token' => $refreshToken,
+            'refresh_id' => $refreshToken,
+            'expires_in' => $expiresIn,
+            'expires_at' => is_int($expiresIn) && $expiresIn > 0 ? now()->addSeconds($expiresIn) : null,
+            'member_id' => null,
+            'user_id' => null,
+        ];
+        if ($applicationToken !== '') {
+            $attributes['application_token'] = $applicationToken;
+        }
+
         BitrixToken::query()->updateOrCreate(
             ['domain' => $domain],
-            [
-                'access_token' => $accessToken,
-                'auth_id' => $accessToken,
-                'refresh_token' => $refreshToken,
-                'refresh_id' => $refreshToken,
-                'expires_in' => $expiresIn,
-                'expires_at' => is_int($expiresIn) && $expiresIn > 0 ? now()->addSeconds($expiresIn) : null,
-                'member_id' => null,
-                'user_id' => null,
-            ]
+            $attributes
         );
 
         return true;

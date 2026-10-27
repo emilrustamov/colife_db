@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use App\Support\EntityMap;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Log;
 use RuntimeException;
@@ -40,7 +41,7 @@ class CleaningSubmitService
             throw new RuntimeException('TR portal domain is not configured.');
         }
 
-        $this->warnIfTokenIsNotSystemAccount($domain);
+        $this->warnIfNotSystemUser($domain);
 
         $logger = Log::channel('bitrix_cleaning');
         $fileIds = $this->uploadPhotos($domain, $payload, $photos);
@@ -76,7 +77,7 @@ class CleaningSubmitService
      * Timeline comments are authored by the OAuth token owner (app installer).
      * CREATED_BY on tasks can still be the system account even if install user differs.
      */
-    private function warnIfTokenIsNotSystemAccount(string $domain): void
+    private function warnIfNotSystemUser(string $domain): void
     {
         $expectedUserId = (int) config('services.cleaning.system_user_id', 71857);
 
@@ -143,7 +144,7 @@ class CleaningSubmitService
     {
         $rootId = (int) config('services.cleaning.disk_folder_id', 396621);
         if ($rootId <= 0) {
-            $rootId = $this->resolveCleaningRootFolderId($domain);
+            $rootId = $this->cleaningRootFolder($domain);
         }
 
         [$year, $month, $day] = $this->resolveReportDateParts((string) ($payload['date'] ?? ''));
@@ -160,7 +161,7 @@ class CleaningSubmitService
     /**
      * Find shared-disk "Cleaning" folder when CLEANING_DISK_FOLDER_ID is not set.
      */
-    private function resolveCleaningRootFolderId(string $domain): int
+    private function cleaningRootFolder(string $domain): int
     {
         $storages = $this->bitrixRest->postJson('disk.storage.getlist', [], $domain);
         foreach (data_get($storages, 'result', []) as $storage) {
@@ -314,7 +315,7 @@ class CleaningSubmitService
      */
     private function addUnitComment(string $domain, array $payload, array $fileIds): int
     {
-        $unitTypeId = (int) config('services.cleaning.unit_entity_type_id', 144);
+        $unitTypeId = $this->cleaningUnitTypeId();
         $comment = $this->buildReportText($payload, $fileIds);
 
         $response = $this->bitrixRest->postJson('crm.timeline.comment.add', [
@@ -425,7 +426,7 @@ class CleaningSubmitService
             $unitId = (int) ($payload['unit_id'] ?? 0);
             if ($unitId > 0) {
                 $bindings[] = $this->spaCrmValue(
-                    (int) config('services.cleaning.unit_entity_type_id', 144),
+                    $this->cleaningUnitTypeId(),
                     $unitId
                 );
             }
@@ -435,7 +436,7 @@ class CleaningSubmitService
             $apartmentId = (int) ($payload['apartment_id'] ?? 0);
             if ($apartmentId > 0) {
                 $bindings[] = $this->spaCrmValue(
-                    (int) config('services.cleaning.apartment_entity_type_id', 165),
+                    $this->cleaningApartmentTypeId(),
                     $apartmentId
                 );
             }
@@ -561,5 +562,31 @@ class CleaningSubmitService
         } catch (\Throwable) {
             return $date;
         }
+    }
+
+    /**
+     * TR cleaning unit SPA type id from portal entity map / env.
+     */
+    private function cleaningUnitTypeId(): int
+    {
+        $typeId = (int) config('services.cleaning.unit_entity_type_id', 0);
+        if ($typeId > 0) {
+            return $typeId;
+        }
+
+        return EntityMap::typeId('tr', 'units');
+    }
+
+    /**
+     * TR cleaning apartment SPA type id from portal entity map / env.
+     */
+    private function cleaningApartmentTypeId(): int
+    {
+        $typeId = (int) config('services.cleaning.apartment_entity_type_id', 0);
+        if ($typeId > 0) {
+            return $typeId;
+        }
+
+        return EntityMap::typeId('tr', 'apartments');
     }
 }

@@ -3,6 +3,7 @@
 namespace App\Services\Profiles;
 
 use App\Models\UnitStay;
+use App\Support\EntityMap;
 use App\Support\BitrixEnums;
 use App\Support\BitrixValue;
 use Carbon\Carbon;
@@ -30,7 +31,9 @@ class UnitStayProfile extends SpaProfile
 
     protected function typeId(): int
     {
-        return self::ENTITY_TYPE_ID;
+        $typeId = EntityMap::typeId('ae', 'unit_stays');
+
+        return $typeId > 0 ? $typeId : self::ENTITY_TYPE_ID;
     }
 
     protected function eventBase(): string

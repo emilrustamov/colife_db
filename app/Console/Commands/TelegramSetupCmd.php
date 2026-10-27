@@ -24,12 +24,14 @@ class TelegramSetupCmd extends Command
 
         $updates = $bot->getUpdates();
         if ($updates === []) {
-            $this->warn('No updates. Open t.me/ColifeErrorsBot and send /start, then run again.');
+            $this->warn('No updates. DM /start to the bot, or add it as channel admin and post once, then run again.');
         } else {
             $seen = [];
             foreach (array_reverse($updates) as $update) {
                 $chat = data_get($update, 'message.chat')
                     ?? data_get($update, 'edited_message.chat')
+                    ?? data_get($update, 'channel_post.chat')
+                    ?? data_get($update, 'edited_channel_post.chat')
                     ?? data_get($update, 'my_chat_member.chat');
                 if (! is_array($chat)) {
                     continue;
@@ -39,14 +41,15 @@ class TelegramSetupCmd extends Command
                     continue;
                 }
                 $seen[(string) $id] = true;
+                $type = (string) ($chat['type'] ?? 'chat');
                 $title = $chat['title']
                     ?? trim(((string) ($chat['first_name'] ?? '')).' '.((string) ($chat['last_name'] ?? '')))
                     ?: ((string) ($chat['username'] ?? 'chat'));
-                $this->line("chat_id={$id} ({$title})");
+                $this->line("chat_id={$id} type={$type} ({$title})");
             }
 
             if ($seen === []) {
-                $this->warn('Updates found, but no chat ids. Send /start to the bot.');
+                $this->warn('Updates found, but no chat ids. DM /start or post in a channel where the bot is admin.');
             } else {
                 $this->info('Put the desired id into TELEGRAM_CHAT_ID in .env, then php artisan config:clear');
             }

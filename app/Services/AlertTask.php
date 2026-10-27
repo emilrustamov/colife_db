@@ -7,12 +7,13 @@ use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Log;
 use Throwable;
 
-class ServiceAlertTask
+class AlertTask
 {
     private const OPEN_STATUSES = ['1', '2', '3'];
 
     public function __construct(
-        private readonly BitrixWebhook $webhookClient
+        private readonly BitrixWebhook $webhookClient,
+        private readonly TelegramAlert $telegramAlert,
     ) {}
 
     /**
@@ -84,7 +85,12 @@ class ServiceAlertTask
                 'error' => $e->getMessage(),
             ]);
 
-            return 0;
+            $this->telegramAlert->notifyOnce(
+                'service_alert_task_failed:'.$dedupeKey,
+                "⚠️ Service alert task failed\n".$title."\n".$e->getMessage()
+            );
+
+            throw $e;
         }
     }
 
@@ -97,8 +103,11 @@ class ServiceAlertTask
             return '';
         }
 
-        $domain = rtrim((string) config('services.bitrix.portal_domain', 'colifeae.bitrix24.eu'), '/');
-        $domain = preg_replace('#^https?://#i', '', $domain) ?: 'colifeae.bitrix24.eu';
+        $domain = rtrim((string) config('services.bitrix.portal_domain', ''), '/');
+        $domain = preg_replace('#^https?://#i', '', $domain) ?: '';
+        if ($domain === '') {
+            return '';
+        }
 
         return 'https://'.$domain.'/company/personal/user/0/tasks/task/view/'.$taskId.'/';
     }
@@ -119,10 +128,10 @@ class ServiceAlertTask
         $code = strtoupper(trim($portal));
 
         return match ($code) {
-            'AE' => (string) config('services.bitrix.portal_domain', 'colifeae.bitrix24.eu'),
-            'HK' => (string) config('services.b24_hk.portal_domain', 'colifepacific.bitrix24.com'),
-            'TR' => (string) config('services.b24_tr.portal_domain', 'colife.bitrix24.com.tr'),
-            default => $portal !== '' ? $portal : (string) config('services.bitrix.portal_domain', 'colifeae.bitrix24.eu'),
+            'AE' => (string) config('services.bitrix.portal_domain', ''),
+            'HK' => (string) config('services.b24_hk.portal_domain', ''),
+            'TR' => (string) config('services.b24_tr.portal_domain', ''),
+            default => $portal !== '' ? $portal : (string) config('services.bitrix.portal_domain', ''),
         };
     }
 
@@ -178,7 +187,7 @@ class ServiceAlertTask
             return $configured;
         }
 
-        $sampleTaskId = (int) config('services.service_alert_tasks.sample_task_id', 514152);
+        $sampleTaskId = (int) config('services.service_alert_tasks.sample_task_id', 0);
         if ($sampleTaskId <= 0 || $webhook === '') {
             return 0;
         }
@@ -222,7 +231,7 @@ class ServiceAlertTask
         $json = $this->webhookClient->callRaw('tasks.task.list', [
             'filter' => [
                 'TITLE' => $title,
-                'RESPONSIBLE_ID' => (int) config('services.service_alert_tasks.responsible_id', 186098),
+                'RESPONSIBLE_ID' => (int) config('services.service_alert_tasks.responsible_id', 0),
                 'REAL_STATUS' => self::OPEN_STATUSES,
             ],
             'select' => ['ID', 'TITLE', 'STATUS', 'REAL_STATUS'],
@@ -258,12 +267,12 @@ class ServiceAlertTask
         $fields = [
             'TITLE' => $title,
             'DESCRIPTION' => $this->description($payload),
-            'RESPONSIBLE_ID' => (int) config('services.service_alert_tasks.responsible_id', 186098),
-            'CREATED_BY' => (int) config('services.service_alert_tasks.created_by', 4),
+            'RESPONSIBLE_ID' => (int) config('services.service_alert_tasks.responsible_id', 0),
+            'CREATED_BY' => (int) config('services.service_alert_tasks.created_by', 0),
             'GROUP_ID' => $groupId,
             'AUDITORS' => array_values(array_filter(array_map(
                 'intval',
-                (array) config('services.service_alert_tasks.auditor_ids', [90152, 10])
+                (array) config('services.service_alert_tasks.auditor_ids', [])
             ))),
             'DEADLINE' => Carbon::today('Europe/Moscow')->endOfDay()->format('Y-m-d H:i:s'),
         ];

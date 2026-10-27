@@ -3,6 +3,7 @@
 namespace App\Services\Disk;
 
 use App\Services\BitrixWebhook;
+use App\Support\DownloadHost;
 use Illuminate\Support\Facades\Http;
 use RuntimeException;
 
@@ -179,6 +180,10 @@ class FileResolver
      */
     public function download(string $url): array
     {
+        if (! DownloadHost::isAllowed($url)) {
+            throw new RuntimeException('CRM file download host is not allowed.');
+        }
+
         $response = Http::timeout(180)->get($url);
         if (! $response->successful()) {
             throw new RuntimeException('CRM file download failed: HTTP '.$response->status());

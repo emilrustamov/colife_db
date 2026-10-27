@@ -79,7 +79,7 @@
                     if (saved) {
                         setMsg('Open Lines Source app installed.', true);
                     }
-                    if (canFinish && typeof BX24.installFinish === 'function') {
+                    if ((saved || canFinish) && typeof BX24.installFinish === 'function') {
                         BX24.installFinish();
                     }
                 }).catch(function () {

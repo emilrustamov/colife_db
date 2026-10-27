@@ -19,7 +19,7 @@ class BalanceController extends Controller
 
         $balance = ClientBalance::updateOrCreate(
             [
-                'apartment_id' => (string) $data['apart_id'],
+                'apartment_bitrix_id' => (string) $data['apart_id'],
                 'year' => $data['year'],
                 'month' => $data['month'],
             ],
@@ -47,7 +47,7 @@ class BalanceController extends Controller
 
         foreach ($items as $item) {
             $rows[] = [
-                'apartment_id' => (string) $item['apart_id'],
+                'apartment_bitrix_id' => (string) $item['apart_id'],
                 'year' => $item['year'],
                 'month' => $item['month'],
                 'balance' => $item['balance'],
@@ -58,7 +58,7 @@ class BalanceController extends Controller
 
         ClientBalance::upsert(
             $rows,
-            ['apartment_id', 'year', 'month'],
+            ['apartment_bitrix_id', 'year', 'month'],
             ['balance', 'updated_at']
         );
 

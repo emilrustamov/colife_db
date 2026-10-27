@@ -4,7 +4,7 @@ namespace App\Http\Requests;
 
 use Illuminate\Foundation\Http\FormRequest;
 
-class UpdateAlmaContactExternalIdRequest extends FormRequest
+class UpdateExternalIdRequest extends FormRequest
 {
     public function authorize(): bool
     {

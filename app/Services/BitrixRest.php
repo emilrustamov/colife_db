@@ -4,6 +4,7 @@ namespace App\Services;
 
 use App\Models\BitrixToken;
 use Illuminate\Http\Client\Response;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Http;
 use RuntimeException;
 
@@ -56,15 +57,25 @@ class BitrixRest
     {
         $token = BitrixToken::query()->where('domain', $domain)->first();
 
-        if (! $token || ! $token->access_token) {
+        if (! $token) {
+            throw new RuntimeException('Bitrix OAuth token not configured');
+        }
+
+        $accessToken = (string) ($token->access_token ?: $token->auth_id);
+        if ($accessToken === '') {
             throw new RuntimeException('Bitrix OAuth token not configured');
         }
 
         if ($token->expires_at !== null && $token->expires_at->lt(now())) {
             $token = $this->refreshToken($token);
+            $accessToken = (string) ($token->access_token ?: $token->auth_id);
         }
 
-        return $token->access_token ?? throw new RuntimeException('No Bitrix token');
+        if ($accessToken === '') {
+            throw new RuntimeException('No Bitrix token');
+        }
+
+        return $accessToken;
     }
 
     /**
@@ -90,29 +101,43 @@ class BitrixRest
 
     private function refreshToken(BitrixToken $token): BitrixToken
     {
-        $refreshToken = (string) ($token->refresh_token ?: $token->refresh_id);
-        if ($refreshToken === '') {
-            throw new RuntimeException('Bitrix refresh token is not configured.');
-        }
+        $domain = (string) $token->domain;
+        $lock = Cache::lock('bitrix-oauth-refresh:'.$domain, 20);
 
-        $response = $this->authService->refresh($refreshToken, $token->domain);
-        $accessToken = (string) ($response['access_token'] ?? '');
-        if ($accessToken === '') {
-            throw new RuntimeException('Bitrix OAuth refresh failed.');
-        }
+        return $lock->block(15, function () use ($token, $domain): BitrixToken {
+            $fresh = BitrixToken::query()->where('domain', $domain)->first() ?? $token;
+            if (
+                $fresh->expires_at !== null
+                && $fresh->expires_at->gt(now()->addSeconds(30))
+                && (string) ($fresh->access_token ?: $fresh->auth_id) !== ''
+            ) {
+                return $fresh;
+            }
 
-        $expiresIn = (int) ($response['expires_in'] ?? 0);
-        $newRefreshToken = (string) ($response['refresh_token'] ?? $refreshToken);
+            $refreshToken = (string) ($fresh->refresh_token ?: $fresh->refresh_id);
+            if ($refreshToken === '') {
+                throw new RuntimeException('Bitrix refresh token is not configured.');
+            }
 
-        $token->forceFill([
-            'access_token' => $accessToken,
-            'auth_id' => $accessToken,
-            'refresh_token' => $newRefreshToken,
-            'refresh_id' => $newRefreshToken,
-            'expires_in' => $expiresIn > 0 ? $expiresIn : null,
-            'expires_at' => $expiresIn > 0 ? now()->addSeconds($expiresIn) : null,
-        ])->save();
+            $response = $this->authService->refresh($refreshToken, $fresh->domain);
+            $accessToken = (string) ($response['access_token'] ?? '');
+            if ($accessToken === '') {
+                throw new RuntimeException('Bitrix OAuth refresh failed.');
+            }
 
-        return $token->fresh() ?? $token;
+            $expiresIn = (int) ($response['expires_in'] ?? 0);
+            $newRefreshToken = (string) ($response['refresh_token'] ?? $refreshToken);
+
+            $fresh->forceFill([
+                'access_token' => $accessToken,
+                'auth_id' => $accessToken,
+                'refresh_token' => $newRefreshToken,
+                'refresh_id' => $newRefreshToken,
+                'expires_in' => $expiresIn > 0 ? $expiresIn : null,
+                'expires_at' => $expiresIn > 0 ? now()->addSeconds($expiresIn) : null,
+            ])->save();
+
+            return $fresh->fresh() ?? $fresh;
+        });
     }
 }

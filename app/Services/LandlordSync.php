@@ -5,7 +5,7 @@ namespace App\Services;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 
-class LandlordContactsSync
+class LandlordSync
 {
     public const EXCLUDED_STAGE_IDS = [
         'DT144_10:FAIL',

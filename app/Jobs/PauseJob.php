@@ -2,8 +2,9 @@
 
 namespace App\Jobs;
 
-use App\Services\PauseDates;
 use App\Services\BitrixRest;
+use App\Services\PauseAlert;
+use App\Services\PauseDates;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Bus\Dispatchable;
@@ -120,5 +121,10 @@ class PauseJob implements ShouldQueue
             'document_id' => $this->data['document_id'] ?? null,
             'error' => $e->getMessage(),
         ]);
+
+        app(PauseAlert::class)->jobFailed(
+            (string) ($this->data['domain'] ?? ''),
+            $e->getMessage()
+        );
     }
 }

@@ -3,14 +3,11 @@
 namespace App\Services;
 
 use Illuminate\Support\Carbon;
-use Illuminate\Support\Facades\Cache;
-use Illuminate\Support\Facades\Log;
 
 class VdsinaAlert
 {
     public function __construct(
-        private readonly BitrixIm $bitrixImChannel,
-        private readonly ServiceAlertTask $serviceAlertTask
+        private readonly DailyAlert $dailyAlert,
     ) {}
 
     /**
@@ -27,38 +24,24 @@ class VdsinaAlert
             return;
         }
 
-        $today = Carbon::today('Europe/Moscow')->format('Y-m-d');
-        $cacheKey = 'vdsina:low_balance_alert:'.$today;
-
-        if (Cache::has($cacheKey)) {
-            return;
-        }
-
         $paymentDate = is_string($balanceData['forecast']) && $balanceData['forecast'] !== ''
             ? Carbon::parse($balanceData['forecast'], 'Europe/Moscow')->format('d.m.Y')
-            : Carbon::today('Europe/Moscow')->format('d.m.Y');
+            : $this->dailyAlert->todayNoticeDate();
 
-        try {
-            $notice = [
-                'portal' => (string) config('services.vdsina.portal', 'AE'),
+        $portal = (string) config('services.vdsina.portal', 'AE');
+        $this->dailyAlert->notifyOnce(
+            'vdsina:low_balance_alert:'.$this->dailyAlert->todayKey(),
+            'vdsina:'.strtoupper($portal),
+            [
+                'portal' => $portal,
                 'service' => 'VDSina',
                 'url' => (string) config('services.vdsina.cabinet_url'),
                 'pay_method' => (string) config('services.vdsina.pay_method', 'Карта'),
                 'date' => $paymentDate,
                 'balance' => '[B]$'.number_format($balance, 2, '.', '').'[/B]',
-            ];
-            $taskId = $this->serviceAlertTask->ensureOpen($notice, 'vdsina:'.strtoupper((string) $notice['portal']));
-            $notice['task_url'] = $this->serviceAlertTask->taskUrl($taskId);
-            $this->bitrixImChannel->notice($notice);
-            Cache::put($cacheKey, true, Carbon::today('Europe/Moscow')->endOfDay());
-        } catch (\Throwable $e) {
-            Log::error('VDSina low balance Bitrix alert failed', [
-                'balance' => $balance,
-                'forecast' => $balanceData['forecast'],
-                'error' => $e->getMessage(),
-            ]);
-
-            throw $e;
-        }
+            ],
+            'VDSina low balance Bitrix alert failed',
+            ['balance' => $balance, 'forecast' => $balanceData['forecast']],
+        );
     }
 }
