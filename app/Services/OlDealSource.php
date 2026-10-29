@@ -30,6 +30,16 @@ class OlDealSource
             return;
         }
 
+        if (! $this->isAllowedLine($packet)) {
+            $logger->info('OL_SOURCE_SKIP_LINE', [
+                'line_id' => (int) data_get($packet, 'connector.line_id', 0),
+                'expected_line_id' => (int) config('open_lines_source.line_id', 0),
+                'chat_id' => (int) data_get($packet, 'chat.id', 0),
+            ]);
+
+            return;
+        }
+
         if (! $this->isClientInbound($packet)) {
             $logger->info('OL_SOURCE_SKIP_NOT_INBOUND', [
                 'chat_id' => (int) data_get($packet, 'chat.id', 0),
@@ -164,6 +174,21 @@ class OlDealSource
 
             throw $e;
         }
+    }
+
+    /**
+     * Only configured Open Lines line (default LINE=5).
+     *
+     * @param  array<string, mixed>  $packet
+     */
+    private function isAllowedLine(array $packet): bool
+    {
+        $expectedLineId = (int) config('open_lines_source.line_id', 0);
+        if ($expectedLineId <= 0) {
+            return false;
+        }
+
+        return (int) data_get($packet, 'connector.line_id', 0) === $expectedLineId;
     }
 
     /**

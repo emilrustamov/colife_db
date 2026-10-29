@@ -9,6 +9,7 @@
 ## Скоуп
 
 - Портал: только `colifepacific.bitrix24.com` (`B24_HK_PORTAL_DOMAIN`)
+- Линия: только `LINE=5` (остальные OL — skip)
 - Воронка: только `CATEGORY_ID = 0`
 - Стадии: только «в работе» (`STAGE_SEMANTIC_ID = P`); success (`S`) и fail (`F`) — skip
 - Событие: `ONOPENLINEMESSAGEADD`
@@ -49,10 +50,11 @@ Job стартует с задержкой **60 с** (сделка успева�
 
 | Источник | STATUS_ID | Паттерны |
 |---|---|---|
-| 28hse | `UC_JNWVQW` | `property listing from 28hse`, `我在 28Hse 見到`, `28hse.com/rent` |
+| 28hse | `UC_JNWVQW` | `property listing from 28hse`, `我在 28Hse 見到`, `28hse.com/rent`, `28hse.com`, `28hse` |
 | FB Groups | `UC_P3614V` | `facebook post`, `saw your facebook` |
 | Website organic | `WEB` | `found your website`, `your website and would like` |
 | WA - NovDec | `UC_TJK8ZS` | `book a room in advance` |
+| Common room | `UC_0FLL9P` | `CommonRoom平台` (префикс; хвост сообщения меняется) |
 
 ## Файлы модуля
 
@@ -78,7 +80,7 @@ Job стартует с задержкой **60 с** (сделка успева�
 
 Канал `bitrix_open_lines` → `storage/logs/bitrix_open_lines.log`.
 
-Ключевые маркеры: `OL_SOURCE_APPLIED`, `OL_SOURCE_SKIP_FLAG`, `OL_SOURCE_NO_MATCH`, `OL_SOURCE_NO_DEAL`, `OL_EVENT_BIND_RESULT`.
+Ключевые маркеры: `OL_SOURCE_APPLIED`, `OL_SOURCE_SKIP_LINE`, `OL_SOURCE_SKIP_FLAG`, `OL_SOURCE_NO_MATCH`, `OL_SOURCE_NO_DEAL`, `OL_EVENT_BIND_RESULT`.
 
 ## Smoke
 

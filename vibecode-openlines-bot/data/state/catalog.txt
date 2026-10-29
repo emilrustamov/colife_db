@@ -1,0 +1,247 @@
+# Catalog API snapshot 2026-10-29T12:39:53.072Z
+
+Objects: 212
+
+Use search_apartment filters: area, type (Studio/1br/2br), max price, period months.
+
+
+
+### Studio, Neva Residences, JVC
+link: https://colife.ae/catalog/tproduct/605208928-691543642403-studio-neva-residences-jvc
+area: JVC; type: Studio; price: 7299 AED/month
+available: December; rentType: R2R
+✔️ 370 sq ft, 7 floor ✔️ Neva Residences | Modern community living | Prime JVC location All included! • DEWA, chiller, Wi-Fi • Maintenance • Tenant support Apartment is fully-furnished! • Double bed • Living & dining area • Kitchen • Bathroom Building Amenities: • Swimming pool & sun deck • Fully equipped gym • Landscaped leisure areas • Children’s play area • BBQ zones • 24/7 security & concierge
+
+### Studio, Neva Residences, JVC
+link: https://colife.ae/catalog/tproduct/605208928-468587720453-studio-neva-residences-jvc
+area: JVC; type: Studio; price: 6599 AED/month
+available: December; rentType: R2R
+✔️ 377 sq ft, 9 floor ✔️ Neva Residences | Modern community living | Prime JVC location All included! • DEWA, chiller, Wi-Fi • Maintenance • Tenant support Apartment is fully-furnished! • Double bed • Living & dining area • Kitchen • Bathroom Building Amenities: • Swimming pool & sun deck • Fully equipped gym • Landscaped leisure areas • Children’s play area • BBQ zones • 24/7 security & concierge
+
+### 1br Apartment, Neva Residences, JVC
+link: https://colife.ae/catalog/tproduct/605208928-802838614452-1br-apartment-neva-residences-jvc
+area: JVC; type: 1br Apartment; price: 9299 AED/month
+available: October; rentType: R2R
+✔️ 537 sq ft, 11 floor ✔️ Neva Residences | Modern community living | Prime JVC location All included! • DEWA, chiller, Wi-Fi • Maintenance • Tenant support Apartment is fully-furnished! • 1 bedroom • Living & dining area • Kitchen • Bathroom Building Amenities: • Swimming pool & sun deck • Fully equipped gym • Landscaped leisure areas • Children’s play area • BBQ zones • 24/7 security & concierge
+
+### 1br Apartment, Rise Residences, JVC
+link: https://colife.ae/catalog/tproduct/605208928-803322193822-1br-apartment-rise-residences-jvc
+area: JVC; type: 1br Apartment; price: 9999 AED/month
+available: November; rentType: R2R
+✔️ 705 sq ft, 5 floor ✔️ Rise Residences | Modern community living | Prime JVC location All included! • DEWA, chiller, Wi-Fi • Maintenance • Tenant support Apartment is fully-furnished! • 1 bedroom • Living & dining area • Kitchen • Bathroom • Balcony Building Amenities: • Swimming pool & sun deck • Fully equipped gym • Landscaped courtyard • Children’s play area • 24/7 security & concierge servic
+
+### Studio, Binghatti Phoenix, JVC
+link: https://colife.ae/catalog/tproduct/605208928-451256161333-studio-binghatti-phoenix-jvc
+area: JVC; type: Studio; price: 7199 AED/month
+available: November; rentType: R2R
+✔️ 433 sq ft, 1st floor ✔️ Fully furnished studio | Private balcony | City view | Prime JVC location All included! • DEWA, chiller, Wi-Fi • Maintenance • Tenant support Apartment is fully furnished! • Living & sleeping area • Dining area • Fully equipped kitchen • 1 bathroom with shower • Private balcony with furniture • City view • Washing machine • Oven & cooker • Hair dryer • Kitchenware & addi
+
+### Studio, Boulevard Central Podium, Downtown
+link: https://colife.ae/catalog/tproduct/605208928-770890569342-studio-boulevard-central-podium-downtown
+area: Downtown; type: Studio; price: 9999 AED/month
+available: November; rentType: R2R
+✔️ 497 sq ft, 3 floor ✔️ Boulevard Central Podium | Studio | Downtown Dubai All included! • DEWA, chiller, Wi-Fi • Maintenance • Tenant support Apartment is fully-furnished! • Studio layout • Living & sleeping area • Kitchen / kitchenette • Bathroom • Balcony Building Amenities: • Swimming pool • Fully equipped gym • Landscaped common areas • Retail outlets & cafes at podium level • Covered parkin
+
+### Studio, Elite Downtown Residence, Downtown
+link: https://colife.ae/catalog/tproduct/605208928-846247002972-studio-elite-downtown-residence-downtown
+area: Downtown; type: Studio; price: 8899 AED/month
+available: Now; rentType: R2R
+✔️ 531 sq ft, 5 floor ✔️ Spacious studio | Modern interiors | Prime Downtown location All included! • DEWA, chiller, Wi-Fi • Maintenance • Tenant support Apartment is fully-furnished! • Studio layout • Living & sleeping area • Kitchenette • Bathroom • Balcony Building Amenities: • Swimming pool • Fully equipped gym • Sauna & steam room • 24/7 security & concierge service • Covered parking • High-s
+
+### Studio, Skyz by Danube, Arjan
+link: https://colife.ae/catalog/tproduct/605208928-363271942422-studio-skyz-by-danube-arjan
+area: Arjan; type: Studio; price: 6799 AED/month
+available: November; rentType: R2R
+✔️ 355 sq ft, 5 floor ✔️ Skyz by Danube | Modern studio living | Arjan location All included! • DEWA, chiller, Wi-Fi • Maintenance • Tenant support Apartment is fully-furnished! • Studio layout • Living & sleeping area • Kitchen • Bathroom • Balcony Building Amenities: • Swimming pool & sun deck • Fully equipped gym • Landscaped leisure areas • Children’s play area • BBQ zones • 24/7 security & co
+
+### Studio, Regalia tower, Business bay
+link: https://colife.ae/catalog/tproduct/605208928-264957943023-studio-regalia-tower-business-bay
+area: Business Bay; type: Studio; price: 11599 AED/month
+available: November; rentType: R2R
+✔️ Modern studio | Regalia Tower | Prime Business Bay location ✔️ 447 sq ft, 13 floor All included! • DEWA, chiller, Wi-Fi • Maintenance • Tenant support Apartment is fully furnished! • Studio • Living & sleeping area • Kitchen • Bathroom Building Amenities: • Infinity swimming pool • Fully equipped gym • Outdoor lounge & leisure areas • Landscaped podium • Kids' play area • 24/7 security & concie
+
+### Studio, The Paragon tower by IGO, Business bay
+link: https://colife.ae/catalog/tproduct/605208928-490492305282-studio-the-paragon-tower-by-igo-business
+area: Business Bay; type: Studio; price: 8999 AED/month
+available: November; rentType: R2R
+✔️ 435 sq ft, 4 floor ✔️ Modern interiors | Community living | Prime Business Bay location All included! • DEWA, chiller, Wi-Fi • Maintenance • Tenant support Apartment is fully-furnished! • Studio layout • Living & sleeping area • Kitchenette • Bathroom • Balcony Building Amenities: • Swimming pool • Fully equipped gym • Sauna & steam room • Outdoor leisure & lounge areas • Co-working & social sp
+
+### 2br Apartment, MAG 545 Tower, Dubai South
+link: https://colife.ae/catalog/tproduct/605208928-184884885852-2br-apartment-mag-545-tower-dubai-south
+area: Dubai South; type: 2br Apartment; price: 10999 AED/month
+available: November; rentType: R2R
+✔️ 965 sq ft, 3 floor ✔️ Spacious layout | Community living | Prime Dubai South location All included! • DEWA, chiller, Wi-Fi • Maintenance • Tenant support Apartment is fully-furnished! • 2 bedrooms • Living & dining area • Kitchen • 2 bathrooms • Balcony Building Amenities: • Swimming pool • Fully equipped gym • Landscaped community areas • Children’s play area • 24/7 security & concierge servic
+
+### 1br Apartment, Marina Gate 2, Dubai Marina
+link: https://colife.ae/catalog/tproduct/605208928-940069617791-1br-apartment-marina-gate-2-dubai-marina
+area: Dubai Marina; type: 1br Apartment; price: 16899 AED/month
+available: Now; rentType: R2R
+✔️ 619 sq ft, 17 floor ✔️ Modern interiors | Prime Dubai Marina location All included! • DEWA, chiller, Wi-Fi • Maintenance • Tenant support Apartment is fully-furnished! • 1 Bedroom • Living & dining area • Kitchen • 1 Bathroom • Balcony Building Amenities: • Swimming pool & sun deck • Fully equipped gym • Community lounge • Children’s play area • BBQ zones • 24/7 security & concierge service • C
+
+### 1br Apartment, Midtown Noor 1, Dubai Production City
+link: https://colife.ae/catalog/tproduct/605208928-479735140271-1br-apartment-midtown-noor-1-dubai-produ
+area: Dubai Production City; type: 1br Apartment; price: 9199 AED/month
+available: November; rentType: R2R
+✔️ 656 sq ft, 5 floor ✔️ Community living | Modern interiors | Prime Dubai Production City location All included! • DEWA, chiller, Wi-Fi • Maintenance • Tenant support Apartment is fully-furnished! • 1 bedroom • Living & dining area • Kitchen • 2 Bathrooms • Balcony Building Amenities: • Swimming pool • Fully equipped gym • Landscaped community areas • Children’s play areas • 24/7 security & conci
+
+### Studio, The Regent, Dubai Production City
+link: https://colife.ae/catalog/tproduct/605208928-769680085583-studio-the-regent-dubai-production-city
+area: Dubai Production City; type: Studio; price: 6899 AED/month
+available: Now; rentType: R2R
+✔️ 343 sq ft, 4th floor ✔️ Fully furnished studio | City view | Modern interiors | Dubai Production City All included! • DEWA, chiller, Wi-Fi • Maintenance • Tenant support Apartment is fully furnished! • Studio apartment • Living & sleeping area • Dining area • Equipped kitchen • 1 bathroom with shower • City view • Washing machine • Oven & cooker • Hair dryer • Kitchenware & additional kitchen e
+
+### Studio, Lake View Tower, JLT
+link: https://colife.ae/catalog/tproduct/605208928-169868092001-studio-lake-view-tower-jlt
+area: JLT; type: Studio; price: 8699 AED/month
+available: November; rentType: R2R
+✔️ 419 sq ft, 7 floor ✔️ Modern interiors | Lake views | Prime JLT location All included! • DEWA, chiller, Wi-Fi • Maintenance • Tenant support Apartment is fully-furnished! • Studio layout • Living & sleeping area • Kitchenette • Bathroom Building Amenities: • Swimming pool • Fully equipped gym • Sauna & steam room • 24/7 security & concierge service • Covered parking • High-speed elevators • Pet
+
+### 1br Apartment, Dubai Gate Tower, JLT
+link: https://colife.ae/catalog/tproduct/605208928-650015226331-1br-apartment-dubai-gate-tower-jlt
+area: JLT; type: 1br Apartment; price: 7999 AED/month
+available: Now; rentType: R2R
+✔️ 540 sq ft, 13 floor ✔️ High floor | Modern interiors | Prime JLT location All included! • DEWA, chiller, Wi-Fi • Maintenance • Tenant support Apartment is fully-furnished! • 1 bedroom • Living & dining area • Kitchen • Bathroom • Balcony Building Amenities: • Swimming pool • Fully equipped gym • Sauna & steam room • 24/7 security & concierge service • Covered parking • High-speed elevators • Pe
+
+### Studio, Lake View Tower, JLT
+link: https://colife.ae/catalog/tproduct/605208928-134978945171-studio-lake-view-tower-jlt
+area: JLT; type: Studio; price: 9299 AED/month
+available: Now; rentType: R2R
+✔️ 420 sq.ft, 6 floor ✔️ Practical layout | Prime JLT location All included! • DEWA, chiller, Wi-Fi • Maintenance • Tenant support Apartment is fully-furnished! • Studio layout • Living & sleeping area • Kitchen • Bathroom Building Amenities: • Swimming pool • Fully equipped gym • Sauna & steam rooms • Jacuzzi • 24/7 security & concierge service • Covered parking • High-speed elevators Community &
+
+### Studio, The Sterling West, Business bay
+link: https://colife.ae/catalog/tproduct/605208928-767224818363-studio-the-sterling-west-business-bay
+area: Business Bay; type: Studio; price: 8499 AED/month
+available: December; rentType: R2R
+✔️ 468 sq ft, 3rd floor ✔️ Luxury studio | Prime Business Bay location | The Sterling West House All included! • DEWA, chiller, Wi-Fi • Maintenance • Tenant support Apartment is fully furnished! • Studio • Living & sleeping area • Kitchen • Bathroom Building Amenities: • Swimming pool • Fully equipped gym • Landscaped gardens • Outdoor lounge areas • 24/7 security & concierge • Covered parking • H
+
+### Studio, Royal Oceanic Tower, Dubai Marina
+link: https://colife.ae/catalog/tproduct/605208928-538241349772-studio-royal-oceanic-tower-dubai-marina
+area: Dubai Marina; type: Studio; price: 9399 AED/month
+available: November; rentType: R2R
+✔️ 653 sq ft, 2 floor ✔️ Modern interiors | Marina views | Prime Dubai Marina location All included! • DEWA, chiller, Wi-Fi • Maintenance • Tenant support Apartment is fully-furnished! • Studio layout • Living & sleeping area • Kitchenette • Bathroom • Balcony Building Amenities: • Swimming pool • Fully equipped gym • Residents' lounge & leisure areas • 24/7 security & concierge service • Covered 
+
+### 1br Apartment, Royal Oceanic 1, Dubai Marina
+link: https://colife.ae/catalog/tproduct/605208928-551767400093-1br-apartment-royal-oceanic-1-dubai-mari
+area: Dubai Marina; type: 1br Apartment; price: 11099 AED/month
+available: November; rentType: R2R
+✔️ 787 sq ft, 6th floor ✔️ Spacious apartment | Private balcony | Prime Dubai Marina location | Royal Oceanic All included! • DEWA, chiller, Wi-Fi • Maintenance • Tenant support Apartment: • Spacious living & dining area • Kitchen • Bathroom • Private balcony • 66.11 sq m internal area • Dedicated parking space Building Amenities: • Swimming pool & sun deck • Fully equipped gym • Sauna & steam roo
+
+### Studio, Elite Residences 2, Dubai Sports City
+link: https://colife.ae/catalog/tproduct/605208928-842981990213-studio-elite-residences-2-dubai-sports-c
+area: Dubai Sports City; type: Studio; price: 5899 AED/month
+available: Now; rentType: R2R
+✔️ 401 sq ft, 5th floor ✔️ Fully furnished apartment | Private balcony | City view | Dubai Sports City All included! • DEWA, chiller, Wi-Fi • Maintenance • Tenant support Apartment is fully furnished! • Living & sleeping area • Dining area • Fully equipped kitchen • 1 bathroom with shower • Private balcony with furniture • City view • Washing machine • Oven & cooker • Hair dryer • Kitchenware & ad
+
+### 1br Apartment, Alexis Tower, Jabal Ali Industrial Second
+link: https://colife.ae/catalog/tproduct/605208928-322363280032-1br-apartment-alexis-tower-jabal-ali-ind
+area: Jabal Ali; type: 1br Apartment; price: 8199 AED/month
+available: November; rentType: R2R
+✔️ 706 sq ft, 5 floor ✔️ Alexis Tower | Modern living | Near Metro | Jebel Ali location All included! • DEWA, chiller, Wi-Fi • Maintenance • Tenant support Apartment is fully-furnished! • 1 bedroom • Living & dining area • Kitchen • Bathroom • Balcony Building Amenities: • Swimming pool & sun deck • Fully equipped gym • 24/7 security & concierge service • High-speed elevators • Walking distance to
+
+### Studio, Alexis Tower, Jabal Ali Industrial Second
+link: https://colife.ae/catalog/tproduct/605208928-921664714932-studio-alexis-tower-jabal-ali-industrial
+area: Jabal Ali; type: Studio; price: 6099 AED/month
+available: November; rentType: R2R
+✔️ 298 sq ft, 8 floor ✔️ Alexis Tower | Modern living | Near Metro | Jebel Ali location All included! • DEWA, chiller, Wi-Fi • Maintenance • Tenant support Apartment is fully-furnished! • Studio layout • Living & sleeping area • Kitchen • Bathroom • Balcony Building Amenities: • Swimming pool & sun deck • Fully equipped gym • 24/7 security & concierge service • Covered parking • High-speed elevato
+
+### Studio, P02, International City
+link: https://colife.ae/catalog/tproduct/605208928-847515305183-studio-p02-international-city
+area: International City; type: Studio; price: 5199 AED/month
+available: November; rentType: R2R
+✔️ 484 sq ft, 3rd floor ✔️ Spacious studio | Comfortable layout | Prime International City location | P02 All included! • DEWA, chiller, Wi-Fi • Maintenance • Tenant support Apartment is fully furnished! • Studio • Living & sleeping area • Kitchen • Bathroom • Spacious layout Building Amenities: • 24/7 security • Covered parking • High-speed elevators • Well-maintained common areas Community & Nea
+
+### 1br Apartment, V3 Tower, JLT
+link: https://colife.ae/catalog/tproduct/605208928-733679560522-1br-apartment-v3-tower-jlt
+area: JLT; type: 1br Apartment; price: 11599 AED/month
+available: November; rentType: R2R
+✔️ 810 sq ft, 27 floor ✔️ High floor | Lake & skyline view | Modern interiors All included! • DEWA, chiller, Wi-Fi • Maintenance • Tenant support Apartment is fully-furnished! • 1 bedroom • Living & dining area • Kitchen • Bathroom Building Amenities: • Swimming pool • Fully equipped gym • Sauna & steam rooms • 24/7 security & concierge • High-speed elevators • Covered parking • Pet-friendly envir
+
+### 1br Apartment, Sunset at Creek Beach Building 2, Dubai Creek Harbour
+link: https://colife.ae/catalog/tproduct/605208928-404763248092-1br-apartment-sunset-at-creek-beach-buil
+area: Dubai Creek Harbour; type: 1br Apartment; price: 17399 AED/month
+available: December; rentType: R2R
+✔️ 761 sq ft, 5 floor ✔️ Creek Beach access | Modern interiors | Prime DCH location All included! • DEWA, chiller, Wi-Fi • Maintenance • Tenant support Apartment is fully-furnished! • 1 bedroom • Living & dining area • Kitchen • Bathroom • Balcony Building Amenities: • Private access to Creek Beach • Swimming pool & sun deck • Fully equipped gym • Community courtyard & shaded seating • Children’s 
+
+### 1br Apartment, Cedar at Creek Beach Building 4, Dubai Creek Harbour
+link: https://colife.ae/catalog/tproduct/605208928-982988031772-1br-apartment-cedar-at-creek-beach-build
+area: Dubai Creek Harbour; type: 1br Apartment; price: 14199 AED/month
+available: December; rentType: R2R
+✔️ 667 sq ft, 4 floor ✔️ Cedar at Creek Beach | Private beach access | Prime Dubai Creek Harbour location All included! • DEWA, chiller, Wi-Fi • Maintenance • Tenant support Apartment is fully-furnished! • 1 bedroom • Living & dining area • Kitchen • Bathroom • Balcony Building Amenities: • Private access to Creek Beach • Swimming pool & sun deck • Fully equipped gym • Community courtyard & shaded
+
+### 2br Apartment, ICON Tower 2, JLT
+link: https://colife.ae/catalog/tproduct/605208928-604818174932-2br-apartment-icon-tower-2-jlt
+area: JLT; type: 2br Apartment; price: 13699 AED/month
+available: November; rentType: R2R
+✔️ 1,155 sq.ft, 7 floor ✔️ Spacious layout | Prime JLT location | Bright interiors All included! • DEWA, chiller, Wi-Fi • Maintenance • Tenant support Apartment is fully-furnished! • 2 bedrooms • Living & dining area • Kitchen • 2 bathrooms • Balcony Building Amenities: • Swimming pool • Fully equipped gym • Sauna & steam rooms • Kids’ play area • 24/7 security & concierge service • Covered parkin
+
+### 1br Apartment, Park Island Blakely, Dubai Marina
+link: https://colife.ae/catalog/tproduct/605208928-212728820333-1br-apartment-park-island-blakely-dubai
+area: Dubai Marina; type: 1br Apartment; price: 12099 AED/month
+available: Now; rentType: R2R
+✔️ 726 sq ft, UG floor ✔️ Fully furnished 1BR | City view | Prime Dubai Marina location | Park Island All included! • DEWA, chiller, Wi-Fi • Maintenance • Tenant support Apartment is fully furnished! • 1 bedroom • Living & dining area • Fully equipped kitchen • 1 bathroom • City view • Dishwasher • Washing machine • Oven & cooker • Hair dryer • Kitchenware & additional kitchen equipment • Living r
+
+### 1br Apartment, Marina Living, Dubai Marina
+link: https://colife.ae/catalog/tproduct/605208928-308836370963-1br-apartment-marina-living-dubai-marina
+area: Dubai Marina; type: 1br Apartment; price: 12599 AED/month
+available: November; rentType: R2R
+✔️ 787 sq ft, 14th floor ✔️ Modern apartment | Spacious private balcony | Prime Dubai Marina location | Marina Living All included! • DEWA, chiller, Wi-Fi • Maintenance • Tenant support Apartment: • Living & dining area • Kitchen • Bathroom • Spacious private balcony • 58.92 sq m internal area • Dedicated parking space Building Amenities: • Swimming pool & sun deck • Fully equipped gym • Landscape
+
+### Studio, Azizi Rivera 36, Meydan One
+link: https://colife.ae/catalog/tproduct/605208928-292200640012-studio-azizi-rivera-36-meydan-one
+area: Meydan One; type: Studio; price: 7499 AED/month
+available: Now; rentType: R2R
+✔️ 460 sq.ft, 1 floor ✔️ Modern layout | Community living | Prime Meydan One location All included! • DEWA, chiller, Wi-Fi • Maintenance • Tenant support Apartment is fully-furnished! • Studio layout • Living & sleeping area • Kitchen • Bathroom • Balcony Building Amenities: • Swimming pool • Fully equipped gym • Landscaped courtyard & walking paths • Kids’ play area • BBQ area • 24/7 security • C
+
+### 2br Apartment, Binghatti House, JVC
+link: https://colife.ae/catalog/tproduct/605208928-652010174223-2br-apartment-binghatti-house-jvc
+area: JVC; type: 2br Apartment; price: 14799 AED/month
+available: Now; rentType: R2R
+✔️ 1,112 sq ft, 11th floor ✔️ Fully furnished 2BR | Spacious balcony | City view | Prime JVC location All included! • DEWA, chiller, Wi-Fi • Maintenance • Tenant support Apartment is fully furnished! • 2 bedrooms • Living & dining area • Fully equipped kitchen • 2 bathrooms • Master bathroom with shower • Spacious private balcony with furniture • City view • Washing machine • Oven & cooker • Hair 
+
+### 1br Apartment, Binghatti Onyx, JVC
+link: https://colife.ae/catalog/tproduct/605208928-370651258413-1br-apartment-binghatti-onyx-jvc
+area: JVC; type: 1br Apartment; price: 8999 AED/month
+available: November; rentType: R2R
+✔️ 704 sq ft, 10th floor ✔️ Fully furnished apartment | Private balcony | City view | Prime JVC location All included! • DEWA, chiller, Wi-Fi • Maintenance • Tenant support Apartment is fully furnished! • Living & dining area • Fully equipped kitchen • 2 bathrooms • Master bathroom with shower • Private balcony with furniture • City view • Folding sofa • Dishwasher • Washing machine • Oven & cooke
+
+### 1br Apartment, Creek Gate Tower 1, Dubai Creek Harbour
+link: https://colife.ae/catalog/tproduct/605208928-105694321051-1br-apartment-creek-gate-tower-1-dubai-c
+area: Dubai Creek Harbour; type: 1br Apartment; price: 13499 AED/month
+available: December; rentType: R2R
+✔️ 720 sq ft, 23 floor ✔️ High floor | Creek & skyline views | Prime Dubai Creek Harbour location All included! • DEWA, chiller, Wi-Fi • Maintenance • Tenant support Apartment is fully-furnished! • 1 bedroom • Living & dining area • Kitchen • Bathroom • Balcony Building Amenities: • Infinity swimming pool • Fully equipped gym • Landscaped podium & leisure areas • Children’s play area • 24/7 securi
+
+### 1br Apartment, Bonaire Tower, Dubai Marina
+link: https://colife.ae/catalog/tproduct/605208928-961348506541-1br-apartment-bonaire-tower-dubai-marina
+area: Dubai Marina; type: 1br Apartment; price: 13699 AED/month
+available: October; rentType: R2R
+✔️ 909 sq ft, 24 floor ✔️ Bonaire Tower | Prime Dubai Marina location All included! • DEWA, chiller, Wi-Fi • Maintenance • Tenant support Apartment is fully-furnished! • 1 bedroom • Living & dining area • Kitchen • 2 Bathrooms • Balcony Building Amenities: • 24/7 security & concierge service • Swimming pool • Fully equipped gym • Sauna & steam room • High-speed elevators • Covered parking Communit
+
+### 1br Apartment, Park Island Bonaire, Dubai Marina
+link: https://colife.ae/catalog/tproduct/605208928-922459237491-1br-apartment-park-island-bonaire-dubai
+area: Dubai Marina; type: 1br Apartment; price: 13699 AED/month
+available: Now; rentType: R2R
+✔️ 909 sq ft, 23 floor ✔️ High floor | Marina & partial sea view | Premium Emaar community All included! • DEWA, chiller, Wi-Fi • Maintenance • Tenant support Apartment is fully-furnished! • 1 bedroom • Spacious living & dining area • Kitchen • 2 Bathrooms Building Amenities: • Infinity swimming pool overlooking the Marina • Fully equipped gym • Squash courts • Sauna & steam rooms • Kids’ play are
+
+### 1br Apartment, Binghatti Crest Tower, JVC
+link: https://colife.ae/catalog/tproduct/605208928-425811570862-1br-apartment-binghatti-crest-tower-jvc
+area: JVC; type: 1br Apartment; price: 9999 AED/month
+available: November; rentType: R2R
+✔️ 640 sq ft, 15 floor ✔️ High floor | Modern finishing | Bright layout All included! • DEWA, chiller, Wi-Fi • Maintenance • Tenant support Apartment is fully-furnished! • 1 bedroom • Living & dining area • Kitchen • 2 bathrooms • Balcony Building Amenities: • Swimming pool • Fully equipped gym • Kids’ play area • Landscaped leisure deck • 24/7 security • Covered parking • High-speed elevators • P
+
+### 1br Apartment, Park Heights 1, Dubai Hills
+link: https://colife.ae/catalog/tproduct/605208928-823357047982-1br-apartment-park-heights-1-dubai-hills
+area: Dubai Hills; type: 1br Apartment; price: 12999 AED/month
+available: November; rentType: R2R
+✔️ 645 sq ft, 3 floor ✔️ Community living | Modern interiors | Prime Dubai Hills location All included! • DEWA, chiller, Wi-Fi • Maintenance • Tenant support Apartment is fully-furnished! • 1 bedroom • Living & dining area • Kitchen • Bathroom • Balcony Building Amenities: • Swimming pool • Fully equipped gym • Landscaped community areas • Children’s play areas • 24/7 security & concierge service 
+
+### 1br Apartment, Park Heights 1, Dubai Hills
+link: https://colife.ae/catalog/tproduct/605208928-956399913953-1br-apartment-park-heights-1-dubai-hills
+area: Dubai Hills; type: 1br Apartment; price: 12999 AED/month
+available: Now; rentType: R2R
+✔️ 646 sq ft, 3rd floor ✔️ Fully furnished 1BR | Private balcony | City view | Prime Dubai Hills Estate location All included! • DEWA, chiller, Wi-Fi • Maintenance • Tenant support Apartment is fully furnished! • 1 bedroom • Living & dining area • Fully equipped kitchen • 1 bathroom with shower • Private balcony with furniture • City view • Dishwasher • Washing machine • Oven & cooker • Hair dryer
+
+### Studio, Pearl House 2, JVC
+link: https://colife.ae/catalog/tproduct/605208928-944672627432-studio-pearl-house-2-jvc
+area: JVC; type: Studio; price: 7499 AED/month
+available: November; rentType: R2R
+✔️ 412 sq ft, 7 floor ✔️ Pearl House 2 | Studio | JVC All included! • DEWA, chiller, Wi-Fi • Maintenance • Tenant support Apartment is fully-furnished! • Studio layout • Living & sleeping area • Kitchen • Bathroom • Balcony Building Amenities: • Swimming pool • Fully equipped gym • Lobby & reception area • Covered parking • 24/7 security • Elevators • Pet-friendly Community & Nearby (Jumeirah Vill

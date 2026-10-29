@@ -4,6 +4,7 @@ return [
     'portal_domain' => env('B24_HK_PORTAL_DOMAIN', 'colifepacific.bitrix24.com'),
     'category_id' => (int) env('OPEN_LINES_SOURCE_CATEGORY_ID', 0),
     'allowed_stage_semantics' => ['P'],
+    'line_id' => (int) env('OPEN_LINES_SOURCE_LINE_ID', 5),
     'uf_flag' => env('OPEN_LINES_SOURCE_UF_FLAG', 'UF_CRM_1792743514293'),
     'uf_flag_value' => env('OPEN_LINES_SOURCE_UF_FLAG_VALUE', 'Y'),
     'handler_url' => env(
@@ -21,9 +22,12 @@ return [
                 'property listing from 28hse',
                 'i have just seen your property listing from 28hse',
                 '我在 28hse 見到',
+                '我在 28Hse 見到',
                 '我在 28hse 见到',
                 '28hse.com/rent',
                 '28hse.com/en/rent',
+                '28hse.com',
+                '28hse',
             ],
         ],
         [
@@ -47,6 +51,13 @@ return [
             'source_id' => 'UC_TJK8ZS',
             'patterns' => [
                 'book a room in advance',
+            ],
+        ],
+        [
+            'name' => 'Common room',
+            'source_id' => 'UC_0FLL9P',
+            'patterns' => [
+                'commonroom平台',
             ],
         ],
     ],
