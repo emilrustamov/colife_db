@@ -55,6 +55,7 @@ Job стартует с задержкой **60 с** (сделка успева�
 | Website organic | `WEB` | `found your website`, `your website and would like` |
 | WA - NovDec | `UC_TJK8ZS` | `book a room in advance` |
 | Common room | `UC_0FLL9P` | `CommonRoom平台` (префикс; хвост сообщения меняется) |
+| Аквизишен WA Target | `32` | `I am the owner and want to rent out my flat`, `rent out my flat on HK Island` |
 
 ## Файлы модуля
 

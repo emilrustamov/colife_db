@@ -60,5 +60,13 @@ return [
                 'commonroom平台',
             ],
         ],
+        [
+            'name' => 'Аквизишен WA Target',
+            'source_id' => '32',
+            'patterns' => [
+                'i am the owner and want to rent out my flat',
+                'rent out my flat on hk island',
+            ],
+        ],
     ],
 ];
