@@ -2,12 +2,12 @@
 
 namespace App\Http\Controllers\Api;
 
-use App\Enums\WebhookContext;
 use App\Http\Controllers\Controller;
 use App\Services\CleaningSubmitService;
 use App\Services\TokenVerifier;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Log;
 use Throwable;
 
@@ -23,9 +23,23 @@ class CleaningSubmitController extends Controller
      */
     public function submit(Request $request): JsonResponse
     {
-        [$tokenOk] = $this->tokenVerifier->verify($request, WebhookContext::Cleaning);
-        if (! $tokenOk) {
-            Log::channel('bitrix_cleaning')->warning('CLEANING_SUBMIT_REJECTED');
+        $contentLength = (int) $request->server('CONTENT_LENGTH', 0);
+        if ($contentLength > 0 && $request->request->count() === 0 && $request->files->count() === 0) {
+            Log::channel('bitrix_cleaning')->warning('CLEANING_SUBMIT_TOO_LARGE', [
+                'content_length' => $contentLength,
+            ]);
+
+            return response()->json([
+                'status' => 'error',
+                'message' => 'Upload is too large. Please add fewer photos.',
+            ], 413);
+        }
+
+        if (! $this->tokenVerifier->authorizeCleaningForm($request)) {
+            Log::channel('bitrix_cleaning')->warning('CLEANING_SUBMIT_REJECTED', [
+                'domain' => $this->tokenVerifier->requestDomain($request),
+                'content_length' => $contentLength,
+            ]);
 
             return response()->json(['status' => 'error', 'message' => 'Forbidden'], 403);
         }
@@ -33,7 +47,7 @@ class CleaningSubmitController extends Controller
         $validated = $request->validate([
             'apartment_id' => ['required', 'integer', 'min:1'],
             'apartment_title' => ['required', 'string', 'max:255'],
-            'unit_id' => ['required', 'integer', 'min:1'],
+            'unit_id' => ['required', 'string', 'max:32'],
             'unit_title' => ['required', 'string', 'max:255'],
             'cleaning_type' => ['required', 'string', 'max:100'],
             'date' => ['required', 'string', 'max:32'],
@@ -45,8 +59,15 @@ class CleaningSubmitController extends Controller
             'needs_repair' => ['nullable'],
             'notes' => ['nullable', 'string', 'max:5000'],
             'photos' => ['nullable', 'array', 'max:10'],
-            'photos.*' => ['file', 'image', 'max:10240'],
+            'photos.*' => ['file', 'image', 'max:20480'],
+            'receipts' => ['nullable', 'array', 'max:10'],
+            'receipts.*' => ['file', 'image', 'max:20480'],
         ]);
+
+        $isCommonArea = $validated['unit_id'] === 'common';
+        if (! $isCommonArea && preg_match('/^[1-9]\d*$/', $validated['unit_id']) !== 1) {
+            return response()->json(['status' => 'error', 'message' => 'Please select room / area.'], 422);
+        }
 
         $staffList = config('services.cleaning.staff', []);
         if (! is_array($staffList) || ! in_array($validated['staff'], $staffList, true)) {
@@ -56,8 +77,9 @@ class CleaningSubmitController extends Controller
         $payload = [
             'apartment_id' => (int) $validated['apartment_id'],
             'apartment_title' => (string) $validated['apartment_title'],
-            'unit_id' => (int) $validated['unit_id'],
-            'unit_title' => (string) $validated['unit_title'],
+            'unit_id' => $isCommonArea ? 0 : (int) $validated['unit_id'],
+            'unit_title' => $isCommonArea ? 'Common area' : (string) $validated['unit_title'],
+            'is_common_area' => $isCommonArea,
             'cleaning_type' => (string) $validated['cleaning_type'],
             'date' => (string) $validated['date'],
             'time' => (string) $validated['time'],
@@ -68,13 +90,21 @@ class CleaningSubmitController extends Controller
             'notes' => (string) ($validated['notes'] ?? ''),
         ];
 
-        $photos = $request->file('photos', []);
-        if (! is_array($photos)) {
-            $photos = $photos ? [$photos] : [];
+        $photos = $this->uploadedFiles($request, 'photos');
+        $receipts = $this->uploadedFiles($request, 'receipts');
+        $totalBytes = 0;
+        foreach (array_merge($photos, $receipts) as $file) {
+            $totalBytes += (int) $file->getSize();
+        }
+        if ($totalBytes > 50 * 1024 * 1024) {
+            return response()->json([
+                'status' => 'error',
+                'message' => 'Total photo size must be 50 MB or less.',
+            ], 422);
         }
 
         try {
-            $result = $this->submitService->submit($payload, $photos);
+            $result = $this->submitService->submit($payload, $photos, $receipts);
 
             return response()->json([
                 'status' => 'ok',
@@ -92,5 +122,20 @@ class CleaningSubmitController extends Controller
                 'message' => $e->getMessage(),
             ], 500);
         }
+    }
+
+    /**
+     * Normalize a multipart file field to a list.
+     *
+     * @return list<UploadedFile>
+     */
+    private function uploadedFiles(Request $request, string $key): array
+    {
+        $files = $request->file($key, []);
+        if ($files instanceof UploadedFile) {
+            return [$files];
+        }
+
+        return is_array($files) ? array_values($files) : [];
     }
 }

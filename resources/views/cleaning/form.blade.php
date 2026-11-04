@@ -595,7 +595,23 @@
                     <div class="photo-slot"></div>
                     <div class="photo-slot"></div>
                 </div>
-                <input type="file" id="photoInput" accept="image/*" multiple hidden>
+                <input type="file" id="photoInput" accept="image/jpeg,image/png,image/webp,image/heic,image/heif,.jpg,.jpeg,.png,.webp" multiple hidden>
+            </div>
+
+            <div class="field">
+                <label class="label"><span class="num">10.</span> Receipt photos</label>
+                <p class="photos-head">Add photos of receipts</p>
+                <div class="photos" id="receipts">
+                    <div class="photo-add" id="receiptAdd">
+                        <div class="plus">+</div>
+                        <div>Add Photo</div>
+                    </div>
+                    <div class="photo-slot"></div>
+                    <div class="photo-slot"></div>
+                    <div class="photo-slot"></div>
+                    <div class="photo-slot"></div>
+                </div>
+                <input type="file" id="receiptInput" accept="image/jpeg,image/png,image/webp,image/heic,image/heif,.jpg,.jpeg,.png,.webp" multiple hidden>
             </div>
 
             <div class="actions">
@@ -635,12 +651,12 @@
     const photoInput = document.getElementById('photoInput');
     const photosWrap = document.getElementById('photos');
     const photoAdd = document.getElementById('photoAdd');
+    const receiptInput = document.getElementById('receiptInput');
+    const receiptsWrap = document.getElementById('receipts');
+    const receiptAdd = document.getElementById('receiptAdd');
     const toastWrap = document.getElementById('toastWrap');
     const loadingEl = document.getElementById('loading');
     const submitBtn = document.getElementById('submitBtn');
-
-    /** @type {File[]} */
-    let selectedFiles = [];
     /** @type {Record<string, {id:number,title:string,unitIds:number[]}>} */
     let apartmentsById = {};
     /** @type {Array<{id:number,title:string,unitIds:number[]}>} */
@@ -780,7 +796,6 @@
                     apartmentOptions.push(row);
                 });
                 apartmentsLoaded = true;
-                clearApartmentSelection(false);
             } finally {
                 apartmentsLoading = false;
                 apartmentsLoadPromise = null;
@@ -828,14 +843,19 @@
             btn.textContent = item.title;
             btn.dataset.id = String(item.id);
             btn.dataset.index = String(index);
-            btn.addEventListener('mousedown', function (event) {
-                event.preventDefault();
-                selectApartment(item.id);
-            });
             apartmentList.appendChild(btn);
         });
         apartmentList.classList.add('open');
     }
+
+    apartmentList.addEventListener('pointerdown', function (event) {
+        const btn = event.target.closest('button');
+        if (!btn) {
+            return;
+        }
+        event.preventDefault();
+        selectApartment(parseInt(btn.dataset.id, 10));
+    });
 
     function hideApartmentList() {
         apartmentList.classList.remove('open');
@@ -851,14 +871,41 @@
         unitSelect.disabled = true;
     }
 
+    function normalizeTitle(value) {
+        return String(value || '').replace(/\s+/g, ' ').trim().toLowerCase();
+    }
+
+    function resolveSelectedApartment() {
+        const typed = normalizeTitle(apartmentSearch.value);
+        const currentId = parseInt(apartmentIdInput.value, 10);
+        const current = currentId ? apartmentsById[currentId] : null;
+        if (current && (typed === '' || normalizeTitle(current.title) === typed)) {
+            return current;
+        }
+        if (typed === '') {
+            return null;
+        }
+        const matches = apartmentOptions.filter(function (item) {
+            return normalizeTitle(item.title) === typed;
+        });
+        return matches.length === 1 ? matches[0] : null;
+    }
+
     function selectApartment(id) {
         const apartment = apartmentsById[id];
         if (!apartment) {
             return;
         }
+        const same = String(apartmentIdInput.value) === String(apartment.id)
+            && normalizeTitle(apartmentSearch.value) === normalizeTitle(apartment.title)
+            && !unitSelect.disabled
+            && unitSelect.options.length > 1;
         apartmentIdInput.value = String(apartment.id);
         apartmentSearch.value = apartment.title;
         hideApartmentList();
+        if (same) {
+            return;
+        }
         loadUnitsForApartment(apartment.id).catch(function (e) {
             setStatus('err', 'Failed to load units: ' + e.message);
         });
@@ -876,7 +923,11 @@
             opt.textContent = row.title;
             unitSelect.appendChild(opt);
         });
-        unitSelect.disabled = rows.length === 0;
+        const common = document.createElement('option');
+        common.value = 'common';
+        common.textContent = 'Common area';
+        unitSelect.appendChild(common);
+        unitSelect.disabled = false;
     }
 
     async function loadUnitsForApartment(apartmentId) {
@@ -884,6 +935,7 @@
         unitSelect.disabled = true;
         const apartment = apartmentsById[apartmentId];
         if (!apartment || apartment.unitIds.length === 0) {
+            fillUnitSelect([]);
             return;
         }
 
@@ -916,31 +968,149 @@
         fillUnitSelect(rows);
     }
 
-    function renderPhotos() {
-        photosWrap.querySelectorAll('.photo-preview, .photo-slot').forEach(function (el) { el.remove(); });
-        selectedFiles.forEach(function (file, index) {
-            const box = document.createElement('div');
-            box.className = 'photo-preview';
-            const img = document.createElement('img');
-            img.src = URL.createObjectURL(file);
-            const btn = document.createElement('button');
-            btn.type = 'button';
-            btn.textContent = '×';
-            btn.addEventListener('click', function () {
-                selectedFiles.splice(index, 1);
-                renderPhotos();
-            });
-            box.appendChild(img);
-            box.appendChild(btn);
-            photosWrap.appendChild(box);
+    function compressImage(file) {
+        const type = String(file.type || '').toLowerCase();
+        if (type.indexOf('image/') !== 0 || type === 'image/gif') {
+            return Promise.reject(new Error('unsupported'));
+        }
+        return new Promise(function (resolve, reject) {
+            const img = new Image();
+            const url = URL.createObjectURL(file);
+            img.onload = function () {
+                URL.revokeObjectURL(url);
+                const maxSide = 1600;
+                const scale = Math.min(1, maxSide / Math.max(img.width || 1, img.height || 1));
+                const width = Math.max(1, Math.round((img.width || 1) * scale));
+                const height = Math.max(1, Math.round((img.height || 1) * scale));
+                const canvas = document.createElement('canvas');
+                canvas.width = width;
+                canvas.height = height;
+                const ctx = canvas.getContext('2d');
+                if (!ctx) {
+                    reject(new Error('canvas'));
+                    return;
+                }
+                ctx.fillStyle = '#fff';
+                ctx.fillRect(0, 0, width, height);
+                ctx.drawImage(img, 0, 0, width, height);
+                canvas.toBlob(function (blob) {
+                    if (!blob) {
+                        reject(new Error('blob'));
+                        return;
+                    }
+                    const base = String(file.name || 'photo').replace(/\.[^.]+$/, '');
+                    resolve(new File([blob], base + '.jpg', { type: 'image/jpeg', lastModified: Date.now() }));
+                }, 'image/jpeg', 0.82);
+            };
+            img.onerror = function () {
+                URL.revokeObjectURL(url);
+                reject(new Error('decode'));
+            };
+            img.src = url;
         });
-        const empty = Math.max(0, 4 - selectedFiles.length);
-        for (let i = 0; i < empty; i++) {
-            const slot = document.createElement('div');
-            slot.className = 'photo-slot';
-            photosWrap.appendChild(slot);
+    }
+
+    function createPhotoPicker(wrap, addButton, input) {
+        /** @type {File[]} */
+        const files = [];
+
+        function render() {
+            wrap.querySelectorAll('.photo-preview, .photo-slot').forEach(function (el) { el.remove(); });
+            files.forEach(function (file, index) {
+                const box = document.createElement('div');
+                box.className = 'photo-preview';
+                const img = document.createElement('img');
+                img.src = URL.createObjectURL(file);
+                const btn = document.createElement('button');
+                btn.type = 'button';
+                btn.textContent = '×';
+                btn.addEventListener('click', function () {
+                    photoBytes -= files[index].size;
+                    files.splice(index, 1);
+                    render();
+                });
+                box.appendChild(img);
+                box.appendChild(btn);
+                wrap.appendChild(box);
+            });
+            const empty = Math.max(0, 4 - files.length);
+            for (let i = 0; i < empty; i++) {
+                const slot = document.createElement('div');
+                slot.className = 'photo-slot';
+                wrap.appendChild(slot);
+            }
+        }
+
+        addButton.addEventListener('click', function () { input.click(); });
+        input.addEventListener('change', function () {
+            const picked = Array.prototype.slice.call(input.files || []);
+            input.value = '';
+            if (picked.length === 0) {
+                return;
+            }
+            setPhotoPrepare(1);
+            Promise.all(picked.map(function (file) {
+                return compressImage(file).then(function (ready) {
+                    return { ok: true, file: ready };
+                }).catch(function () {
+                    return { ok: false };
+                });
+            })).then(function (prepared) {
+                let overLimit = false;
+                let failed = false;
+                prepared.forEach(function (item) {
+                    if (!item.ok || !item.file) {
+                        failed = true;
+                        return;
+                    }
+                    if (files.length >= 10) {
+                        return;
+                    }
+                    if (photoBytes + item.file.size > 50 * 1024 * 1024) {
+                        overLimit = true;
+                        return;
+                    }
+                    files.push(item.file);
+                    photoBytes += item.file.size;
+                });
+                render();
+                if (overLimit) {
+                    setStatus('err', 'Total photo size must be 50 MB or less.');
+                } else if (failed) {
+                    setStatus('err', 'Some photos could not be prepared for mobile Bitrix. Please use JPEG/PNG.');
+                }
+            }).then(function () {
+                setPhotoPrepare(-1);
+            });
+        });
+
+        return {
+            files: function () { return files.slice(); },
+            clear: function () {
+                files.forEach(function (file) { photoBytes -= file.size; });
+                files.length = 0;
+                render();
+            },
+            render: render,
+        };
+    }
+
+    let photoBytes = 0;
+    let photoPrepareCount = 0;
+
+    function setPhotoPrepare(delta) {
+        photoPrepareCount = Math.max(0, photoPrepareCount + delta);
+        if (photoPrepareCount > 0) {
+            submitBtn.disabled = true;
+            return;
+        }
+        if (!loadingEl.classList.contains('show')) {
+            submitBtn.disabled = false;
         }
     }
+
+    const areaPhotos = createPhotoPicker(photosWrap, photoAdd, photoInput);
+    const receiptPhotos = createPhotoPicker(receiptsWrap, receiptAdd, receiptInput);
 
     function todayIso() {
         const d = new Date();
@@ -981,9 +1151,13 @@
         renderApartmentList(apartmentSearch.value);
     });
     apartmentSearch.addEventListener('input', function () {
-        apartmentIdInput.value = '';
-        unitSelect.innerHTML = '<option value="">Select room / area</option>';
-        unitSelect.disabled = true;
+        const selectedId = parseInt(apartmentIdInput.value, 10);
+        const selected = selectedId ? apartmentsById[selectedId] : null;
+        if (!selected || normalizeTitle(selected.title) !== normalizeTitle(apartmentSearch.value)) {
+            apartmentIdInput.value = '';
+            unitSelect.innerHTML = '<option value="">Select room / area</option>';
+            unitSelect.disabled = true;
+        }
         renderApartmentList(apartmentSearch.value);
     });
     apartmentSearch.addEventListener('keydown', function (event) {
@@ -1010,15 +1184,21 @@
         }
     });
     apartmentSearch.addEventListener('blur', function () {
-        setTimeout(hideApartmentList, 150);
-    });
-
-    photoAdd.addEventListener('click', function () { photoInput.click(); });
-    photoInput.addEventListener('change', function () {
-        const files = Array.prototype.slice.call(photoInput.files || []);
-        selectedFiles = selectedFiles.concat(files).slice(0, 10);
-        photoInput.value = '';
-        renderPhotos();
+        setTimeout(function () {
+            if (document.activeElement === apartmentSearch) {
+                return;
+            }
+            const match = resolveSelectedApartment();
+            if (match && String(apartmentIdInput.value) !== String(match.id)) {
+                selectApartment(match.id);
+            } else if (!match) {
+                const buttons = apartmentList.querySelectorAll('button');
+                if (buttons.length === 1) {
+                    selectApartment(parseInt(buttons[0].dataset.id, 10));
+                }
+            }
+            hideApartmentList();
+        }, 200);
     });
 
     document.getElementById('cancelBtn').addEventListener('click', function () {
@@ -1031,18 +1211,29 @@
         event.preventDefault();
         clearStatus();
 
-        const apartmentId = parseInt(apartmentIdInput.value, 10);
+        const apartment = resolveSelectedApartment();
+        const isCommonArea = unitSelect.value === 'common';
         const unitId = parseInt(unitSelect.value, 10);
-        const apartment = apartmentsById[apartmentId];
         const unitTitle = unitSelect.options[unitSelect.selectedIndex]
             ? unitSelect.options[unitSelect.selectedIndex].textContent
             : '';
 
-        if (!apartmentId || !apartment || apartmentSearch.value.trim() !== apartment.title) {
-            setStatus('err', 'Please select apartment from the list.');
+        if (photoPrepareCount > 0) {
+            setStatus('err', 'Photos are still processing. Please wait a moment.');
             return;
         }
-        if (!unitId) {
+        if (!apartment) {
+            setStatus('err', 'Please select apartment from the list.');
+            apartmentSearch.scrollIntoView({ block: 'center' });
+            return;
+        }
+        if (String(apartmentIdInput.value) !== String(apartment.id)) {
+            apartmentIdInput.value = String(apartment.id);
+            if (!unitsByApartmentId[String(apartment.id)]) {
+                await loadUnitsForApartment(apartment.id);
+            }
+        }
+        if (!isCommonArea && !unitId) {
             setStatus('err', 'Please select room / area.');
             return;
         }
@@ -1063,11 +1254,20 @@
             checklist.push('Other');
         }
 
+        const bxAuth = await ensureBxAuth();
+        const placementDomain = new URLSearchParams(window.location.search).get('DOMAIN') || '';
+        const portalDomain = (bxAuth && bxAuth.domain) || placementDomain;
+        if (!portalDomain) {
+            setStatus('err', 'Bitrix authorization is missing. Reopen the form and try again.');
+            return;
+        }
+
         const formData = new FormData();
-        formData.append('apartment_id', String(apartmentId));
+        formData.append('auth[domain]', portalDomain);
+        formData.append('apartment_id', String(apartment.id));
         formData.append('apartment_title', apartment.title);
-        formData.append('unit_id', String(unitId));
-        formData.append('unit_title', unitTitle || ('#' + unitId));
+        formData.append('unit_id', isCommonArea ? 'common' : String(unitId));
+        formData.append('unit_title', isCommonArea ? 'Common area' : (unitTitle || ('#' + unitId)));
         formData.append('cleaning_type', cleaningTypeInput.value);
         formData.append('date', dateInput.value);
         formData.append('time', timeInput.value);
@@ -1076,12 +1276,8 @@
         formData.append('checklist_other', otherToggle.checked ? otherText : '');
         formData.append('needs_repair', needsRepairInput.checked ? '1' : '0');
         formData.append('notes', notesInput.value || '');
-        selectedFiles.forEach(function (file) { formData.append('photos[]', file, file.name); });
-        const bxAuth = (typeof BX24 !== 'undefined' && BX24.getAuth) ? BX24.getAuth() : null;
-        if (bxAuth) {
-            formData.append('auth[domain]', bxAuth.domain || '');
-            formData.append('auth[application_token]', bxAuth.application_token || '');
-        }
+        areaPhotos.files().forEach(function (file) { formData.append('photos[]', file, file.name); });
+        receiptPhotos.files().forEach(function (file) { formData.append('receipts[]', file, file.name); });
 
         loadingEl.classList.add('show');
         submitBtn.disabled = true;
@@ -1102,8 +1298,8 @@
             document.querySelectorAll('#cleaningTypes .type-card').forEach(function (c, idx) {
                 c.classList.toggle('active', idx === 0);
             });
-            selectedFiles = [];
-            renderPhotos();
+            areaPhotos.clear();
+            receiptPhotos.clear();
             clearApartmentSelection(true);
             dateInput.value = todayIso();
             fillTimeOptions();
@@ -1116,10 +1312,29 @@
         }
     });
 
+    function ensureBxAuth() {
+        if (typeof BX24 === 'undefined') {
+            return Promise.resolve(null);
+        }
+        const current = BX24.getAuth ? BX24.getAuth() : null;
+        if (current && current.domain) {
+            return Promise.resolve(current);
+        }
+        if (!BX24.refreshAuth) {
+            return Promise.resolve(current || null);
+        }
+        return new Promise(function (resolve) {
+            BX24.refreshAuth(function (auth) {
+                resolve(auth || null);
+            });
+        });
+    }
+
     dateInput.value = todayIso();
     fillTimeOptions();
     timeInput.value = nowTime();
-    renderPhotos();
+    areaPhotos.render();
+    receiptPhotos.render();
 
     BX24.init(function () {
         loadApartments()

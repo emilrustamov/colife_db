@@ -1,6 +1,6 @@
-# Catalog API snapshot 2026-11-02T13:39:53.152Z
+# Catalog API snapshot 2026-11-04T08:39:53.203Z
 
-Objects: 200
+Objects: 195
 
 Use search_apartment filters: area, type (Studio/1br/2br), max price, period months.
 
@@ -47,12 +47,6 @@ link: https://colife.ae/catalog/tproduct/605208928-846247002972-studio-elite-dow
 area: Downtown; type: Studio; price: 8899 AED/month
 available: Now; rentType: R2R
 ✔️ 531 sq ft, 5 floor ✔️ Spacious studio | Modern interiors | Prime Downtown location All included! • DEWA, chiller, Wi-Fi • Maintenance • Tenant support Apartment is fully-furnished! • Studio layout • Living & sleeping area • Kitchenette • Bathroom • Balcony Building Amenities: • Swimming pool • Fully equipped gym • Sauna & steam room • 24/7 security & concierge service • Covered parking • High-s
-
-### Studio, Skyz by Danube, Arjan
-link: https://colife.ae/catalog/tproduct/605208928-363271942422-studio-skyz-by-danube-arjan
-area: Arjan; type: Studio; price: 6799 AED/month
-available: November; rentType: R2R
-✔️ 355 sq ft, 5 floor ✔️ Skyz by Danube | Modern studio living | Arjan location All included! • DEWA, chiller, Wi-Fi • Maintenance • Tenant support Apartment is fully-furnished! • Studio layout • Living & sleeping area • Kitchen • Bathroom • Balcony Building Amenities: • Swimming pool & sun deck • Fully equipped gym • Landscaped leisure areas • Children’s play area • BBQ zones • 24/7 security & co
 
 ### Studio, Regalia tower, Business bay
 link: https://colife.ae/catalog/tproduct/605208928-264957943023-studio-regalia-tower-business-bay
@@ -245,3 +239,9 @@ link: https://colife.ae/catalog/tproduct/605208928-841940029362-studio-azizi-sha
 area: Al Furjan; type: Studio; price: 6499 AED/month
 available: November; rentType: R2R
 ✔️ 397 sq ft, 11 floor ✔️ High floor | Compact & efficient layout | Well-connected location All included! • DEWA, chiller, Wi-Fi • Maintenance • Tenant support Apartment is fully-furnished! • Studio layout • Living & sleeping area • Kitchen • Bathroom • Balcony Building Amenities: • Swimming pool • Fully equipped gym • Sauna & steam rooms • 24/7 security & concierge service • Covered parking • Hig
+
+### 1br Apartment, Avani Palm View, Al Safouh Second
+link: https://colife.ae/catalog/tproduct/605208928-846164386422-1br-apartment-avani-palm-view-al-safouh
+area: Al Safouh Second; type: 1br Apartment; price: 15999 AED/month
+available: November; rentType: R2R
+✔️ 1,083 sq ft, 23 floor ✔️ High floor | Sea & Palm views | Prime Al Safouh location All included! • DEWA, chiller, Wi-Fi • Maintenance • Tenant support Apartment is fully-furnished! • 1 bedroom • Living & dining area • Kitchen • Bathroom • Balcony Building Amenities: • Rooftop swimming pool • Fully equipped gym • Hotel-style services & facilities • 24/7 security & concierge service • Covered park

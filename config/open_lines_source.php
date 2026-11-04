@@ -63,6 +63,8 @@ return [
         [
             'name' => 'Аквизишен WA Target',
             'source_id' => '32',
+            'line_id' => 31,
+            'category_id' => 9,
             'patterns' => [
                 'i am the owner and want to rent out my flat',
                 'rent out my flat on hk island',

@@ -104,6 +104,18 @@ class TokenVerifier
         ));
     }
 
+    /**
+     * Authorize a cleaning form submit opened inside the TR local app.
+     * BX24.getAuth() has domain and does not include application_token.
+     */
+    public function authorizeCleaningForm(Request $request): bool
+    {
+        $domain = $this->requestDomain($request);
+        $expected = $this->oauth->normalizeDomain((string) config('services.b24_tr.portal_domain'));
+
+        return $domain !== '' && $expected !== '' && strcasecmp($domain, $expected) === 0;
+    }
+
     private function expectedCrmToken(): string
     {
         $expected = (string) config('services.bitrix.webhook_token', '');

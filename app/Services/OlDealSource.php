@@ -30,10 +30,11 @@ class OlDealSource
             return;
         }
 
-        if (! $this->isAllowedLine($packet)) {
+        $lineId = (int) data_get($packet, 'connector.line_id', 0);
+        if (! $this->isAllowedLine($lineId)) {
             $logger->info('OL_SOURCE_SKIP_LINE', [
-                'line_id' => (int) data_get($packet, 'connector.line_id', 0),
-                'expected_line_id' => (int) config('open_lines_source.line_id', 0),
+                'line_id' => $lineId,
+                'allowed_line_ids' => $this->allowedLineIds(),
                 'chat_id' => (int) data_get($packet, 'chat.id', 0),
             ]);
 
@@ -55,11 +56,12 @@ class OlDealSource
             return;
         }
 
-        $rule = $this->matchRule($text);
+        $rule = $this->matchRule($text, $lineId);
         if ($rule === null) {
             $logger->info('OL_SOURCE_NO_MATCH', [
                 'chat_id' => (int) data_get($packet, 'chat.id', 0),
                 'message_id' => (int) data_get($packet, 'message.id', 0),
+                'line_id' => $lineId,
                 'text_preview' => mb_substr($text, 0, 120),
             ]);
 
@@ -82,7 +84,7 @@ class OlDealSource
 
         $ufFlag = (string) config('open_lines_source.uf_flag');
         $ufValue = (string) config('open_lines_source.uf_flag_value', 'Y');
-        $categoryId = (int) config('open_lines_source.category_id', 0);
+        $categoryId = (int) $rule['category_id'];
         $deal = $this->bitrixRest->postJson('crm.deal.get', ['id' => $dealId], $domain);
         $fields = is_array($deal['result'] ?? null) ? $deal['result'] : [];
 
@@ -90,6 +92,8 @@ class OlDealSource
             $logger->info('OL_SOURCE_SKIP_CATEGORY', [
                 'deal_id' => $dealId,
                 'category_id' => $fields['CATEGORY_ID'] ?? null,
+                'expected_category_id' => $categoryId,
+                'rule' => $rule['name'],
             ]);
 
             return;
@@ -177,18 +181,38 @@ class OlDealSource
     }
 
     /**
-     * Only configured Open Lines line (default LINE=5).
-     *
-     * @param  array<string, mixed>  $packet
+     * Whether the message line is covered by default or per-rule line_id.
      */
-    private function isAllowedLine(array $packet): bool
+    private function isAllowedLine(int $lineId): bool
     {
-        $expectedLineId = (int) config('open_lines_source.line_id', 0);
-        if ($expectedLineId <= 0) {
-            return false;
+        return $lineId > 0 && in_array($lineId, $this->allowedLineIds(), true);
+    }
+
+    /**
+     * @return list<int>
+     */
+    private function allowedLineIds(): array
+    {
+        $ids = [];
+        $defaultLineId = (int) config('open_lines_source.line_id', 0);
+        if ($defaultLineId > 0) {
+            $ids[$defaultLineId] = true;
         }
 
-        return (int) data_get($packet, 'connector.line_id', 0) === $expectedLineId;
+        foreach (config('open_lines_source.rules', []) as $rule) {
+            if (! is_array($rule)) {
+                continue;
+            }
+
+            $ruleLineId = array_key_exists('line_id', $rule)
+                ? (int) $rule['line_id']
+                : $defaultLineId;
+            if ($ruleLineId > 0) {
+                $ids[$ruleLineId] = true;
+            }
+        }
+
+        return array_map('intval', array_keys($ids));
     }
 
     /**
@@ -214,11 +238,13 @@ class OlDealSource
     }
 
     /**
-     * @return array{name: string, source_id: string, patterns: list<string>}|null
+     * @return array{name: string, source_id: string, category_id: int, patterns: list<string>}|null
      */
-    private function matchRule(string $text): ?array
+    private function matchRule(string $text, int $lineId): ?array
     {
         $haystack = mb_strtolower($text);
+        $defaultLineId = (int) config('open_lines_source.line_id', 0);
+        $defaultCategoryId = (int) config('open_lines_source.category_id', 0);
 
         foreach (config('open_lines_source.rules', []) as $rule) {
             if (! is_array($rule)) {
@@ -232,12 +258,22 @@ class OlDealSource
                 continue;
             }
 
+            $ruleLineId = array_key_exists('line_id', $rule)
+                ? (int) $rule['line_id']
+                : $defaultLineId;
+            if ($ruleLineId !== $lineId) {
+                continue;
+            }
+
             foreach ($patterns as $pattern) {
                 $needle = mb_strtolower(trim((string) $pattern));
                 if ($needle !== '' && str_contains($haystack, $needle)) {
                     return [
                         'name' => $name,
                         'source_id' => $sourceId,
+                        'category_id' => array_key_exists('category_id', $rule)
+                            ? (int) $rule['category_id']
+                            : $defaultCategoryId,
                         'patterns' => array_values(array_map('strval', $patterns)),
                     ];
                 }
@@ -292,11 +328,15 @@ class OlDealSource
     }
 
     /**
-     * Bitrix OL connector sources look like "5|ANK_CHATS_APP24_WHATS_APP".
+     * Auto connector SOURCE_ID from Bitrix OL: "5|ANK_…", "31|WZ_…", or "WZ…".
      */
     private function isConnectorSource(string $sourceId): bool
     {
-        return str_contains($sourceId, '|');
+        if (str_contains($sourceId, '|')) {
+            return true;
+        }
+
+        return (bool) preg_match('/^WZ/i', $sourceId);
     }
 
     /**

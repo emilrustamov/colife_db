@@ -9,10 +9,11 @@
 ## Скоуп
 
 - Портал: только `colifepacific.bitrix24.com` (`B24_HK_PORTAL_DOMAIN`)
-- Линия: только `LINE=5` (остальные OL — skip)
-- Воронка: только `CATEGORY_ID = 0`
+- Линии: `LINE=5` (Sales, правила по умолчанию) и `LINE=31` (Acquisition 85253435916 — только «Аквизишен WA Target»)
+- Воронки: `CATEGORY_ID = 0` (Sales) для правил по умолчанию; `CATEGORY_ID = 9` (Acquisition) для «Аквизишен WA Target»
 - Стадии: только «в работе» (`STAGE_SEMANTIC_ID = P`); success (`S`) и fail (`F`) — skip
 - Событие: `ONOPENLINEMESSAGEADD`
+- У правила можно задать свои `line_id` / `category_id`; иначе берутся `OPEN_LINES_SOURCE_LINE_ID` / `OPEN_LINES_SOURCE_CATEGORY_ID`
 
 ## Пути локального приложения
 
@@ -40,8 +41,8 @@ ONOPENLINEMESSAGEADD (HK)
 
 Стоп-флаг: `UF_CRM_1792743514293` (`[тех поле] Источник проставлен автоматикой?`). Если заполнено — skip.
 
-Если `SOURCE_ID` пустой или это источник коннектора OL (`5|ANK_…` и т.п.) — пишем сматченный источник.  
-Ручной CRM-источник (без `|`) не перезаписываем: только техполе + комментарий.
+Если `SOURCE_ID` пустой или это источник коннектора OL (`5|ANK_…`, `31|WZ_…`, `WZ…`) — пишем сматченный источник.  
+Ручной CRM-источник не перезаписываем: только техполе + комментарий.
 
 Job стартует с задержкой **60 с** (сделка успевает создаться и привязаться к чату).  
 Если всё ещё `OL_SOURCE_NO_DEAL` — ещё до 5 ретраев раз в ~60 с. При успехе: `SOURCE_ID` + техполе + комментарий в таймлайне.
@@ -55,7 +56,7 @@ Job стартует с задержкой **60 с** (сделка успева�
 | Website organic | `WEB` | `found your website`, `your website and would like` |
 | WA - NovDec | `UC_TJK8ZS` | `book a room in advance` |
 | Common room | `UC_0FLL9P` | `CommonRoom平台` (префикс; хвост сообщения меняется) |
-| Аквизишен WA Target | `32` | `I am the owner and want to rent out my flat`, `rent out my flat on HK Island` |
+| Аквизишен WA Target | `32` | LINE **31**, category **9**; `I am the owner and want to rent out my flat`, `rent out my flat on HK Island` |
 
 ## Файлы модуля
 
@@ -91,4 +92,4 @@ Job стартует с задержкой **60 с** (сделка успева�
 4. Ожидание: `SOURCE_ID=UC_JNWVQW`, техполе `Y`, комментарий в таймлайне; в логах `OL_SOURCE_APPLIED`.
 5. Второе сообщение — `OL_SOURCE_SKIP_FLAG`.
 
-> Документация Bitrix: `OnOpenLineMessageAdd` часто приходит только для коннектора, который зарегистрировало само приложение. Wazzup — сторонний коннектор: если после bind с валидным скоупом события всё равно не приходят, нужен fallback (исходящий вебхук / Wazzup API) — вне текущего smoke.
+> Источник сообщений для модуля — только Bitrix (`ONOPENLINEMESSAGEADD` → наш webhook). Внешние API мессенджеров в этот контур не входят.

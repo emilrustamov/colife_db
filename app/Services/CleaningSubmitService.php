@@ -29,12 +29,14 @@ class CleaningSubmitService
      *     checklist: list<string>,
      *     checklist_other: string,
      *     needs_repair: bool,
-     *     notes: string
+     *     notes: string,
+     *     is_common_area?: bool
      * }  $payload
      * @param  list<UploadedFile>  $photos
-     * @return array{task_id: int, repair_task_id: int|null, comment_id: int, file_ids: list<int>}
+     * @param  list<UploadedFile>  $receipts
+     * @return array{task_id: int, repair_task_id: int|null, comment_id: int, unit_comment_id: int, file_ids: list<int>, receipt_ids: list<int>}
      */
-    public function submit(array $payload, array $photos = []): array
+    public function submit(array $payload, array $photos = [], array $receipts = []): array
     {
         $domain = $this->oauth->normalizeDomain((string) config('services.b24_tr.portal_domain'));
         if ($domain === '') {
@@ -44,15 +46,34 @@ class CleaningSubmitService
         $this->warnIfNotSystemUser($domain);
 
         $logger = Log::channel('bitrix_cleaning');
-        $fileIds = $this->uploadPhotos($domain, $payload, $photos);
+        [$fileIds, $photoFiles] = $this->uploadPhotos($domain, $payload, $photos);
+        [$receiptIds, $receiptFiles] = $this->uploadPhotos($domain, $payload, $receipts, 'receipt_');
         $diskFileRefs = array_map(static fn (int $id): string => 'n'.$id, $fileIds);
+        $receiptRefs = array_map(static fn (int $id): string => 'n'.$id, $receiptIds);
 
-        $commentId = $this->addUnitComment($domain, $payload, $fileIds);
-        $taskId = $this->createMaintenanceTask($domain, $payload, $diskFileRefs);
+        $taskFiles = array_merge($diskFileRefs, $receiptRefs);
+        $taskId = $this->createMaintenanceTask($domain, $payload, $taskFiles);
 
         $repairTaskId = null;
         if (! empty($payload['needs_repair'])) {
             $repairTaskId = $this->createRepairTask($domain, $payload, $diskFileRefs);
+        }
+
+        $apartmentCommentId = $this->addTimelineComment(
+            $domain,
+            $this->cleaningApartmentTypeId(),
+            (int) $payload['apartment_id'],
+            $this->withTaskLinks($this->buildReportText($payload, []), $domain, $taskId, $repairTaskId),
+            array_merge($photoFiles, $receiptFiles),
+        );
+        $unitCommentId = $apartmentCommentId;
+        if (empty($payload['is_common_area'])) {
+            $unitCommentId = $this->addTimelineComment(
+                $domain,
+                $this->cleaningUnitTypeId(),
+                (int) $payload['unit_id'],
+                $this->withTaskLinks($this->buildReportText($payload, $fileIds, $receiptIds), $domain, $taskId, $repairTaskId),
+            );
         }
 
         $logger->info('CLEANING_SUBMIT_OK', [
@@ -61,15 +82,19 @@ class CleaningSubmitService
             'unit_id' => $payload['unit_id'],
             'task_id' => $taskId,
             'repair_task_id' => $repairTaskId,
-            'comment_id' => $commentId,
+            'comment_id' => $apartmentCommentId,
+            'unit_comment_id' => $unitCommentId,
             'file_ids' => $fileIds,
+            'receipt_ids' => $receiptIds,
         ]);
 
         return [
             'task_id' => $taskId,
             'repair_task_id' => $repairTaskId,
-            'comment_id' => $commentId,
+            'comment_id' => $apartmentCommentId,
+            'unit_comment_id' => $unitCommentId,
             'file_ids' => $fileIds,
+            'receipt_ids' => $receiptIds,
         ];
     }
 
@@ -101,24 +126,28 @@ class CleaningSubmitService
     /**
      * @param  array<string, mixed>  $payload
      * @param  list<UploadedFile>  $photos
-     * @return list<int>
+     * @return array{0: list<int>, 1: list<array{0: string, 1: string}>}
      */
-    private function uploadPhotos(string $domain, array $payload, array $photos): array
+    private function uploadPhotos(string $domain, array $payload, array $photos, string $namePrefix = ''): array
     {
         if ($photos === []) {
-            return [];
+            return [[], []];
         }
 
         $folderId = $this->resolveUploadFolderId($domain, $payload);
 
         $ids = [];
+        $commentFiles = [];
         foreach ($photos as $photo) {
-            if (! $photo instanceof UploadedFile || ! $photo->isValid()) {
+            if (! $photo instanceof UploadedFile) {
                 continue;
             }
+            if (! $photo->isValid()) {
+                throw new RuntimeException('A photo could not be uploaded. Please choose a smaller image.');
+            }
 
-            $name = $photo->getClientOriginalName() ?: ('photo_'.uniqid('', true).'.jpg');
-            $content = base64_encode((string) file_get_contents($photo->getRealPath()));
+            [$name, $binary] = $this->normalizePhotoToJpeg($photo, $namePrefix);
+            $content = base64_encode($binary);
             $response = $this->bitrixRest->postJson('disk.folder.uploadfile', [
                 'id' => $folderId,
                 'data' => ['NAME' => $name],
@@ -129,10 +158,78 @@ class CleaningSubmitService
             $fileId = (int) data_get($response, 'result.ID', 0);
             if ($fileId > 0) {
                 $ids[] = $fileId;
+                $commentFiles[] = [$name, $content];
             }
         }
 
-        return $ids;
+        return [$ids, $commentFiles];
+    }
+
+    /**
+     * Convert upload to JPEG so Bitrix mobile can open photos in the usual viewer.
+     *
+     * @return array{0: string, 1: string}
+     */
+    private function normalizePhotoToJpeg(UploadedFile $photo, string $namePrefix = ''): array
+    {
+        $original = $photo->getClientOriginalName() ?: ('photo_'.uniqid('', true).'.jpg');
+        $base = pathinfo($original, PATHINFO_FILENAME);
+        $base = $this->sanitizeFolderName($base !== '' ? $base : 'photo');
+        $name = $namePrefix.$base.'.jpg';
+
+        $raw = (string) file_get_contents($photo->getRealPath());
+        if ($raw === '') {
+            throw new RuntimeException('A photo could not be read. Please try another image.');
+        }
+
+        if (! function_exists('imagecreatefromstring') || ! function_exists('imagejpeg')) {
+            return [$name, $raw];
+        }
+
+        $image = @imagecreatefromstring($raw);
+        if ($image === false) {
+            throw new RuntimeException(
+                'This photo format cannot be opened on mobile Bitrix. Please take or choose a JPEG/PNG photo.'
+            );
+        }
+
+        if (function_exists('imagepalettetotruecolor')) {
+            @imagepalettetotruecolor($image);
+        }
+        if (function_exists('imagealphablending')) {
+            imagealphablending($image, true);
+        }
+        if (function_exists('imagesavealpha')) {
+            imagesavealpha($image, false);
+        }
+
+        $width = imagesx($image);
+        $height = imagesy($image);
+        $maxSide = 1600;
+        if ($width > 0 && $height > 0 && max($width, $height) > $maxSide) {
+            $scale = $maxSide / max($width, $height);
+            $newW = max(1, (int) round($width * $scale));
+            $newH = max(1, (int) round($height * $scale));
+            $resized = imagecreatetruecolor($newW, $newH);
+            if ($resized !== false) {
+                $white = imagecolorallocate($resized, 255, 255, 255);
+                imagefilledrectangle($resized, 0, 0, $newW, $newH, $white);
+                imagecopyresampled($resized, $image, 0, 0, 0, 0, $newW, $newH, $width, $height);
+                imagedestroy($image);
+                $image = $resized;
+            }
+        }
+
+        ob_start();
+        $ok = imagejpeg($image, null, 82);
+        $jpeg = (string) ob_get_clean();
+        imagedestroy($image);
+
+        if (! $ok || $jpeg === '') {
+            throw new RuntimeException('A photo could not be converted for mobile Bitrix. Please try another image.');
+        }
+
+        return [$name, $jpeg];
     }
 
     /**
@@ -310,20 +407,47 @@ class CleaningSubmitService
     }
 
     /**
-     * @param  array<string, mixed>  $payload
-     * @param  list<int>  $fileIds
+     * Append clickable task links for the apartment and room timeline comments.
      */
-    private function addUnitComment(string $domain, array $payload, array $fileIds): int
+    private function withTaskLinks(string $comment, string $domain, int $taskId, ?int $repairTaskId): string
     {
-        $unitTypeId = $this->cleaningUnitTypeId();
-        $comment = $this->buildReportText($payload, $fileIds);
+        $lines = [$comment, ''];
+        if ($taskId > 0) {
+            $lines[] = $this->reportField('Task', '[url='.$this->taskUrl($domain, $taskId).']#'.$taskId.'[/url]');
+        }
+        if ($repairTaskId !== null && $repairTaskId > 0) {
+            $lines[] = $this->reportField('Repair task', '[url='.$this->taskUrl($domain, $repairTaskId).']#'.$repairTaskId.'[/url]');
+        }
+
+        return implode("\n", $lines);
+    }
+
+    /**
+     * Build a portal URL that opens the task for the current Bitrix user.
+     */
+    private function taskUrl(string $domain, int $taskId): string
+    {
+        return 'https://'.$domain.'/company/personal/user/0/tasks/task/view/'.$taskId.'/';
+    }
+
+    /**
+     * Add a CRM timeline comment and attach photo contents so the timeline shows the images.
+     *
+     * @param  list<array{0: string, 1: string}>  $files
+     */
+    private function addTimelineComment(string $domain, int $entityTypeId, int $entityId, string $comment, array $files = []): int
+    {
+        $fields = [
+            'ENTITY_ID' => $entityId,
+            'ENTITY_TYPE' => 'dynamic_'.$entityTypeId,
+            'COMMENT' => $comment,
+        ];
+        if ($files !== []) {
+            $fields['FILES'] = $files;
+        }
 
         $response = $this->bitrixRest->postJson('crm.timeline.comment.add', [
-            'fields' => [
-                'ENTITY_ID' => (int) $payload['unit_id'],
-                'ENTITY_TYPE' => 'dynamic_'.$unitTypeId,
-                'COMMENT' => $comment,
-            ],
+            'fields' => $fields,
         ], $domain);
 
         return (int) data_get($response, 'result', 0);
@@ -346,7 +470,7 @@ class CleaningSubmitService
             'DEADLINE' => now()->addDays((int) config('services.cleaning.deadline_days', 2))->format('c'),
             'ACCOMPLICES' => [(int) config('services.cleaning.participant_id', 110103)],
             'AUDITORS' => $this->observerIds(),
-            'UF_CRM_TASK' => $this->crmBindings($payload, true, true),
+            'UF_CRM_TASK' => $this->crmBindings($payload, empty($payload['is_common_area']), true),
         ];
 
         if ($diskFileRefs !== []) {
@@ -382,7 +506,7 @@ class CleaningSubmitService
             'GROUP_ID' => (int) config('services.cleaning.housemaster_group_id', 27),
             'DEADLINE' => now()->addDays((int) config('services.cleaning.deadline_days', 2))->format('c'),
             'AUDITORS' => $this->observerIds(),
-            'UF_CRM_TASK' => $this->crmBindings($payload, true, true),
+            'UF_CRM_TASK' => $this->crmBindings($payload, empty($payload['is_common_area']), true),
         ];
 
         if ($diskFileRefs !== []) {
@@ -464,7 +588,7 @@ class CleaningSubmitService
             'Repair requested after cleaning check-out.',
             'Apartment: '.trim((string) $payload['apartment_title']),
             'Unit: '.trim((string) $payload['unit_title']),
-            'Date: '.trim((string) $payload['date']),
+            'Date: '.$this->formatTitleDate((string) $payload['date']),
         ];
 
         $notes = trim((string) ($payload['notes'] ?? ''));
@@ -478,8 +602,9 @@ class CleaningSubmitService
     /**
      * @param  array<string, mixed>  $payload
      * @param  list<int>  $fileIds
+     * @param  list<int>  $receiptIds
      */
-    private function buildReportText(array $payload, array $fileIds): string
+    private function buildReportText(array $payload, array $fileIds, array $receiptIds = []): string
     {
         $checklist = $payload['checklist'] ?? [];
         if (! is_array($checklist)) {
@@ -496,23 +621,39 @@ class CleaningSubmitService
         }
 
         $lines = [
-            'Cleaning Report',
-            'Apartment: '.trim((string) $payload['apartment_title']).' (#'.(int) $payload['apartment_id'].')',
-            'Unit: '.trim((string) $payload['unit_title']).' (#'.(int) $payload['unit_id'].')',
-            'Cleaning type: '.trim((string) $payload['cleaning_type']),
-            'Date: '.trim((string) $payload['date']),
-            'Time: '.trim((string) $payload['time']),
-            'Cleaning staff: '.trim((string) $payload['staff']),
-            'Checklist: '.($checklist !== [] ? implode(', ', $checklist) : '—'),
-            'Needs repair: '.(! empty($payload['needs_repair']) ? 'Yes' : 'No'),
-            'Notes: '.(trim((string) ($payload['notes'] ?? '')) !== '' ? trim((string) $payload['notes']) : '—'),
+            '[color=#1F8A3B][b]Cleaning Report[/b][/color]',
+            $this->reportField('Apartment', trim((string) $payload['apartment_title']).' (#'.(int) $payload['apartment_id'].')'),
+            $this->reportField('Unit', trim((string) $payload['unit_title']).' (#'.(int) $payload['unit_id'].')'),
+            $this->reportField('Cleaning type', trim((string) $payload['cleaning_type'])),
+            $this->reportField('Date', $this->formatTitleDate((string) $payload['date'])),
+            $this->reportField('Time', trim((string) $payload['time'])),
+            $this->reportField('Cleaning staff', trim((string) $payload['staff'])),
+            $this->reportField('Needs repair', ! empty($payload['needs_repair']) ? 'Yes' : 'No'),
         ];
+        if ($checklist !== []) {
+            $lines[] = $this->reportField('Checklist', implode(', ', $checklist));
+        }
+        $notes = trim((string) ($payload['notes'] ?? ''));
+        if ($notes !== '') {
+            $lines[] = $this->reportField('Notes', $notes);
+        }
 
         if ($fileIds !== []) {
-            $lines[] = 'Photos (Disk file IDs): '.implode(', ', $fileIds);
+            $lines[] = $this->reportField('Photos (Disk file IDs)', implode(', ', $fileIds));
+        }
+        if ($receiptIds !== []) {
+            $lines[] = $this->reportField('Receipts (Disk file IDs)', implode(', ', $receiptIds));
         }
 
         return implode("\n", $lines);
+    }
+
+    /**
+     * Bold label for a report line in the timeline comment and task description.
+     */
+    private function reportField(string $label, string $value): string
+    {
+        return '[b]'.$label.':[/b] '.$value;
     }
 
     /**
@@ -525,6 +666,10 @@ class CleaningSubmitService
         $apartment = trim((string) ($payload['apartment_title'] ?? ''));
         if ($apartment === '') {
             $apartment = 'Apartment';
+        }
+
+        if (! empty($payload['is_common_area'])) {
+            return trim($apartment.' Common area Cleaning');
         }
 
         $unit = trim((string) ($payload['unit_title'] ?? ''));
@@ -540,7 +685,7 @@ class CleaningSubmitService
     }
 
     /**
-     * Normalize form date to DD.MM.YYYY for task titles.
+     * Normalize a form date to DD.MM.YYYY.
      */
     private function formatTitleDate(string $date): string
     {
