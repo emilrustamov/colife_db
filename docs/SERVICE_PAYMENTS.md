@@ -21,6 +21,7 @@ Schedule payments:collect (09:00 Europe/Moscow)
   → ServicePayApi (crm.item.list, type 1094 / category 74)
   → ServicePayAlert (notify date = today)
     → BitrixIm (im.message.add)
+  → при ошибке → CollectFailureAlert (раз в сутки)
 ```
 
 ## Файлы модуля

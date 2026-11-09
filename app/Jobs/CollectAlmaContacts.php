@@ -5,6 +5,7 @@ namespace App\Jobs;
 use App\Models\AlmaContact;
 use App\Services\AlmaApi;
 use App\Services\AlmaContactService;
+use App\Services\CollectFailureAlert;
 use Illuminate\Foundation\Bus\Dispatchable;
 use Illuminate\Support\Facades\Log;
 
@@ -17,7 +18,8 @@ class CollectAlmaContacts
      */
     public function handle(
         AlmaApi $almaApi,
-        AlmaContactService $contactService
+        AlmaContactService $contactService,
+        CollectFailureAlert $collectFailureAlert,
     ): void {
         $apiUrl = trim((string) config('services.alma.api_url'));
         $apiKey = trim((string) config('services.alma.api_key'));
@@ -88,6 +90,14 @@ class CollectAlmaContacts
             $logger->error('Alma contacts collect failed', [
                 'error' => $e->getMessage(),
             ]);
+            $collectFailureAlert->notify(
+                'alma_collect_failed',
+                '👥',
+                'Alma collect упал',
+                'AE',
+                'проверь ALMA_API_URL / ALMA_API_KEY',
+                $e,
+            );
 
             throw $e;
         }

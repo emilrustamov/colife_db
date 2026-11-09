@@ -19,6 +19,7 @@ Schedule vdsina:collect (09:00 Europe/Moscow)
   → VdsinaApi (account.balance + account)
   → VdsinaAlert (порог ≤ $50, once/day)
     → BitrixIm (im.message.add)
+  → при ошибке → CollectFailureAlert (раз в сутки)
 ```
 
 ## Файлы модуля

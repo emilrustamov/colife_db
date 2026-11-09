@@ -2,6 +2,7 @@
 
 namespace App\Jobs;
 
+use App\Services\CollectFailureAlert;
 use App\Services\ServicePayAlert;
 use App\Services\ServicePayApi;
 use Illuminate\Foundation\Bus\Dispatchable;
@@ -18,7 +19,8 @@ class CollectServicePay
      */
     public function handle(
         ServicePayApi $servicePayApi,
-        ServicePayAlert $alertService
+        ServicePayAlert $alertService,
+        CollectFailureAlert $collectFailureAlert,
     ): array {
         try {
             $items = $servicePayApi->getItems();
@@ -32,6 +34,14 @@ class CollectServicePay
             Log::error('Service payments collect failed', [
                 'error' => $e->getMessage(),
             ]);
+            $collectFailureAlert->notify(
+                'payments_collect_failed',
+                '💳',
+                'payments:collect упал',
+                'AE',
+                'проверь webhook SPA 1094 / BITRIX_IM_*',
+                $e,
+            );
 
             throw $e;
         }

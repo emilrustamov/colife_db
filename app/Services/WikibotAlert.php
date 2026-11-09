@@ -26,7 +26,7 @@ class WikibotAlert
      */
     public function notifyIfLow(array $billing): void
     {
-        $threshold = (float) config('services.wikibot.alert_threshold', 4000);
+        $threshold = (float) config('services.wikibot.alert_threshold', 6000);
         $credits = $billing['credits'];
         $moneyBalance = $billing['money_balance'];
 

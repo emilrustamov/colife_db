@@ -17,6 +17,7 @@ Schedule twilio:collect (09:00 Europe/Moscow)
   → TwilioApi (Balance.json)
   → TwilioAlert (порог ≤ 50 USD, once/day)
     → BitrixIm (im.message.add)
+  → при ошибке → CollectFailureAlert (раз в сутки)
 ```
 
 ## Файлы модуля

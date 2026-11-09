@@ -12,7 +12,7 @@
 
 Алерт в Bitrix IM (не чаще одного раза в сутки), только если **оба** условия:
 
-- `credits` (кредиты текущего тарифа) ≤ порога (`WIKIBOT_ALERT_THRESHOLD`, по умолчанию `4000`), и
+- `credits` (кредиты текущего тарифа) ≤ порога (`WIKIBOT_ALERT_THRESHOLD`, по умолчанию `6000`), и
 - `money.balance` ≤ 0 (рублей на автопокупку пакета уже нет).
 
 Если на балансе ещё есть ₽ — алерт не шлём: их хватит на автопокупку кредитов.
@@ -26,6 +26,7 @@ Schedule wikibot:collect (09:00 Europe/Moscow)
   → WikibotApi (GET /bot/billing)
   → WikibotAlert (порог / canQuery, once/day)
     → DailyAlert → AlertTask + BitrixIm
+  → при ошибке → CollectFailureAlert (раз в сутки)
 ```
 
 ## Файлы модуля
@@ -44,7 +45,7 @@ Schedule wikibot:collect (09:00 Europe/Moscow)
 
 - `WIKIBOT_API_KEY` — ключ из Settings → API Keys (Authorization as-is, без Bearer)
 - `WIKIBOT_API_URL` — базовый URL (по умолчанию `https://api.wikibot.pro/api`)
-- `WIKIBOT_ALERT_THRESHOLD` — порог по `credits` текущего тарифа (по умолчанию `4000`); срабатывает только вместе с `money.balance` ≤ 0
+- `WIKIBOT_ALERT_THRESHOLD` — порог по `credits` текущего тарифа (по умолчанию `6000`); срабатывает только вместе с `money.balance` ≤ 0
 - `WIKIBOT_CABINET_URL` — ссылка в алерте
 - `WIKIBOT_PORTAL` — код портала в notice (по умолчанию `AE`)
 - `WIKIBOT_PAY_METHOD` — способ оплаты в notice (по умолчанию `Карта`)

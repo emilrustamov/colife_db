@@ -5,9 +5,11 @@ namespace App\Jobs;
 use App\Models\DialogBalance;
 use App\Services\ChatAppApi;
 use App\Services\ChatAppAlert;
+use App\Services\CollectFailureAlert;
 use Illuminate\Foundation\Bus\Dispatchable;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Log;
+use Throwable;
 
 class CollectDialogs
 {
@@ -18,7 +20,8 @@ class CollectDialogs
      */
     public function handle(
         ChatAppApi $chatAppApiService,
-        ChatAppAlert $alertService
+        ChatAppAlert $alertService,
+        CollectFailureAlert $collectFailureAlert,
     ): void {
         $collectedAt = Carbon::today()->toDateString();
         $accounts = config('services.chatapp.accounts', []);
@@ -36,12 +39,21 @@ class CollectDialogs
 
             try {
                 $this->collectAccount($chatAppApiService, $alertService, (string) $account, $collectedAt);
-            } catch (\Throwable $e) {
-                $failures[] = (string) $account;
+            } catch (Throwable $e) {
+                $accountKey = (string) $account;
+                $failures[] = $accountKey;
                 Log::error('ChatApp collect failed', [
-                    'account' => $account,
+                    'account' => $accountKey,
                     'error' => $e->getMessage(),
                 ]);
+                $collectFailureAlert->notify(
+                    'chatapp_collect_failed:'.strtolower($accountKey),
+                    '💬',
+                    'ChatApp collect упал',
+                    strtoupper($accountKey),
+                    strtoupper($accountKey).' · проверь CHATAPP_* логин/пароль',
+                    $e,
+                );
             }
         }
 

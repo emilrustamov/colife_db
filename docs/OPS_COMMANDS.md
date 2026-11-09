@@ -2,7 +2,9 @@
 
 После `git pull` / смены PHP-кода: `bash deploy/release.sh` (migrate + `horizon:terminate`) либо вручную `php artisan horizon:terminate`. Иначе Horizon продолжает старый код в памяти.
 
-Horizon UI: `/horizon` (только superadmin). Очереди Redis: `default` (OL/install/leads), `bp-pauses` (delay пауз), `disk` (SyncDiskJob до 1ч).
+Horizon UI: `/horizon` (superadmin или роль `admin`). Очереди Redis: `default` (OL/install/leads), `bp-pauses` (delay пауз), `disk` (SyncDiskJob до 1ч).
+
+Redis UI: `/redis-ui/` (Redis Commander, basic auth; процесс `redis-commander` в supervisor, только `127.0.0.1:8082`).
 
 Бэкап БД (spatie/laravel-backup): по расписанию `01:15` Europe/Moscow (`backup:run --only-db`), очистка в `01:00`. Вручную: `php artisan backup:run --only-db`. Файлы: `storage/app/backups/`.
 

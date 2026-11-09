@@ -8,6 +8,7 @@
 
 - Паузы: `BP_WAIT_REJECTED` на `/api/bp/wait` (403 / auth)
 - Паузы: `PauseJob` окончательно упал после retries
+- Collect упал (раз в сутки на ключ): ChatApp AE/HK, Twilio, VDSina, Wazzup, Wikibot, `payments:collect`, Alma
 
 **По расписанию `telegram:health` (каждые 15 мин):**
 
@@ -70,6 +71,7 @@ Schedule telegram:health (каждые 15 мин)
 |------|------|
 | `app/Services/TelegramBot.php` | Bot API |
 | `app/Services/TelegramAlert.php` | dedupe + send |
+| `app/Services/CollectFailureAlert.php` | TG при падении `*:collect` |
 | `app/Services/BitrixOAuthHealth.php` | проверка токенов |
 | `app/Services/DiskSyncHealth.php` | проверка disk логов |
 | `app/Services/PauseQueueHealth.php` | overdue/stuck + failed_jobs пауз |

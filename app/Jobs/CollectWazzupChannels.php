@@ -2,6 +2,7 @@
 
 namespace App\Jobs;
 
+use App\Services\CollectFailureAlert;
 use App\Services\WazzupAlert;
 use App\Services\WazzupApi;
 use Illuminate\Foundation\Bus\Dispatchable;
@@ -16,7 +17,8 @@ class CollectWazzupChannels
      */
     public function handle(
         WazzupApi $wazzupApi,
-        WazzupAlert $alertService
+        WazzupAlert $alertService,
+        CollectFailureAlert $collectFailureAlert,
     ): void {
         $apiKey = trim((string) config('services.wazzup.api_key'));
         if ($apiKey === '') {
@@ -38,6 +40,14 @@ class CollectWazzupChannels
             Log::error('Wazzup collect failed', [
                 'error' => $e->getMessage(),
             ]);
+            $collectFailureAlert->notify(
+                'wazzup_collect_failed',
+                '📡',
+                'Wazzup collect упал',
+                (string) config('services.wazzup.portal', 'HK'),
+                'проверь WAZZUP_API_KEY',
+                $e,
+            );
 
             throw $e;
         }

@@ -21,6 +21,7 @@ Schedule alma:collect (every 2 hours, Europe/Moscow)
   → CollectAlmaContacts
   → AlmaApi (GET users/clients/)
   → alma_contacts (только изменённые строки)
+  → при ошибке → CollectFailureAlert (раз в сутки)
 
 POST /api/alma/contacts/external-id (X-Api-Key)
   → AlmaContactController

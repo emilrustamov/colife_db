@@ -2,6 +2,7 @@
 
 namespace App\Jobs;
 
+use App\Services\CollectFailureAlert;
 use App\Services\WikibotAlert;
 use App\Services\WikibotApi;
 use Illuminate\Foundation\Bus\Dispatchable;
@@ -27,7 +28,8 @@ class CollectWikibotBilling
      */
     public function handle(
         WikibotApi $wikibotApi,
-        WikibotAlert $alertService
+        WikibotAlert $alertService,
+        CollectFailureAlert $collectFailureAlert,
     ): ?array {
         $apiKey = trim((string) config('services.wikibot.api_key'));
 
@@ -51,6 +53,14 @@ class CollectWikibotBilling
             Log::error('Wikibot collect failed', [
                 'error' => $e->getMessage(),
             ]);
+            $collectFailureAlert->notify(
+                'wikibot_collect_failed',
+                '🤖',
+                'Wikibot collect упал',
+                (string) config('services.wikibot.portal', 'AE'),
+                'проверь WIKIBOT_API_KEY',
+                $e,
+            );
 
             throw $e;
         }

@@ -180,7 +180,7 @@ return [
     'wikibot' => [
         'api_url' => env('WIKIBOT_API_URL', 'https://api.wikibot.pro/api'),
         'api_key' => env('WIKIBOT_API_KEY'),
-        'alert_threshold' => (float) env('WIKIBOT_ALERT_THRESHOLD', 4000),
+        'alert_threshold' => (float) env('WIKIBOT_ALERT_THRESHOLD', 6000),
         'cabinet_url' => env('WIKIBOT_CABINET_URL', 'https://wikibot.pro/'),
         'portal' => env('WIKIBOT_PORTAL', 'AE'),
         'pay_method' => env('WIKIBOT_PAY_METHOD', 'Карта'),

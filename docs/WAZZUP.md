@@ -16,6 +16,7 @@ Schedule wazzup:collect (09:00 и 14:00 Europe/Moscow)
   → WazzupAlert (unpaid states, once/day per channel)
       → AlertTask
       → BitrixIm
+  → при ошибке → CollectFailureAlert (раз в сутки)
 ```
 
 ## Env

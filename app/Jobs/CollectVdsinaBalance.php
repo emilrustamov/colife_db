@@ -2,6 +2,7 @@
 
 namespace App\Jobs;
 
+use App\Services\CollectFailureAlert;
 use App\Services\VdsinaAlert;
 use App\Services\VdsinaApi;
 use Illuminate\Foundation\Bus\Dispatchable;
@@ -18,7 +19,8 @@ class CollectVdsinaBalance
      */
     public function handle(
         VdsinaApi $vdsinaApi,
-        VdsinaAlert $alertService
+        VdsinaAlert $alertService,
+        CollectFailureAlert $collectFailureAlert,
     ): ?array {
         $token = trim((string) config('services.vdsina.api_token'));
 
@@ -37,6 +39,14 @@ class CollectVdsinaBalance
             Log::error('VDSina collect failed', [
                 'error' => $e->getMessage(),
             ]);
+            $collectFailureAlert->notify(
+                'vdsina_collect_failed',
+                '🖥️',
+                'VDSina collect упал',
+                (string) config('services.vdsina.portal', 'AE'),
+                'проверь VDSINA_API_TOKEN',
+                $e,
+            );
 
             throw $e;
         }

@@ -19,6 +19,7 @@ Schedule chatapp:collect (09:00 / 12:00 / 14:00 / 18:00 Europe/Moscow → 11 / 1
       → dialog_balances
       → ChatAppAlert (порог + флаг)
         → BitrixIm (im.message.add)
+      → при ошибке аккаунта → CollectFailureAlert (раз в сутки)
 ```
 
 ## Файлы модуля
