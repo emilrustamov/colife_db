@@ -29,9 +29,7 @@ return [
     | when delivering an email. You may specify which one you're using for
     | your mailers below. You may also add additional mailers if needed.
     |
-    | Supported: "smtp", "sendmail", "mailgun", "ses", "ses-v2",
-    |            "postmark", "resend", "log", "array",
-    |            "failover", "roundrobin"
+    | Supported: "smtp", "sendmail", "log", "array", "failover"
     |
     */
 
@@ -47,22 +45,6 @@ return [
             'password' => env('MAIL_PASSWORD'),
             'timeout' => null,
             'local_domain' => env('MAIL_EHLO_DOMAIN', parse_url((string) env('APP_URL', 'http://localhost'), PHP_URL_HOST)),
-        ],
-
-        'ses' => [
-            'transport' => 'ses',
-        ],
-
-        'postmark' => [
-            'transport' => 'postmark',
-            // 'message_stream_id' => env('POSTMARK_MESSAGE_STREAM_ID'),
-            // 'client' => [
-            //     'timeout' => 5,
-            // ],
-        ],
-
-        'resend' => [
-            'transport' => 'resend',
         ],
 
         'sendmail' => [
@@ -84,15 +66,6 @@ return [
             'mailers' => [
                 'smtp',
                 'log',
-            ],
-            'retry_after' => 60,
-        ],
-
-        'roundrobin' => [
-            'transport' => 'roundrobin',
-            'mailers' => [
-                'ses',
-                'postmark',
             ],
             'retry_after' => 60,
         ],

@@ -18,8 +18,8 @@ return [
         'tr' => [
             'domain' => env('B24_TR_PORTAL_DOMAIN'),
             'entities' => [
-                'apartments' => (int) env('CLEANING_APARTMENT_ENTITY_TYPE_ID', 0),
-                'units' => (int) env('CLEANING_UNIT_ENTITY_TYPE_ID', 0),
+                'apartments' => 165,
+                'units' => 144,
             ],
         ],
     ],

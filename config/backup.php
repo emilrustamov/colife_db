@@ -19,7 +19,7 @@ return [
          * The name of this application. You can use this name to monitor
          * the backups.
          */
-        'name' => env('BACKUP_NAME', env('APP_NAME', 'colife_db')),
+        'name' => 'colife_db',
 
         'source' => [
             'files' => [
@@ -303,16 +303,6 @@ return [
             ],
         ],
 
-        /*
-        [
-            'name' => 'name of the second app',
-            'disks' => ['local', 's3'],
-            'health_checks' => [
-                \Spatie\Backup\Tasks\Monitor\HealthChecks\MaximumAgeInDays::class => 1,
-                \Spatie\Backup\Tasks\Monitor\HealthChecks\MaximumStorageInMegabytes::class => 5000,
-            ],
-        ],
-        */
     ],
 
     'cleanup' => [

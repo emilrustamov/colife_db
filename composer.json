@@ -12,7 +12,6 @@
         "laravel/framework": "^12.0",
         "laravel/horizon": "^5.50",
         "laravel/tinker": "^2.10.1",
-        "sentry/sentry-laravel": "^4.29",
         "spatie/laravel-backup": "^10.3",
         "spatie/laravel-permission": "^6.25"
     },

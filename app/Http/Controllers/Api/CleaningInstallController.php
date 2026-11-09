@@ -95,7 +95,7 @@ class CleaningInstallController extends Controller
             return response()->json(['status' => 'error', 'message' => 'Tokens required'], 422);
         }
 
-        $systemUserId = (int) config('services.cleaning.system_user_id', 71857);
+        $systemUserId = (int) config('services.cleaning.system_user_id');
         if (is_numeric($userId) && (int) $userId !== $systemUserId) {
             $logger->warning('CLEANING_INSTALL_UNEXPECTED_USER', [
                 'expected' => $systemUserId,
@@ -136,7 +136,7 @@ class CleaningInstallController extends Controller
     private function persistFromRequest(Request $request, string $domain): bool
     {
         $logger = Log::channel('bitrix_cleaning');
-        $systemUserId = (int) config('services.cleaning.system_user_id', 71857);
+        $systemUserId = (int) config('services.cleaning.system_user_id');
         $applicationToken = (string) data_get($request->all(), 'auth.application_token', '');
 
         $authAccessToken = (string) $request->input('auth.access_token', '');

@@ -104,7 +104,7 @@ class CleaningSubmitService
      */
     private function warnIfNotSystemUser(string $domain): void
     {
-        $expectedUserId = (int) config('services.cleaning.system_user_id', 71857);
+        $expectedUserId = (int) config('services.cleaning.system_user_id');
 
         try {
             $current = $this->bitrixRest->postJson('user.current', [], $domain);
@@ -239,7 +239,7 @@ class CleaningSubmitService
      */
     private function resolveUploadFolderId(string $domain, array $payload): int
     {
-        $rootId = (int) config('services.cleaning.disk_folder_id', 396621);
+        $rootId = (int) config('services.cleaning.disk_folder_id');
         if ($rootId <= 0) {
             $rootId = $this->cleaningRootFolder($domain);
         }
@@ -464,11 +464,11 @@ class CleaningSubmitService
         $fields = [
             'TITLE' => $title,
             'DESCRIPTION' => $this->buildReportText($payload, []),
-            'RESPONSIBLE_ID' => (int) config('services.cleaning.assignee_id', 62997),
-            'CREATED_BY' => (int) config('services.cleaning.system_user_id', 71857),
-            'GROUP_ID' => (int) config('services.cleaning.cleaning_group_id', 13),
+            'RESPONSIBLE_ID' => (int) config('services.cleaning.assignee_id'),
+            'CREATED_BY' => (int) config('services.cleaning.system_user_id'),
+            'GROUP_ID' => (int) config('services.cleaning.cleaning_group_id'),
             'DEADLINE' => now()->addDays((int) config('services.cleaning.deadline_days', 2))->format('c'),
-            'ACCOMPLICES' => [(int) config('services.cleaning.participant_id', 110103)],
+            'ACCOMPLICES' => [(int) config('services.cleaning.participant_id')],
             'AUDITORS' => $this->observerIds(),
             'UF_CRM_TASK' => $this->crmBindings($payload, empty($payload['is_common_area']), true),
         ];
@@ -501,9 +501,9 @@ class CleaningSubmitService
         $fields = [
             'TITLE' => $title,
             'DESCRIPTION' => $description,
-            'RESPONSIBLE_ID' => (int) config('services.cleaning.assignee_id', 62997),
-            'CREATED_BY' => (int) config('services.cleaning.system_user_id', 71857),
-            'GROUP_ID' => (int) config('services.cleaning.housemaster_group_id', 27),
+            'RESPONSIBLE_ID' => (int) config('services.cleaning.assignee_id'),
+            'CREATED_BY' => (int) config('services.cleaning.system_user_id'),
+            'GROUP_ID' => (int) config('services.cleaning.housemaster_group_id'),
             'DEADLINE' => now()->addDays((int) config('services.cleaning.deadline_days', 2))->format('c'),
             'AUDITORS' => $this->observerIds(),
             'UF_CRM_TASK' => $this->crmBindings($payload, empty($payload['is_common_area']), true),
@@ -527,7 +527,7 @@ class CleaningSubmitService
      */
     private function observerIds(): array
     {
-        $ids = config('services.cleaning.observer_ids', [109833, 87311, 25681]);
+        $ids = config('services.cleaning.observer_ids', []);
         if (! is_array($ids)) {
             return [];
         }
@@ -714,7 +714,7 @@ class CleaningSubmitService
      */
     private function cleaningUnitTypeId(): int
     {
-        $typeId = (int) config('services.cleaning.unit_entity_type_id', 0);
+        $typeId = (int) config('services.cleaning.unit_entity_type_id');
         if ($typeId > 0) {
             return $typeId;
         }
@@ -727,7 +727,7 @@ class CleaningSubmitService
      */
     private function cleaningApartmentTypeId(): int
     {
-        $typeId = (int) config('services.cleaning.apartment_entity_type_id', 0);
+        $typeId = (int) config('services.cleaning.apartment_entity_type_id');
         if ($typeId > 0) {
             return $typeId;
         }

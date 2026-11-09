@@ -77,7 +77,7 @@ class TelegramHealthCmd extends Command
         $samples = [
             $text->message('🔐', 'OAuth отвалился', $hk, "Переустанови приложение: {$appUrl}/api/bp/install"),
             $text->message('💾', 'Disk sync отвалился', $ae, 'Проверь логи bitrix_disk и список 322.'),
-            $text->message('⏸️', 'Паузы отвалились · очередь стоит', null, 'Проверь supervisor laravel-queue-pauses.'),
+            $text->message('⏸️', 'Паузы отвалились · очередь стоит', null, 'Проверь supervisor horizon (очередь bp-pauses).'),
             $text->message('❌', 'Паузы отвалились', $hk, 'Проверь OAuth и failed_jobs — BP могут зависнуть.'),
             $text->message('⏸️', 'Паузы: wait отклонён', $hk, 'Bitrix шлёт wait, сервер отвечает 403 — BP зависают на паузе.'),
             $text->message('❌', 'Паузы: job упал', $hk, 'Bitrix OAuth refresh failed.'),

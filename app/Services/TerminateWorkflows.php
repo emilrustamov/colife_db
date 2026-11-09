@@ -9,7 +9,7 @@ class TerminateWorkflows
     ) {}
 
     /**
-     * Stop running list BPs for an element, then start template 3666 on it.
+     * Stop running list BPs for an element, then start bp_list_template_id on it.
      *
      * @return array{
      *     element_id: int,
@@ -79,10 +79,7 @@ class TerminateWorkflows
      */
     private function start(int $elementId): array
     {
-        $templateId = (int) config('services.bitrix.bp_list_template_id', 3666);
-        if ($templateId <= 0) {
-            $templateId = 3666;
-        }
+        $templateId = (int) config('services.bitrix.bp_list_template_id');
 
         $response = $this->webhookClient->callRaw('bizproc.workflow.start', [
             'TEMPLATE_ID' => $templateId,

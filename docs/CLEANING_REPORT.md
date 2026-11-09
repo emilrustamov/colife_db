@@ -77,8 +77,11 @@ Deadline: +2 дня.
 
 - `B24_TR_PORTAL_DOMAIN` (по умолчанию `colife.bitrix24.com.tr`)
 - `B24_TR_CLIENT_ID`, `B24_TR_CLIENT_SECRET`, `B24_TR_REDIRECT_URI`
+- `CLEANING_APPLICATION_TOKEN` (или fallback на `B24_TR_APPLICATION_TOKEN`)
 - `CLEANING_DISK_FOLDER_ID` (по умолчанию `396621` — папка Cleaning в общем диске)
-- Опционально: `CLEANING_SYSTEM_USER_ID`, `CLEANING_ASSIGNEE_ID`, `CLEANING_PARTICIPANT_ID`, `CLEANING_GROUP_ID`, `CLEANING_HOUSEMASTER_GROUP_ID`
+- Опционально: `CLEANING_OBSERVER_IDS`, `CLEANING_DEADLINE_DAYS`
+
+User/group/entity IDs и поле units — в `config/services.php` → `cleaning.*` (не в `.env`).
 
 ## Логи
 

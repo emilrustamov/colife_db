@@ -2,27 +2,6 @@
 
 return [
 
-    'postmark' => [
-        'key' => env('POSTMARK_API_KEY'),
-    ],
-
-    'resend' => [
-        'key' => env('RESEND_API_KEY'),
-    ],
-
-    'ses' => [
-        'key' => env('AWS_ACCESS_KEY_ID'),
-        'secret' => env('AWS_SECRET_ACCESS_KEY'),
-        'region' => env('AWS_DEFAULT_REGION', 'us-east-1'),
-    ],
-
-    'slack' => [
-        'notifications' => [
-            'bot_user_oauth_token' => env('SLACK_BOT_USER_OAUTH_TOKEN'),
-            'channel' => env('SLACK_BOT_USER_DEFAULT_CHANNEL'),
-        ],
-    ],
-
     'bitrix' => [
         'client_id' => env('B24_CLIENT_ID'),
         'client_secret' => env('B24_CLIENT_SECRET'),
@@ -36,13 +15,13 @@ return [
         'application_token' => env('B24_APPLICATION_TOKEN'),
         'open_lines_application_token' => env('BITRIX_OPEN_LINES_APPLICATION_TOKEN'),
         'webhook' => env('BITRIX_WEBHOOK'),
-        'disk_webhook' => env('BITRIX_DISK_WEBHOOK'),
+        'disk_webhook' => env('BITRIX_DISK_WEBHOOK', env('BITRIX_WEBHOOK')),
         'bp_webhook' => env('BITRIX_BP_WEBHOOK'),
         'lists' => [
             'utilities_iblock_id' => (int) env('BITRIX_UTILITIES_IBLOCK_ID', 156),
             'disk_iblock_id' => (int) env('BITRIX_DISK_IBLOCK_ID', 322),
         ],
-        'bp_list_template_id' => (int) env('BITRIX_BP_LIST_TEMPLATE_ID', 0),
+        'bp_list_template_id' => 3666,
     ],
 
     'b24_hk' => [
@@ -64,19 +43,19 @@ return [
 
     'cleaning' => [
         'application_token' => env('CLEANING_APPLICATION_TOKEN'),
-        'system_user_id' => (int) env('CLEANING_SYSTEM_USER_ID', 0),
-        'assignee_id' => (int) env('CLEANING_ASSIGNEE_ID', 0),
-        'participant_id' => (int) env('CLEANING_PARTICIPANT_ID', 0),
+        'system_user_id' => 71857,
+        'assignee_id' => 62997,
+        'participant_id' => 110103,
         'observer_ids' => array_values(array_filter(array_map(
             'intval',
             explode(',', (string) env('CLEANING_OBSERVER_IDS', ''))
         ))),
-        'cleaning_group_id' => (int) env('CLEANING_GROUP_ID', 0),
-        'housemaster_group_id' => (int) env('CLEANING_HOUSEMASTER_GROUP_ID', 0),
+        'cleaning_group_id' => 13,
+        'housemaster_group_id' => 27,
         'deadline_days' => (int) env('CLEANING_DEADLINE_DAYS', 2),
-        'apartment_entity_type_id' => (int) env('CLEANING_APARTMENT_ENTITY_TYPE_ID', 0),
-        'unit_entity_type_id' => (int) env('CLEANING_UNIT_ENTITY_TYPE_ID', 0),
-        'apartment_units_field' => env('CLEANING_APARTMENT_UNITS_FIELD'),
+        'apartment_entity_type_id' => (int) config('bitrix_entities.portals.tr.entities.apartments'),
+        'unit_entity_type_id' => (int) config('bitrix_entities.portals.tr.entities.units'),
+        'apartment_units_field' => 'ufCrm5_1697012153',
         'disk_folder_id' => (int) env('CLEANING_DISK_FOLDER_ID', 0),
         'staff' => [
             'Nursel',
@@ -94,7 +73,7 @@ return [
 
     'service_alert_tasks' => [
         'enabled' => (bool) env('SERVICE_ALERT_TASKS_ENABLED', true),
-        'webhook' => env('BITRIX_TASK_WEBHOOK'),
+        'webhook' => env('BITRIX_TASK_WEBHOOK', env('BITRIX_WEBHOOK')),
         'sample_task_id' => (int) env('SERVICE_ALERT_TASK_SAMPLE_ID', 0),
         'group_id' => (int) env('SERVICE_ALERT_TASK_GROUP_ID', 0),
         'responsible_id' => (int) env('SERVICE_ALERT_TASK_RESPONSIBLE_ID', 0),
@@ -106,7 +85,7 @@ return [
     ],
 
     'bitrix_contacts' => [
-        'event_token' => env('BITRIX_CONTACTS_EVENT_TOKEN'),
+        'event_token' => env('BITRIX_CONTACTS_EVENT_TOKEN', env('BITRIX_WEBHOOK_TOKEN')),
         'push' => [
             'update_method' => 'crm.contact.update.json',
             'field_map' => [

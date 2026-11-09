@@ -25,7 +25,7 @@ Schedule wazzup:collect (09:00 и 14:00 Europe/Moscow)
 - `WAZZUP_CABINET_URL`
 - `WAZZUP_ALERT_STATES` — через запятую, по умолчанию `notEnoughMoney,disabled`
 - `BITRIX_IM_*` — канал уведомлений
-- задачи — `BITRIX_UNITS_WEBHOOK` / `service_alert_tasks.*`
+- задачи — `BITRIX_WEBHOOK` / `service_alert_tasks.*`
 
 ## Файлы
 
