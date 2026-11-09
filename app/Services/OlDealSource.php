@@ -125,15 +125,26 @@ class OlDealSource
             return;
         }
 
-        $existingSource = trim((string) ($fields['SOURCE_ID'] ?? ''));
         $updateFields = [
             $ufFlag => $ufValue,
         ];
-
         $sourceChanged = false;
-        if ($existingSource === '' || $this->isConnectorSource($existingSource)) {
-            $updateFields['SOURCE_ID'] = $rule['source_id'];
-            $sourceChanged = true;
+        $promoChanged = false;
+        $promoField = (string) config('open_lines_source.uf_promo', 'UF_CRM_1793861655792');
+        $isPromoRule = array_key_exists('promo_value', $rule) && $rule['promo_value'] !== null && $rule['promo_value'] !== '';
+
+        if ($isPromoRule) {
+            $existingPromo = trim((string) ($fields[$promoField] ?? ''));
+            if ($existingPromo === '') {
+                $updateFields[$promoField] = $rule['promo_value'];
+                $promoChanged = true;
+            }
+        } else {
+            $existingSource = trim((string) ($fields['SOURCE_ID'] ?? ''));
+            if ($existingSource === '' || $this->isConnectorSource($existingSource)) {
+                $updateFields['SOURCE_ID'] = $rule['source_id'];
+                $sourceChanged = true;
+            }
         }
 
         try {
@@ -142,17 +153,31 @@ class OlDealSource
                 'fields' => $updateFields,
             ], $domain);
 
-            $comment = $sourceChanged
-                ? sprintf(
-                    'Источник «%s» проставлен автоматикой по сообщению: «%s»',
-                    $rule['name'],
-                    $this->truncateCommentText($text)
-                )
-                : sprintf(
-                    'Источник уже был заполнен; автоматика зафиксировала совпадение с «%s» по сообщению: «%s»',
-                    $rule['name'],
-                    $this->truncateCommentText($text)
-                );
+            if ($isPromoRule) {
+                $comment = $promoChanged
+                    ? sprintf(
+                        'Промокод «%s» проставлен автоматикой по сообщению: «%s»',
+                        $rule['name'],
+                        $this->truncateCommentText($text)
+                    )
+                    : sprintf(
+                        'Промокод уже был заполнен; автоматика зафиксировала совпадение с «%s» по сообщению: «%s»',
+                        $rule['name'],
+                        $this->truncateCommentText($text)
+                    );
+            } else {
+                $comment = $sourceChanged
+                    ? sprintf(
+                        'Источник «%s» проставлен автоматикой по сообщению: «%s»',
+                        $rule['name'],
+                        $this->truncateCommentText($text)
+                    )
+                    : sprintf(
+                        'Источник уже был заполнен; автоматика зафиксировала совпадение с «%s» по сообщению: «%s»',
+                        $rule['name'],
+                        $this->truncateCommentText($text)
+                    );
+            }
 
             $this->bitrixRest->postJson('crm.timeline.comment.add', [
                 'fields' => [
@@ -165,8 +190,10 @@ class OlDealSource
             $logger->info('OL_SOURCE_APPLIED', [
                 'deal_id' => $dealId,
                 'rule' => $rule['name'],
-                'source_id' => $rule['source_id'],
+                'source_id' => $isPromoRule ? null : $rule['source_id'],
+                'promo_value' => $isPromoRule ? $rule['promo_value'] : null,
                 'source_changed' => $sourceChanged,
+                'promo_changed' => $promoChanged,
                 'chat_id' => $chatId,
             ]);
         } catch (Throwable $e) {
@@ -238,7 +265,7 @@ class OlDealSource
     }
 
     /**
-     * @return array{name: string, source_id: string, category_id: int, patterns: list<string>}|null
+     * @return array{name: string, source_id: string|null, promo_value: int|string|null, category_id: int, patterns: list<string>}|null
      */
     private function matchRule(string $text, int $lineId): ?array
     {
@@ -252,9 +279,12 @@ class OlDealSource
             }
 
             $sourceId = trim((string) ($rule['source_id'] ?? ''));
+            $hasPromo = array_key_exists('promo_value', $rule)
+                && $rule['promo_value'] !== null
+                && $rule['promo_value'] !== '';
             $name = trim((string) ($rule['name'] ?? ''));
             $patterns = $rule['patterns'] ?? [];
-            if ($sourceId === '' || $name === '' || ! is_array($patterns)) {
+            if (($sourceId === '' && ! $hasPromo) || $name === '' || ! is_array($patterns)) {
                 continue;
             }
 
@@ -268,9 +298,17 @@ class OlDealSource
             foreach ($patterns as $pattern) {
                 $needle = mb_strtolower(trim((string) $pattern));
                 if ($needle !== '' && str_contains($haystack, $needle)) {
+                    $promoValue = null;
+                    if ($hasPromo) {
+                        $promoValue = is_numeric($rule['promo_value'])
+                            ? (int) $rule['promo_value']
+                            : $rule['promo_value'];
+                    }
+
                     return [
                         'name' => $name,
-                        'source_id' => $sourceId,
+                        'source_id' => $sourceId !== '' ? $sourceId : null,
+                        'promo_value' => $promoValue,
                         'category_id' => array_key_exists('category_id', $rule)
                             ? (int) $rule['category_id']
                             : $defaultCategoryId,
@@ -282,7 +320,6 @@ class OlDealSource
 
         return null;
     }
-
     /**
      * @param  array<string, mixed>  $packet
      */

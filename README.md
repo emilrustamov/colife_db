@@ -66,6 +66,14 @@
 
 Маркеры: `wazzup:collect`, `Wazzup*`, `CollectWazzupChannels`, `WAZZUP_*`.
 
+### Wikibot
+
+Мониторинг тарифа/кредитов Wikibot (`money.totalCredits` + баланс ₽) + алерт в Bitrix IM при остатке ≤ порога или `canQuery: false`.
+
+Подробности: [docs/WIKIBOT.md](docs/WIKIBOT.md).
+
+Маркеры: `wikibot:collect`, `Wikibot*`, `CollectWikibotBilling`, `WIKIBOT_*`.
+
 ### Telegram alerts
 
 Редкие крит. алерты в `@ColifeErrorsBot` (OAuth / disk / паузы queue / supervisor / `/up`), без спама.

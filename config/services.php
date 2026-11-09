@@ -198,6 +198,15 @@ return [
         ))),
     ],
 
+    'wikibot' => [
+        'api_url' => env('WIKIBOT_API_URL', 'https://api.wikibot.pro/api'),
+        'api_key' => env('WIKIBOT_API_KEY'),
+        'alert_threshold' => (float) env('WIKIBOT_ALERT_THRESHOLD', 4000),
+        'cabinet_url' => env('WIKIBOT_CABINET_URL', 'https://wikibot.pro/'),
+        'portal' => env('WIKIBOT_PORTAL', 'AE'),
+        'pay_method' => env('WIKIBOT_PAY_METHOD', 'Карта'),
+    ],
+
     'service_payments' => [
         'entity_type_id' => 1094,
         'category_id' => 74,
@@ -206,11 +215,11 @@ return [
             10828 => 'ChatApp',
             10830 => 'CallGear',
             11368 => 'Miro',
-            // 11370 => 'Wikibot',
         ],
         'api_owned_services' => [
             10832 => 'Twilio',
             11352 => 'VDSina',
+            11370 => 'Wikibot',
         ],
         'portals' => [
             10834 => 'AE',
@@ -235,7 +244,6 @@ return [
             ],
             10830 => env('CALLGEAR_CABINET_URL', ''),
             11368 => env('MIRO_CABINET_URL', 'https://miro.com/app/dashboard/'),
-            // 11370 => env('WIKIBOT_CABINET_URL', ''),
         ],
     ],
 

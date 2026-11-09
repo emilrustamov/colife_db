@@ -42,6 +42,10 @@ Schedule::command('wazzup:collect')
     ->dailyAt('14:00')
     ->timezone('Europe/Moscow');
 
+Schedule::command('wikibot:collect')
+    ->dailyAt('09:00')
+    ->timezone('Europe/Moscow');
+
 Schedule::command('payments:collect')
     ->dailyAt('09:00')
     ->timezone('Europe/Moscow');

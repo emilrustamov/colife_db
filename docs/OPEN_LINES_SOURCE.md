@@ -9,11 +9,12 @@
 ## Скоуп
 
 - Портал: только `colifepacific.bitrix24.com` (`B24_HK_PORTAL_DOMAIN`)
-- Линии: `LINE=5` (Sales, правила по умолчанию) и `LINE=31` (Acquisition 85253435916 — только «Аквизишен WA Target»)
+- Линии: `LINE=5` (Sales WABA +85251029674, правила по умолчанию + промокоды) и `LINE=31` (Acquisition 85253435916 — только «Аквизишен WA Target»)
 - Воронки: `CATEGORY_ID = 0` (Sales) для правил по умолчанию; `CATEGORY_ID = 9` (Acquisition) для «Аквизишен WA Target»
 - Стадии: только «в работе» (`STAGE_SEMANTIC_ID = P`); success (`S`) и fail (`F`) — skip
 - Событие: `ONOPENLINEMESSAGEADD`
 - У правила можно задать свои `line_id` / `category_id`; иначе берутся `OPEN_LINES_SOURCE_LINE_ID` / `OPEN_LINES_SOURCE_CATEGORY_ID`
+- Правила с `promo_value` пишут `UF_CRM_1793861655792` и **не** меняют `SOURCE_ID`
 
 ## Пути локального приложения
 
@@ -35,28 +36,35 @@ ONOPENLINEMESSAGEADD (HK)
       → client inbound + text match
       → imopenlines.dialog.get → DEAL
       → category 0 + UF empty?
-      → crm.deal.update (SOURCE_ID if empty + UF_CRM_1792743514293=Y)
+      → crm.deal.update (SOURCE_ID или UF промокода + UF_CRM_1792743514293=Y)
       → crm.timeline.comment.add
 ```
 
 Стоп-флаг: `UF_CRM_1792743514293` (`[тех поле] Источник проставлен автоматикой?`). Если заполнено — skip.
 
-Если `SOURCE_ID` пустой или это источник коннектора OL (`5|ANK_…`, `31|WZ_…`, `WZ…`) — пишем сматченный источник.  
+Если правило с `source_id`: `SOURCE_ID` пустой или источник коннектора OL (`5|ANK_…`, `31|WZ_…`, `WZ…`) — пишем сматченный источник.  
 Ручной CRM-источник не перезаписываем: только техполе + комментарий.
+
+Если правило с `promo_value` (таргет WABA Sales): пишем `UF_CRM_1793861655792`, `SOURCE_ID` не трогаем.
 
 Job стартует с задержкой **60 с** (сделка успевает создаться и привязаться к чату).  
 Если всё ещё `OL_SOURCE_NO_DEAL` — ещё до 5 ретраев раз в ~60 с. При успехе: `SOURCE_ID` + техполе + комментарий в таймлайне.
 
 ## Маппинг v1
 
-| Источник | STATUS_ID | Паттерны |
+| Источник / промо | Поле | Паттерны |
 |---|---|---|
-| 28hse | `UC_JNWVQW` | `property listing from 28hse`, `我在 28Hse 見到`, `28hse.com/rent`, `28hse.com`, `28hse` |
-| FB Groups | `UC_P3614V` | `facebook post`, `saw your facebook` |
-| Website organic | `WEB` | `found your website`, `your website and would like` |
-| WA - NovDec | `UC_TJK8ZS` | `book a room in advance` |
-| Common room | `UC_0FLL9P` | `CommonRoom平台` (префикс; хвост сообщения меняется) |
-| Аквизишен WA Target | `32` | LINE **31**, category **9**; `I am the owner and want to rent out my flat`, `rent out my flat on HK Island` |
+| 28hse | `SOURCE_ID=UC_JNWVQW` | `property listing from 28hse`, `我在 28Hse 見到`, `28hse.com/rent`, `28hse.com`, `28hse` |
+| FB Groups | `SOURCE_ID=UC_P3614V` | `facebook post`, `saw your facebook` |
+| Website organic | `SOURCE_ID=WEB` | `found your website`, `your website and would like` |
+| WA - NovDec | `SOURCE_ID=UC_TJK8ZS` | `book a room in advance` |
+| Common room | `SOURCE_ID=UC_0FLL9P` | `CommonRoom平台` (префикс; хвост сообщения меняется) |
+| Promo Winter (flat) | `UF_CRM_1793861655792=4433` | `I want to rent a flat with a discount. My promo code is WINTER.` |
+| Promo Cozy (room) | `UF_CRM_1793861655792=4435` | `…promo code is COZY` |
+| Promo Home (room) | `UF_CRM_1793861655792=4437` | `…promo code is HOME` |
+| Promo Move (room) | `UF_CRM_1793861655792=4439` | `…promo code is MOVE` |
+| Promo Dream (room) | `UF_CRM_1793861655792=4441` | `…promo code is DREAM` |
+| Аквизишен WA Target | `SOURCE_ID=32` | LINE **31**, category **9**; `I am the owner and want to rent out my flat`, `rent out my flat on HK Island` |
 
 ## Файлы модуля
 
