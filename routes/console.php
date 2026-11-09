@@ -57,3 +57,13 @@ Schedule::command('alma:collect')
 Schedule::command('bitrix:recover-stuck-pauses')->everyFiveMinutes();
 
 Schedule::command('telegram:health')->everyFifteenMinutes();
+
+Schedule::command('horizon:snapshot')->everyFiveMinutes();
+
+Schedule::command('backup:clean')
+    ->dailyAt('01:00')
+    ->timezone('Europe/Moscow');
+
+Schedule::command('backup:run --only-db')
+    ->dailyAt('01:15')
+    ->timezone('Europe/Moscow');

@@ -31,5 +31,28 @@ return Application::configure(basePath: dirname(__DIR__))
         ]);
     })
     ->withExceptions(function (Exceptions $exceptions): void {
-        //
+        $exceptions->reportable(function (Throwable $e): void {
+            if (! app()->bound(App\Services\TelegramAlert::class)) {
+                return;
+            }
+
+            if (! app()->environment('production')) {
+                return;
+            }
+
+            try {
+                $text = app(App\Services\TelegramAlertText::class)->message(
+                    '🧨',
+                    'Exception',
+                    null,
+                    class_basename($e).': '.mb_substr($e->getMessage(), 0, 300),
+                );
+                app(App\Services\TelegramAlert::class)->notifyOnce(
+                    'exception:'.class_basename($e).':'.md5($e->getMessage()),
+                    $text,
+                    (int) config('services.telegram.instant_dedupe_ttl', 3600)
+                );
+            } catch (Throwable) {
+            }
+        });
     })->create();

@@ -5,8 +5,7 @@ namespace App\Services;
 class SupervisorHealth
 {
     private const PROGRAMS = [
-        'laravel-queue-default',
-        'laravel-queue-pauses',
+        'horizon',
     ];
 
     public function __construct(
@@ -15,7 +14,7 @@ class SupervisorHealth
     ) {}
 
     /**
-     * Check supervisor queue workers are RUNNING.
+     * Check supervisor Horizon process is RUNNING.
      *
      * @return list<string>
      */
@@ -27,7 +26,7 @@ class SupervisorHealth
                 '⚙️',
                 'Supervisor отвалился',
                 null,
-                'Не удалось проверить воркеры очередей.',
+                'Не удалось проверить Horizon.',
             );
             $this->alerts->notifyOnce('supervisor_unreadable', $message);
 
@@ -43,9 +42,9 @@ class SupervisorHealth
             if ($matches === []) {
                 $message = $this->text->message(
                     '⚙️',
-                    'Воркеры очереди отвалились',
+                    'Horizon отвалился',
                     null,
-                    'Паузы и фоновые job не обрабатываются.',
+                    'Очереди не обрабатываются.',
                 );
                 $this->alerts->notifyOnce('supervisor_queue_down', $message);
 
@@ -56,9 +55,9 @@ class SupervisorHealth
                 if (strtoupper($row['state']) !== 'RUNNING') {
                     $message = $this->text->message(
                         '⚙️',
-                        'Воркеры очереди отвалились',
+                        'Horizon отвалился',
                         null,
-                        'Паузы и фоновые job не обрабатываются.',
+                        'Очереди не обрабатываются.',
                     );
                     $this->alerts->notifyOnce('supervisor_queue_down', $message);
 

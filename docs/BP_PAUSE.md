@@ -33,14 +33,14 @@ Bitrix bizproc activity
 | `app/Console/Commands/RecoverPausesCommand.php` | `bitrix:recover-stuck-pauses` — разбор зависших job |
 | `routes/api.php` | `/api/bp/wait`, `/api/bp/handler`, `/api/bp/install` |
 | `routes/console.php` | schedule `bitrix:recover-stuck-pauses` каждые 5 минут |
-| `deploy/supervisor/laravel-queue.conf` | worker `laravel-queue-pauses` → очередь `bp-pauses` |
+| `deploy/supervisor/laravel-horizon.conf` | Horizon → очереди `default` / `bp-pauses` / `disk` |
 | `config/services.php` | `services.bitrix.pause_dry_run` |
 | `.env` / `.env.example` | `B24_PAUSE_DRY_RUN`, `B24_PORTAL_TIMEZONE`, `B24_HK_*` |
 
 ## Инфраструктура
 
-- **Очередь:** `bp-pauses` (отдельный supervisor-процесс)
-- **Логи:** канал `bitrix_pauses`, файлы `storage/logs/bitrix_pauses-*.log`, worker log `storage/logs/queue-bp-pauses-worker.log`
+- **Очередь:** `bp-pauses` (Horizon / Redis, delay по timestamp)
+- **Логи:** канал `bitrix_pauses`, файлы `storage/logs/bitrix_pauses-*.log`, Horizon `storage/logs/horizon.log`
 - **Dry-run:** `B24_PAUSE_DRY_RUN=true` — job не вызывает `bizproc.event.send`
 - **Timezone:** Bitrix присылает дату/время паузы в личном TZ пользователя, который ставит активность (не «время сервера»). Для AE и ГК парсим как `Asia/Tashkent` (`B24_PAUSE_DATETIME_TIMEZONE` / `B24_HK_PAUSE_DATETIME_TIMEZONE`). `B24_PORTAL_TIMEZONE` — отдельный параметр, на паузу не влияет.
 

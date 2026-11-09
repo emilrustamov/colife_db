@@ -29,7 +29,9 @@ class SyncDiskJob implements ShouldQueue
     public function __construct(
         public int $listId,
         public ?int $elementId = null,
-    ) {}
+    ) {
+        $this->onQueue('disk');
+    }
 
     /**
      * Run disk file sync for the given list.

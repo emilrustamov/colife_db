@@ -3,6 +3,7 @@
 namespace App\Services;
 
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Redis;
 
 class PauseQueueHealth
 {
@@ -22,27 +23,17 @@ class PauseQueueHealth
         $messages = [];
         $now = now()->timestamp;
         $overdueBefore = $now - 120;
-        $stuckReservedBefore = $now - 180;
 
-        $hasBacklog = DB::table('jobs')
-            ->where('queue', 'bp-pauses')
-            ->where(function ($q) use ($overdueBefore, $stuckReservedBefore) {
-                $q->where(function ($q) use ($overdueBefore) {
-                    $q->where('available_at', '<=', $overdueBefore)
-                        ->whereNull('reserved_at');
-                })->orWhere(function ($q) use ($stuckReservedBefore) {
-                    $q->whereNotNull('reserved_at')
-                        ->where('reserved_at', '<=', $stuckReservedBefore);
-                });
-            })
-            ->exists();
+        $overdueDelayed = (int) Redis::zcount('queues:bp-pauses:delayed', '-inf', (string) $overdueBefore);
+        $stuckReserved = (int) Redis::zcount('queues:bp-pauses:reserved', '-inf', (string) ($now - 180));
+        $waiting = (int) Redis::llen('queues:bp-pauses');
 
-        if ($hasBacklog) {
+        if ($overdueDelayed > 0 || $stuckReserved > 0 || $waiting > 50) {
             $message = $this->text->message(
                 '⏸️',
                 'Паузы отвалились · очередь стоит',
                 null,
-                'Проверь supervisor laravel-queue-pauses.',
+                'Проверь Horizon (bp-pauses). waiting='.$waiting.' overdue='.$overdueDelayed.' reserved='.$stuckReserved,
             );
             $this->alerts->notifyOnce('pause_queue_backlog', $message);
             $messages[] = $message;

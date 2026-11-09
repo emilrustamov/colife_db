@@ -15,7 +15,8 @@
 - Disk sync: `ERROR` / `failed > 0` в логах `bitrix_disk` за последние N часов
 - Паузы: overdue/stuck jobs в очереди `bp-pauses`
 - Паузы: свежие `failed_jobs` по `bp-pauses`
-- Supervisor: `laravel-queue-default` / `laravel-queue-pauses` не `RUNNING`
+- Supervisor: `horizon` не `RUNNING`
+- Job finally failed / Horizon long wait (мгновенно, с dedupe)
 - HTTP: `APP_URL/up` не отвечает 2xx (nginx/php недоступны снаружи)
 
 В тексте: эмодзи, код портала (AE / HK / TR) и ссылка `https://…`.  
