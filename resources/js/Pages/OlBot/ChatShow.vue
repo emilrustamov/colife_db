@@ -3,6 +3,8 @@ import { Link } from '@inertiajs/vue3';
 import { computed } from 'vue';
 import OlBotLayout from './OlBotLayout.vue';
 import { useOlBotI18n } from './composables/useOlBotI18n';
+import { formatCredits } from './utils/credits';
+
 
 const props = defineProps({
     chat: { type: Object, required: true },
@@ -44,7 +46,7 @@ const roleClass = (role) => {
 <template>
     <OlBotLayout
         :title="`Chat ${chat.chat_id}`"
-        :subtitle="`${formatDateTime(chat.started_at)} · msgs ${chat.messages_count} · esc ${chat.escalated ? 'yes' : 'no'} · ${chat.tags || chat.category || '—'}`"
+        :subtitle="`${formatDateTime(chat.started_at)} · msgs ${chat.messages_count} · esc ${chat.escalated ? 'yes' : 'no'} · ${formatCredits(chat.credits)} · ${chat.tags || chat.category || '—'}`"
         active-key="ol-bot-analytics"
     >
         <div class="flex flex-wrap items-center justify-between gap-3">

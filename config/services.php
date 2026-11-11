@@ -114,6 +114,45 @@ return [
         'timeout' => (int) env('ALMA_API_TIMEOUT', 120),
     ],
 
+    'landlord_finance' => [
+        'auth' => env('LANDLORD_FINANCE_AUTH', 'oauth'),
+        'credentials_path' => env(
+            'LANDLORD_FINANCE_GOOGLE_CREDENTIALS',
+            storage_path('app/google/colife-landlord-finance.json')
+        ),
+        'oauth_client_path' => env(
+            'LANDLORD_FINANCE_OAUTH_CLIENT_JSON',
+            storage_path('app/google/oauth-client.json')
+        ),
+        'oauth_token_path' => env(
+            'LANDLORD_FINANCE_OAUTH_TOKEN_JSON',
+            storage_path('app/google/oauth-token.json')
+        ),
+        'api_key' => env('LANDLORD_FINANCE_API_KEY', env('ALMA_API_KEY')),
+        'timeout' => (int) env('LANDLORD_FINANCE_TIMEOUT', 60),
+        'request_delay_ms' => (int) env('LANDLORD_FINANCE_REQUEST_DELAY_MS', 200),
+        'years' => env('LANDLORD_FINANCE_YEARS', ''),
+        'unit_id_cell' => env('LANDLORD_FINANCE_UNIT_ID_CELL', 'E2'),
+        'landlord_id_cell' => env('LANDLORD_FINANCE_LANDLORD_ID_CELL', 'E3'),
+        'bitrix_ownership_entity_type_id' => (int) env('LANDLORD_FINANCE_BITRIX_OWNERSHIP_TYPE', 148),
+        'rows' => [
+            'vat' => 9,
+            'rent' => 10,
+            'commission' => 11,
+            'quotation' => 12,
+            'internet' => 13,
+            'dewa' => 14,
+            'ac' => 15,
+            'gas' => 16,
+            'service_charge' => 17,
+            'dtcm_permit' => 18,
+            'maintenance' => 19,
+            'other_expenses' => 20,
+            'received_from_landlord' => 23,
+            'transferred_to_landlord' => 24,
+        ],
+    ],
+
     'chatapp' => [
         'api_url' => env('CHATAPP_API_URL', 'https://api.chatapp.online'),
         'alert_threshold' => (int) env('CHATAPP_ALERT_THRESHOLD', 1000),

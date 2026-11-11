@@ -86,6 +86,37 @@ class OlBotAnalytics
     }
 
     /**
+     * Local OL-bot spend for day/week/month window.
+     *
+     * @return array{chats: int, messages: int, credits: float, from: string, to: string}
+     */
+    public function localUsage(string $period = 'day'): array
+    {
+        $to = now();
+        $from = match ($period) {
+            'week' => now()->subDays(6)->startOfDay(),
+            'month' => now()->subDays(29)->startOfDay(),
+            default => now()->startOfDay(),
+        };
+
+        $row = DB::table('ol_bot_chats')
+            ->selectRaw('COUNT(*) as chats')
+            ->selectRaw('COALESCE(SUM(messages_count), 0) as messages')
+            ->selectRaw('COALESCE(SUM(credits), 0) as credits')
+            ->whereNotNull('started_at')
+            ->whereBetween('started_at', [$from, $to])
+            ->first();
+
+        return [
+            'chats' => (int) ($row->chats ?? 0),
+            'messages' => (int) ($row->messages ?? 0),
+            'credits' => round((float) ($row->credits ?? 0), 3),
+            'from' => $from->toIso8601String(),
+            'to' => $to->toIso8601String(),
+        ];
+    }
+
+    /**
      * Paginated chat list for analytics table.
      *
      * @return array{data: list<array<string, mixed>>, total: int}

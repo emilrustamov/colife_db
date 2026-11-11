@@ -29,6 +29,11 @@ Do not call `redirect_to_operator`. Do not repeat `leave_chat` on errors. End qu
 ### B — silent
 No client text. Once `set_wikibot_in_chat_status(disconnected)`, once `leave_chat`, then `redirect_to_operator`. End quietly.
 
+## Message layout (Bitrix BBCode)
+- Use real line breaks. Never paste several apartment options into one unbroken paragraph.
+- Links: `[url=https://colife.ae/...]Title[/url]` (not Markdown).
+- Numbered options each on their own line; blank line before the closing question.
+
 ## Runtime adapter (vibecode)
 - `make_answer` → send message to the dialog.
 - `redirect_to_operator` / successful terminal leave → hand off Open Line session to operator.

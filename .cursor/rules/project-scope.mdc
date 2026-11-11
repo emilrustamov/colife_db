@@ -18,6 +18,7 @@ alwaysApply: true
 - Wikibot — мониторинг тарифа/кредитов и денежного баланса, `wikibot:collect`, `Wikibot*`, `CollectWikibotBilling`, `WIKIBOT_*`. См. `docs/WIKIBOT.md`.
 - Оплата сервисов — CallGear / Miro / ChatApp из SPA 1094, `payments:collect`, `ServicePay*`, `CollectServicePay`; по API-алертам (ChatApp/Twilio/VDSina/Wazzup/Wikibot) ещё `AlertTask`. См. `docs/SERVICE_PAYMENTS.md`.
 - Alma contacts — кэш клиентов Alma и API смены `external_id` по email, `alma:collect`, `Alma*`, `CollectAlmaContacts`, `ALMA_*`. См. `docs/ALMA.md`.
+- Landlord finance — синхронизация Google Sheets отчётов собственников в Alma `realty_finance/landlord_property_finance/`, `landlord-finance:collect`, `LandlordFinance*`, `CollectLandlordFinance`, `GoogleSheetsApi`, `LANDLORD_FINANCE_*`. См. `docs/LANDLORD_FINANCE.md`.
 - Alma Bridge — перенос `/var/www/alma` (B24 → Alma realty/contracts) в Laravel; `ALMA_BRIDGE_ENABLED` (cutover off по умолчанию), `AlmaBridge*`, `/api/webhooks/bitrix/alma`, `/api/alma-bridge/*`. Не смешивать с DB-sync SPA 144/167/183. См. `docs/ALMA_BRIDGE.md`.
 - Open Lines Source — автопостановка `SOURCE_ID` сделки ГК по первому сообщению OL, роуты `/api/open-lines/*` и `/api/webhooks/bitrix/open-lines`, `OlDealSource`, `OpenLines*`, `UF_CRM_1792743514293`. См. `docs/OPEN_LINES_SOURCE.md`.
 - OL Bot — свой Vibecode OL-бот с начинкой Wikibot (`vibecode-openlines-bot`, supervisor `colife-ol-bot`), админка `/ol-bot/*`, таблицы `ol_bot_*`. Не смешивать с Open Lines Source / Wikibot billing. См. `docs/OL_BOT.md`.

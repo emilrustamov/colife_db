@@ -64,33 +64,73 @@ function charsToMap(characteristics) {
 
 /**
  * @param {object} product
+ * @returns {string}
+ */
+function editionSku(product) {
+  for (const ed of product.editions || []) {
+    const sku = String(ed?.sku || '').trim();
+    if (sku) return sku;
+  }
+  return '';
+}
+
+/**
+ * @param {object} product
+ * @param {object} source
+ * @returns {Array<{ period: string, price: string }>}
+ */
+function editionPriceVariants(product, source) {
+  const variants = [];
+  for (const ed of product.editions || []) {
+    const price = Number.parseFloat(String(ed?.price || '').replace(/\s+/g, ''));
+    if (!Number.isFinite(price)) continue;
+    const period = String(ed?.['Contract period'] || '').trim();
+    variants.push({
+      period: period || (source.priceUnit === 'year' ? '12 months' : '1 month'),
+      price: String(Math.round(price)),
+    });
+  }
+  return variants;
+}
+
+/**
+ * @param {object} product
  * @param {object} source
  * @returns {object}
  */
 function normalizeProduct(product, source) {
   const chars = charsToMap(product.characteristics);
-  const price = Number.parseFloat(String(product.price || '').replace(/\s+/g, ''));
-  const priceVariants = Number.isFinite(price)
-    ? [
-        {
-          period: source.priceUnit === 'year' ? '12 months' : '1 month',
-          price: String(Math.round(price)),
-        },
-      ]
-    : [];
-
+  const fromEditions = editionPriceVariants(product, source);
+  const basePrice = Number.parseFloat(String(product.price || '').replace(/\s+/g, ''));
+  const priceVariants = fromEditions.length
+    ? fromEditions
+    : Number.isFinite(basePrice)
+      ? [
+          {
+            period: source.priceUnit === 'year' ? '12 months' : '1 month',
+            price: String(Math.round(basePrice)),
+          },
+        ]
+      : [];
+  const price = priceVariants.length
+    ? Number.parseFloat(priceVariants[0].price)
+    : Number.isFinite(basePrice)
+      ? basePrice
+      : null;
+  const skuFromEdition = editionSku(product);
   const unitNumber =
     chars['Unit number'] ||
     chars['Unit Number'] ||
     chars.Unit ||
     chars.SKU ||
     product.sku ||
+    skuFromEdition ||
     '';
 
   return {
     uid: String(product.uid),
     title: product.title || '',
-    sku: product.sku || '',
+    sku: product.sku || skuFromEdition || '',
     unitNumber: String(unitNumber || ''),
     link: product.url || '',
     area: chars.Area || '',

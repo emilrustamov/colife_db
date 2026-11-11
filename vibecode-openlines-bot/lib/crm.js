@@ -287,8 +287,15 @@ export async function writeLeaveSnapshot(state) {
   /** @type {Record<string, any>} */
   const fields = {};
 
-  if (state.apartmentType) {
-    const id = await enumId(FIELD.apartmentType, APARTMENT_LABEL[state.apartmentType] || state.apartmentType);
+  const apartmentType = state.apartmentType
+    || (state.category === 'sharing' || state.activeScenario === 'sharing' ? 'room' : null)
+    || (Array.isArray(state.types) && state.types[0] === 0 ? 'studio' : null)
+    || (Array.isArray(state.types) && state.types[0] === 1 ? '1_bedroom' : null)
+    || (Array.isArray(state.types) && state.types[0] === 2 ? '2_bedroom' : null)
+    || (Array.isArray(state.types) && state.types[0] === 3 ? '3_bedroom' : null);
+  if (apartmentType) {
+    state.apartmentType = apartmentType;
+    const id = await enumId(FIELD.apartmentType, APARTMENT_LABEL[apartmentType] || apartmentType);
     if (id) fields[FIELD.apartmentType] = id;
   }
   if (state.residents) {
@@ -311,13 +318,15 @@ export async function writeLeaveSnapshot(state) {
     const id = await enumId(FIELD.category, CATEGORY_LABEL[state.category] || state.category);
     if (id) fields[FIELD.category] = id;
   }
-  if (state.savedMoveInDate) {
-    const d = toBitrixDate(state.savedMoveInDate);
+  const moveIn = state.savedMoveInDate || state.routingMoveInDate;
+  if (moveIn) {
+    const d = toBitrixDate(moveIn);
     if (d) fields[FIELD.moveInDate] = d;
   }
 
   const result = await updateDealFields(dealId, fields);
   state.extras.lastCrmWrite = { at: new Date().toISOString(), kind: 'leave_chat', ...result };
+  state.extras.leaveCrmWritten = true;
   return { ...result, stub: false };
 }
 

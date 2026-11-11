@@ -53,6 +53,77 @@ export async function insertMessage(row) {
 }
 
 /**
+ * Reload in-memory dialog state from ol_bot_* after process restart.
+ *
+ * @param {string} dialogId
+ * @param {string|number|null|undefined} chatId
+ * @param {import('./state.js').DialogState} state
+ * @returns {Promise<boolean>}
+ */
+export async function restoreDialogFromDb(dialogId, chatId, state) {
+  if (!getPool() || !state || state.extras?.restoredFromDb) return false;
+  state.extras = state.extras || {};
+  state.extras.restoredFromDb = true;
+
+  const dialogKey = String(dialogId || '');
+  const chatKey = chatId != null && chatId !== ''
+    ? String(chatId)
+    : dialogKey.replace(/^chat/i, '');
+  if (!dialogKey && !chatKey) return false;
+
+  try {
+    const chats = await query(
+      `SELECT deal_id, category, escalated, tags, credits
+       FROM ol_bot_chats
+       WHERE chat_id = :chat_id OR dialog_id = :dialog_id
+       ORDER BY id DESC
+       LIMIT 1`,
+      { chat_id: chatKey, dialog_id: dialogKey },
+    );
+    const chat = Array.isArray(chats) ? chats[0] : null;
+    if (chat?.deal_id) state.dealId = String(chat.deal_id);
+    if (chat?.category) state.category = String(chat.category);
+    if (chat?.tags && !state.activeScenario) state.activeScenario = String(chat.tags);
+    if (Number(chat?.escalated) === 1) state.handedOff = true;
+
+    const rows = await query(
+      `SELECT role, body
+       FROM ol_bot_messages
+       WHERE chat_id = :chat_id OR dialog_id = :dialog_id
+       ORDER BY id ASC
+       LIMIT 60`,
+      { chat_id: chatKey, dialog_id: dialogKey },
+    );
+    if (!Array.isArray(rows) || !rows.length) return Boolean(chat);
+
+    if (!state.transcript.length) {
+      for (const row of rows) {
+        const body = String(row.body || '').trim();
+        if (!body) continue;
+        const role = /^(assistant|bot)$/i.test(String(row.role || '')) ? 'Bot' : 'User';
+        state.transcript.push(`${role}: ${body}`);
+      }
+      if (state.transcript.length > 40) {
+        state.transcript.splice(0, state.transcript.length - 40);
+      }
+    }
+
+    for (const line of state.transcript) {
+      const urls = String(line).match(/https?:\/\/[^\s)\]]+/g) || [];
+      for (const url of urls) {
+        if (!state.shownLinks.includes(url)) state.shownLinks.push(url);
+      }
+    }
+
+    state.introduced = true;
+    state.statusConnected = true;
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+/**
  * @param {string} reason
  * @returns {'unknown'|'user_requested'|'rule'|null}
  */

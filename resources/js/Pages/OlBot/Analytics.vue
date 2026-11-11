@@ -3,11 +3,14 @@ import { Link, router } from '@inertiajs/vue3';
 import { computed, ref, watch } from 'vue';
 import OlBotLayout from './OlBotLayout.vue';
 import { useOlBotI18n } from './composables/useOlBotI18n';
+import { formatCredits } from './utils/credits';
+
 
 const props = defineProps({
     tab: { type: String, default: 'chats' },
     q: { type: String, default: null },
     page: { type: Number, default: 1 },
+    period: { type: String, default: 'day' },
     chats: { type: Array, default: () => [] },
     total: { type: Number, default: 0 },
     weekly: { type: Array, default: () => [] },
@@ -15,6 +18,8 @@ const props = defineProps({
     apartmentsTotal: { type: Number, default: 0 },
     catalogSyncedAt: { type: String, default: null },
     catalogCount: { type: Number, default: 0 },
+    quotaReport: { type: Object, default: null },
+    localUsage: { type: Object, default: null },
 });
 
 const { t, formatDateTime } = useOlBotI18n();
@@ -26,6 +31,9 @@ watch(() => props.q, (value) => {
 });
 
 const subtitle = computed(() => {
+    if (props.tab === 'quota') {
+        return t('quotaSubtitle');
+    }
     const base = `${t('catalogSnapshot')}: ${props.catalogCount}`;
     if (props.tab === 'catalog' && props.catalogSyncedAt) {
         return `${base} · ${t('catalogSynced')} ${formatDateTime(props.catalogSyncedAt)}`;
@@ -40,7 +48,19 @@ const subtitle = computed(() => {
 const goTab = (tab) => {
     router.get('/ol-bot/analytics', {
         tab,
-        q: tab === 'weekly' ? undefined : (search.value || undefined),
+        period: tab === 'quota' ? props.period : undefined,
+        q: tab === 'chats' || tab === 'catalog' ? (search.value || undefined) : undefined,
+    }, { preserveState: true });
+};
+
+/**
+ * @param {string} period
+ * @returns {void}
+ */
+const goPeriod = (period) => {
+    router.get('/ol-bot/analytics', {
+        tab: 'quota',
+        period,
     }, { preserveState: true });
 };
 
@@ -83,6 +103,31 @@ const fmtPrice = (row) => {
 };
 
 const listTotal = computed(() => (props.tab === 'catalog' ? props.apartmentsTotal : props.total));
+
+/**
+ * @param {number|null|undefined} value
+ * @returns {string}
+ */
+const fmtNum = (value) => {
+    if (value == null || !Number.isFinite(Number(value))) {
+        return '—';
+    }
+    return Number(value).toLocaleString();
+};
+
+/**
+ * @param {number|null|undefined} value
+ * @returns {string}
+ */
+const fmtUsd = (value) => {
+    if (value == null || !Number.isFinite(Number(value))) {
+        return '—';
+    }
+    return `$${Number(value).toFixed(2)}`;
+};
+
+const usage = computed(() => props.quotaReport?.usage || null);
+const quota = computed(() => props.quotaReport?.quota || null);
 </script>
 
 <template>
@@ -115,6 +160,14 @@ const listTotal = computed(() => (props.tab === 'catalog' ? props.apartmentsTota
                 @click="goTab('catalog')"
             >
                 {{ t('catalogTab') }}
+            </button>
+            <button
+                type="button"
+                class="ui-btn"
+                :class="tab === 'quota' ? 'ui-btn-primary' : 'ui-btn-secondary'"
+                @click="goTab('quota')"
+            >
+                {{ t('quotaTab') }}
             </button>
         </div>
 
@@ -202,7 +255,7 @@ const listTotal = computed(() => (props.tab === 'catalog' ? props.apartmentsTota
                                 <div class="text-ink">{{ chat.escalate_reason || '—' }}</div>
                                 <div class="text-[11px] text-ink-muted">{{ chat.escalate_bucket || '' }}</div>
                             </td>
-                            <td class="px-3 py-2.5 text-ink">{{ chat.credits }}</td>
+                            <td class="px-3 py-2.5 text-ink whitespace-nowrap">{{ formatCredits(chat.credits) }}</td>
                             <td class="px-3 py-2.5 text-ink">{{ chat.tags || chat.category || '—' }}</td>
                         </tr>
                         <tr v-if="chats.length === 0">
@@ -249,7 +302,7 @@ const listTotal = computed(() => (props.tab === 'catalog' ? props.apartmentsTota
                         <td class="px-3 py-2.5 text-ink">{{ row.escalate_unknown }}</td>
                         <td class="px-3 py-2.5 text-ink">{{ row.escalate_user_requested }}</td>
                         <td class="px-3 py-2.5 text-ink">{{ row.escalate_rule }}</td>
-                        <td class="px-3 py-2.5 text-ink">{{ row.credits }}</td>
+                        <td class="px-3 py-2.5 text-ink whitespace-nowrap">{{ formatCredits(row.credits) }}</td>
                     </tr>
                     <tr v-if="weekly.length === 0">
                         <td colspan="10" class="px-3 py-10 text-center text-sm text-ink-muted">No weekly data</td>
@@ -258,7 +311,7 @@ const listTotal = computed(() => (props.tab === 'catalog' ? props.apartmentsTota
             </table>
         </div>
 
-        <div v-else class="space-y-3">
+        <div v-else-if="tab === 'catalog'" class="space-y-3">
             <form class="flex flex-wrap gap-2" @submit.prevent="submitSearch">
                 <div class="relative min-w-0 flex-1 max-w-md">
                     <svg
@@ -336,6 +389,129 @@ const listTotal = computed(() => (props.tab === 'catalog' ? props.apartmentsTota
                 <span>{{ t('pageLabel') }} {{ page }} · {{ listTotal }}</span>
                 <button type="button" class="ui-btn ui-btn-secondary" :disabled="page * 50 >= listTotal" @click="nextPage(1)">{{ t('next') }}</button>
             </div>
+        </div>
+
+        <div v-else-if="tab === 'quota'" class="space-y-4">
+            <div class="flex flex-wrap gap-1.5">
+                <button
+                    type="button"
+                    class="ui-btn"
+                    :class="period === 'day' ? 'ui-btn-primary' : 'ui-btn-secondary'"
+                    @click="goPeriod('day')"
+                >
+                    {{ t('periodDay') }}
+                </button>
+                <button
+                    type="button"
+                    class="ui-btn"
+                    :class="period === 'week' ? 'ui-btn-primary' : 'ui-btn-secondary'"
+                    @click="goPeriod('week')"
+                >
+                    {{ t('periodWeek') }}
+                </button>
+                <button
+                    type="button"
+                    class="ui-btn"
+                    :class="period === 'month' ? 'ui-btn-primary' : 'ui-btn-secondary'"
+                    @click="goPeriod('month')"
+                >
+                    {{ t('periodMonth') }}
+                </button>
+            </div>
+
+            <div v-if="!quotaReport?.ok" class="ui-panel p-4 text-sm text-ink-muted">
+                {{ t('quotaLoadError') }}: {{ quotaReport?.error || 'unknown' }}
+            </div>
+
+            <template v-else>
+                <div class="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+                    <div class="ui-panel p-4">
+                        <div class="text-xs uppercase tracking-wide text-ink-muted">{{ t('quotaLeftMonth') }}</div>
+                        <div class="mt-1 text-2xl font-semibold text-ink">{{ quota?.pctLeft ?? '—' }}%</div>
+                        <div class="mt-1 text-xs text-ink-muted">
+                            {{ t('quotaUsed') }} {{ quota?.pctUsed ?? '—' }}%
+                            <span v-if="quota?.exhausted" class="text-rose-600"> · exhausted</span>
+                        </div>
+                        <div class="mt-1 text-[11px] text-ink-muted">
+                            reset {{ formatDateTime(quota?.resetAt) }}
+                        </div>
+                    </div>
+                    <div class="ui-panel p-4">
+                        <div class="text-xs uppercase tracking-wide text-ink-muted">{{ t('quotaSpentPeriod') }}</div>
+                        <div class="mt-1 text-2xl font-semibold text-ink">{{ fmtNum(usage?.totalTokens) }}</div>
+                        <div class="mt-1 text-xs text-ink-muted">
+                            {{ fmtNum(usage?.calls) }} {{ t('quotaCalls') }} · {{ formatCredits(usage?.credits) }}
+                        </div>
+                        <div class="mt-1 text-[11px] text-ink-muted">
+                            {{ usage?.free ? t('quotaFree') : t('quotaPaid') }} · {{ t('quotaFact') }} {{ fmtUsd(usage?.costUsd) }}
+                            · {{ t('quotaIfPaid') }} {{ fmtUsd(usage?.paidEstimateUsd) }}
+                        </div>
+                    </div>
+                    <div class="ui-panel p-4">
+                        <div class="text-xs uppercase tracking-wide text-ink-muted">{{ t('quotaDayWindow') }}</div>
+                        <div class="mt-1 text-2xl font-semibold text-ink">{{ quota?.dayPctLeft ?? '—' }}%</div>
+                        <div class="mt-1 text-xs text-ink-muted">{{ t('quotaUsed') }} {{ quota?.dayPctUsed ?? '—' }}%</div>
+                        <div class="mt-1 text-[11px] text-ink-muted">reset {{ formatDateTime(quota?.dayResetAt) }}</div>
+                    </div>
+                    <div class="ui-panel p-4">
+                        <div class="text-xs uppercase tracking-wide text-ink-muted">{{ t('quotaWeekWindow') }}</div>
+                        <div class="mt-1 text-2xl font-semibold text-ink">{{ quota?.weekPctLeft ?? '—' }}%</div>
+                        <div class="mt-1 text-xs text-ink-muted">{{ t('quotaUsed') }} {{ quota?.weekPctUsed ?? '—' }}%</div>
+                        <div class="mt-1 text-[11px] text-ink-muted">reset {{ formatDateTime(quota?.weekResetAt) }}</div>
+                    </div>
+                </div>
+
+                <div class="ui-panel p-4 text-sm">
+                    <div class="font-medium text-ink">{{ t('quotaLocalTitle') }}</div>
+                    <div class="mt-2 text-ink-muted">
+                        {{ t('chats') }}: {{ fmtNum(localUsage?.chats) }}
+                        · msgs: {{ fmtNum(localUsage?.messages) }}
+                        · {{ formatCredits(localUsage?.credits) }}
+                    </div>
+                    <div class="mt-1 text-[11px] text-ink-muted">
+                        {{ formatDateTime(localUsage?.from) }} → {{ formatDateTime(localUsage?.to) }}
+                    </div>
+                </div>
+
+                <div class="ui-panel ui-scroll overflow-x-auto">
+                    <table class="min-w-full text-left text-sm">
+                        <thead class="bg-surface-muted text-xs uppercase tracking-wide text-ink-muted">
+                            <tr>
+                                <th class="px-3 py-2.5">Model</th>
+                                <th class="px-3 py-2.5">{{ t('quotaCalls') }}</th>
+                                <th class="px-3 py-2.5">Prompt</th>
+                                <th class="px-3 py-2.5">Completion</th>
+                                <th class="px-3 py-2.5">Total</th>
+                                <th class="px-3 py-2.5">{{ t('quotaFact') }}</th>
+                                <th class="px-3 py-2.5">{{ t('quotaIfPaid') }}</th>
+                                <th class="px-3 py-2.5">%</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr
+                                v-for="row in (quotaReport?.byModel || [])"
+                                :key="row.modelId"
+                                class="border-t border-line"
+                            >
+                                <td class="px-3 py-2.5 text-ink">
+                                    {{ row.modelId }}
+                                    <span class="ml-1 text-[11px] text-ink-muted">{{ row.free ? 'free' : 'paid' }}</span>
+                                </td>
+                                <td class="px-3 py-2.5 text-ink">{{ fmtNum(row.calls) }}</td>
+                                <td class="px-3 py-2.5 text-ink">{{ fmtNum(row.promptTokens) }}</td>
+                                <td class="px-3 py-2.5 text-ink">{{ fmtNum(row.completionTokens) }}</td>
+                                <td class="px-3 py-2.5 text-ink">{{ fmtNum(row.totalTokens) }}</td>
+                                <td class="px-3 py-2.5 text-ink">{{ fmtUsd(row.cost) }}</td>
+                                <td class="px-3 py-2.5 text-ink">{{ fmtUsd(row.paidEstimateUsd) }}</td>
+                                <td class="px-3 py-2.5 text-ink">{{ row.pctOfLimit != null ? `${row.pctOfLimit}%` : '—' }}</td>
+                            </tr>
+                            <tr v-if="!(quotaReport?.byModel || []).length">
+                                <td colspan="8" class="px-3 py-8 text-center text-ink-muted">{{ t('quotaEmpty') }}</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </template>
         </div>
     </OlBotLayout>
 </template>

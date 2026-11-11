@@ -1,0 +1,113 @@
+{
+  "at": "2026-11-11T12:19:07.892Z",
+  "target": 1,
+  "results": [
+    {
+      "scenario": "pf_794_cost_breakdown",
+      "passed": true,
+      "handedOff": true,
+      "turns": [
+        {
+          "n": 1,
+          "user": "Hello, my name is Elizabeth, I am Colife Dubai manager!\n\nWe have received your apartment request from Propertyfinder for unit 794.1\n\nPlease confirm us if we should keep your request open and continue processing it. | [Yes] | [No, thanks] Yes",
+          "reply": "I'm sorry, but unit 794.1 is already booked. However, I can certainly help you find similar available apartments! To get started, could you please tell me when you are planning to move in and for how long you would like to rent?",
+          "ms": 17423,
+          "ok": true,
+          "expect": "/794|unit|available|confirm|move|when|date|booked|alternative|^$/i",
+          "handedOff": false
+        },
+        {
+          "n": 2,
+          "user": "As soon as possible. Move in for one month initially, but i could extend. Also depends if there is a discount for long-term stay.",
+          "reply": "Understood! What type of apartment are you looking for (e.g., studio, 1-bedroom), and what is your maximum monthly budget?",
+          "ms": 29272,
+          "ok": true,
+          "expect": "/month|discount|long|term|price|aed|include|dewa|wifi|fee|budget|area|booked|alternative|asap|soon/i",
+          "handedOff": false
+        },
+        {
+          "n": 3,
+          "user": "Could you give me a breakdown of the total costs for a one month stay?",
+          "reply": "I'll connect you with a specialist who can provide a detailed breakdown of all costs for your stay.",
+          "ms": 26266,
+          "ok": true,
+          "expect": "/cost|fee|include|dewa|wifi|deposit|total|aed|breakdown|price|specialist|operator/i",
+          "handedOff": true
+        },
+        {
+          "n": 4,
+          "user": "Up to 8500 excluding additional fees",
+          "reply": "",
+          "ms": 0,
+          "ok": true,
+          "expect": "/specialist|operator|connect|подключа|urgent|8500|budget|studio|bedroom|type|^$/i",
+          "handedOff": true
+        },
+        {
+          "n": 5,
+          "user": "On the ad it says 8,074 monthly",
+          "reply": "",
+          "ms": 0,
+          "ok": true,
+          "expect": "/8074|ad|price|fee|include|specialist|operator|confirm|aed|studio|bedroom|type|^$/i",
+          "handedOff": true
+        }
+      ],
+      "dealId": "21923",
+      "category": "supertarget",
+      "crmWrites": [
+        {
+          "tool": "set_wikibot_in_chat_status",
+          "ok": true,
+          "source": "first_message"
+        },
+        {
+          "tool": "qualify_lead",
+          "ok": true,
+          "dealId": "21923",
+          "fields": {
+            "UF_CRM_1763647077": "3923"
+          },
+          "stub": false,
+          "label": "Supertarget"
+        },
+        {
+          "tool": "set_wikibot_in_chat_status",
+          "ok": true,
+          "dealId": "21923",
+          "fields": {
+            "UF_CRM_OL_BOT_CHAT_STATUS": "4479"
+          },
+          "stub": false,
+          "label": "Disconnected"
+        },
+        {
+          "tool": "leave_chat",
+          "ok": true,
+          "dealId": "21923",
+          "fields": {
+            "UF_CRM_1769420060313": "2921",
+            "UF_CRM_1692862111": "3181",
+            "UF_CRM_1763647077": "3923",
+            "UF_CRM_OL_BOT_MOVE_IN_DATE": "2026-11-12"
+          },
+          "stub": false
+        },
+        {
+          "tool": "set_wikibot_in_chat_status",
+          "ok": true,
+          "source": "runTerminal"
+        },
+        {
+          "tool": "leave_chat",
+          "ok": true,
+          "source": "runTerminal"
+        }
+      ],
+      "dealFields": null,
+      "crmChecks": [],
+      "runIndex": 1,
+      "round": 1
+    }
+  ]
+}

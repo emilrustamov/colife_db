@@ -46,6 +46,48 @@ class AlmaApi
     }
 
     /**
+     * Push landlord property finance month batch.
+     *
+     * @param  list<array<string, mixed>>  $payload
+     * @return array<string, mixed>
+     */
+    public function pushLandlordPropertyFinance(array $payload): array
+    {
+        $apiKey = trim((string) config('services.landlord_finance.api_key'));
+        if ($apiKey === '') {
+            $apiKey = trim((string) config('services.alma.api_key'));
+        }
+
+        $apiUrl = rtrim(trim((string) config('services.alma.api_url')), '/').'/';
+        if ($apiUrl === '/' || $apiKey === '') {
+            throw new RuntimeException('Alma API URL or landlord finance API key is not configured.');
+        }
+
+        $response = Http::baseUrl($apiUrl)
+            ->withHeaders(['Api-Key' => $apiKey])
+            ->acceptJson()
+            ->asJson()
+            ->timeout((int) config('services.alma.timeout', 120))
+            ->post('realty_finance/landlord_property_finance/', $payload);
+
+        if ($response->failed()) {
+            $body = $response->json() ?? $response->body();
+            $detail = is_array($body) ? json_encode($body, JSON_UNESCAPED_UNICODE) : (string) $body;
+            throw new RuntimeException(
+                'Alma landlord finance failed ('.$response->status().'): '.$detail,
+                $response->status()
+            );
+        }
+
+        $json = $response->json();
+        if (! is_array($json)) {
+            throw new RuntimeException('Alma landlord finance returned invalid JSON.');
+        }
+
+        return $json;
+    }
+
+    /**
      * Patch Alma client fields by Alma internal id.
      *
      * @param  array<string, mixed>  $payload
@@ -183,6 +225,99 @@ class AlmaApi
     public function unitByExternalId(string $externalId): ?array
     {
         return $this->byExternalId('realty/units/external_id/'.$externalId.'/');
+    }
+
+    /**
+     * List Alma units (short rows).
+     *
+     * @return list<array<string, mixed>>
+     */
+    public function listUnits(): array
+    {
+        $response = $this->client()->get('realty/units/')->throw()->json();
+        if (! is_array($response)) {
+            throw new RuntimeException('Alma units list response is invalid.');
+        }
+
+        return array_values(array_filter($response, 'is_array'));
+    }
+
+    /**
+     * Get Alma unit by internal id.
+     *
+     * @return array<string, mixed>|null
+     */
+    public function unitById(int $almaUnitId): ?array
+    {
+        if ($almaUnitId <= 0) {
+            return null;
+        }
+
+        $response = $this->client()->get('realty/units/'.$almaUnitId.'/');
+        if ($response->status() === 404) {
+            return null;
+        }
+        $response->throw();
+        $json = $response->json();
+
+        return is_array($json) ? $json : null;
+    }
+
+    /**
+     * Get Alma client by internal id.
+     *
+     * @return array<string, mixed>|null
+     */
+    public function clientById(int $almaClientId): ?array
+    {
+        if ($almaClientId <= 0) {
+            return null;
+        }
+
+        $response = $this->client()->get('users/clients/'.$almaClientId.'/');
+        if ($response->status() === 404) {
+            return null;
+        }
+        $response->throw();
+        $json = $response->json();
+
+        return is_array($json) ? $json : null;
+    }
+
+    /**
+     * List owner contracts (short rows).
+     *
+     * @return list<array<string, mixed>>
+     */
+    public function listOwnerContracts(): array
+    {
+        $response = $this->client()->get('realty/contracts/owner_contracts/')->throw()->json();
+        if (! is_array($response)) {
+            throw new RuntimeException('Alma owner contracts list response is invalid.');
+        }
+
+        return array_values(array_filter($response, 'is_array'));
+    }
+
+    /**
+     * Get owner contract by Alma id.
+     *
+     * @return array<string, mixed>|null
+     */
+    public function ownerContractById(int $contractId): ?array
+    {
+        if ($contractId <= 0) {
+            return null;
+        }
+
+        $response = $this->client()->get('realty/contracts/owner_contracts/'.$contractId.'/');
+        if ($response->status() === 404) {
+            return null;
+        }
+        $response->throw();
+        $json = $response->json();
+
+        return is_array($json) ? $json : null;
     }
 
     /**

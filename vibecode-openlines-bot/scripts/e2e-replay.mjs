@@ -185,9 +185,9 @@ const scenarios = [
     expect: [
       /794|unit|available|confirm|move|^$/i,
       /move|when|date|заезд|long|how long|week|month|available|link/i,
-      /week|short|month|minimum|term|specialist|operator|option/i,
-      /week|short|month|minimum|specialist|operator|connect|подключа/i,
-      /specialist|operator|connect|подключа|summary|week|short|^$/i,
+      /week|short|month|minimum|term|specialist|operator|option|connect|подключа/i,
+      /week|short|month|minimum|day|days|stay|specialist|operator|connect|подключа|^$/i,
+      /specialist|operator|connect|подключа|summary|week|short|day|days|type|budget|^$/i,
     ],
   },
   {

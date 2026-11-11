@@ -5,7 +5,12 @@ import {
   searchApartments,
 } from './searchApartment.js';
 import { bucketEscalateReason } from './analytics.js';
-import { activateScenario, scenarioForCategory } from './scenarios.js';
+import {
+  activateScenario,
+  enrichStateForLeave,
+  resolveApartmentType,
+  scenarioForCategory,
+} from './scenarios.js';
 import {
   crmEnabled,
   writeCategory,
@@ -45,7 +50,11 @@ export function getMinPrice(types) {
     const wanted = new Set(types.map(Number));
     pool = apartments.filter((item) => {
       const t = String(item.type || '').toLowerCase();
-      const n = t.includes('studio') ? 0 : t.includes('2') ? 2 : t.includes('1') ? 1 : t.includes('3') ? 3 : -1;
+      let n = -1;
+      if (/\bstudio\b/.test(t)) n = 0;
+      else if (/\b3\s*br\b|\b3\b.*bed|\b3\s*bedroom/.test(t)) n = 3;
+      else if (/\b2\s*br\b|\b2\b.*bed|\b2\s*bedroom/.test(t)) n = 2;
+      else if (/\b1\s*br\b|\b1\b.*bed|\b1\s*bedroom/.test(t)) n = 1;
       return wanted.has(n);
     });
   }
@@ -145,15 +154,17 @@ export async function executeTool(state, name, args, runtime) {
     if (category && canReplaceCategory(state.category, category)) {
       state.category = category;
       const mapped = scenarioForCategory(category);
-      if (mapped && !state.activeScenario) {
+      if (mapped) {
         activateScenario(state, mapped);
       }
     }
+    if (category === 'sharing' && !state.apartmentType) state.apartmentType = 'room';
     if (a.move_in_date) state.routingMoveInDate = String(a.move_in_date);
     if (a.budget != null) state.budget = Number(a.budget);
     if (a.period != null) state.period = Number(a.period);
     if (Array.isArray(a.types)) state.types = a.types.map(Number);
     if (Array.isArray(a.area)) state.area = a.area.map(String);
+    if (!state.apartmentType) state.apartmentType = resolveApartmentType(state);
     state.extras.lastQualifyReason = a.reason || '';
     if (a.dealId) state.dealId = String(a.dealId);
     if (a.contactId) state.contactId = String(a.contactId);
@@ -235,15 +246,7 @@ export async function executeTool(state, name, args, runtime) {
     if (a.planning_to_move) state.planningToMove = String(a.planning_to_move);
     if (a.dealId) state.dealId = String(a.dealId);
     if (a.contactId) state.contactId = String(a.contactId);
-    if (a.planning_to_move) state.routingMoveInDate = state.routingMoveInDate || String(a.planning_to_move);
-    state.extras.leaveSnapshot = {
-      budget: state.budget,
-      residents: state.residents,
-      stay_duration: state.stayDuration,
-      apartment_type: state.apartmentType,
-      planning_to_move: state.planningToMove,
-      category: state.category,
-    };
+    enrichStateForLeave(state);
     let crm = { ok: true, stub: !crmEnabled() };
     try {
       crm = await writeLeaveSnapshot(state);
@@ -258,8 +261,6 @@ export async function executeTool(state, name, args, runtime) {
     };
     if (runtime.pendingHandoff.mode === 'A') {
       state.terminalAPendingLeave = true;
-    } else {
-      state.handedOff = true;
     }
     return {
       ok: Boolean(crm.ok),
@@ -282,7 +283,6 @@ export async function executeTool(state, name, args, runtime) {
       reason: a.reason || 'redirect_to_operator',
       bucket: bucketEscalateReason(a.reason || 'redirect_to_operator'),
     };
-    state.handedOff = true;
     return { ok: true };
   }
 

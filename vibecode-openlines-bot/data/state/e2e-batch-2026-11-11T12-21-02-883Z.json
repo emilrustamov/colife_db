@@ -1,0 +1,81 @@
+{
+  "at": "2026-11-11T12:21:02.883Z",
+  "target": 1,
+  "results": [
+    {
+      "scenario": "bayut_794_weekly_short_term",
+      "passed": true,
+      "handedOff": false,
+      "turns": [
+        {
+          "n": 1,
+          "user": "Hello, my name is Elizabeth, I am Colife Dubai manager!\n\nWe have received your apartment request from Bayut for unit 794.1\n\nPlease confirm us if we should keep your request open and continue processing it. | [Yes] | [No, thanks]",
+          "reply": "",
+          "ms": 1465,
+          "ok": true,
+          "expect": "/794|unit|available|confirm|move|^$/i",
+          "handedOff": false
+        },
+        {
+          "n": 2,
+          "user": "Yes",
+          "reply": "Unit 794.1 is already booked, but I can definitely find you some great alternatives! Could you please tell me your planned move-in date, preferred rental duration, apartment type, and monthly budget?",
+          "ms": 13383,
+          "ok": true,
+          "expect": "/move|when|date|заезд|long|how long|week|month|available|link/i",
+          "handedOff": false
+        },
+        {
+          "n": 3,
+          "user": "Immediate , for 1 month or do you have weekly option",
+          "reply": "I understand you need to move in immediately and are interested in weekly options. While our primary focus is on monthly rentals, I can certainly check for short-term availability for you. To help me find the best options, could you please let me know your preferred apartment type and your maximum monthly budget?",
+          "ms": 27544,
+          "ok": true,
+          "expect": "/week|short|month|minimum|term|specialist|operator|option|connect|подключа/i",
+          "handedOff": false
+        },
+        {
+          "n": 4,
+          "user": "Is there an option for less than a month ?",
+          "reply": "Yes, we do have options for stays shorter than a month. To help our specialists find the right short-term availability for you, could you please specify your preferred apartment type and your maximum budget?",
+          "ms": 16703,
+          "ok": true,
+          "expect": "/week|short|month|minimum|day|days|stay|specialist|operator|connect|подключа|^$/i",
+          "handedOff": false
+        },
+        {
+          "n": 5,
+          "user": "I request you to address my question first so we conclude this in minimal messages",
+          "reply": "Yes, we offer short-term stays ranging from 3 to 29 days. To show you the available options, could you please let me know your preferred apartment type and maximum budget?",
+          "ms": 37995,
+          "ok": true,
+          "expect": "/specialist|operator|connect|подключа|summary|week|short|day|days|type|budget|^$/i",
+          "handedOff": false
+        }
+      ],
+      "dealId": "21931",
+      "category": "short_term",
+      "crmWrites": [
+        {
+          "tool": "set_wikibot_in_chat_status",
+          "ok": true,
+          "source": "first_message"
+        },
+        {
+          "tool": "qualify_lead",
+          "ok": true,
+          "dealId": "21931",
+          "fields": {
+            "UF_CRM_1763647077": "4465"
+          },
+          "stub": false,
+          "label": "Short-term"
+        }
+      ],
+      "dealFields": null,
+      "crmChecks": [],
+      "runIndex": 1,
+      "round": 1
+    }
+  ]
+}

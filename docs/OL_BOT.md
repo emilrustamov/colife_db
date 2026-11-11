@@ -7,7 +7,7 @@
 - Supervisor: `colife-ol-bot` → `node --env-file=…/vibecode-openlines-bot/.env server.js`
 - Портал: `colifepacific` · `BOT_ID=43591` · линия `OPENLINE_ID=35`
 - Модель: `AI_MODEL=bitrix/bitrixgpt-5.5-thinking`
-- Каталог: hourly Tilda AE → JSON + таблица `ol_bot_apartments`; поиск только локальный
+- Каталог: hourly Tilda AE → JSON + таблица `ol_bot_apartments`; поиск только локальный; `unitNumber`/`sku` из `editions[].sku` (не только characteristics)
 - CRM writes: Bitrix deal UF на ГК (`CRM_WEBHOOK`, `CRM_ENABLED=1`)
   - `qualify_lead` → `UF_CRM_1763647077`
   - `set_wikibot_in_chat_status` → `UF_CRM_OL_BOT_CHAT_STATUS`
@@ -24,7 +24,10 @@
   - `/ol-bot/templates/skills` / `{name}` — навыки
   - `/ol-bot/templates/tools` / `{name}` — каталог схем функций (отдельно от привязок)
   - привязки tools: `ol_bot_scope_tools` (`POST /ol-bot/templates/scope-tools`)
-- `/ol-bot/analytics` — чаты + weekly + каталог (`ol_bot_apartments`, tab=`catalog`); в карточке чата ссылки на OL (`dialog_id`) и сделку (`deal_id`)
+- `/ol-bot/analytics` — чаты + weekly + каталог (`ol_bot_apartments`, tab=`catalog`) + квота Alaio (`tab=quota&period=day|week|month`); в карточке чата ссылки на OL (`dialog_id`) и сделку (`deal_id`)
+- Credits в UI: `tokens/1000 · free|paid · $факт · ≈$оценка` (оценка по тарифу `bitrixgpt-5.5-agent`, 1Ꝟ=$1; thinking сейчас free → `$0`)
+- Dialog state в памяти; после рестарта поднимается из `ol_bot_messages` / `ol_bot_chats` (`restoreDialogFromDb`)
+- Квота: `OlBotAlaioQuota` → `/v1/ai/usage` + `/v1/ai/quota` (ключ из `OL_BOT_VIBE_API_KEY` / `vibecode-openlines-bot/.env`)
 - Активные шаблоны: `ol_bot_template_versions` (`is_active=1`); fallback на файлы `kb/`
 
 ## Runtime tools scope

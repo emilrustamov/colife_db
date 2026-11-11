@@ -1,0 +1,176 @@
+{
+  "at": "2026-11-11T12:17:51.774Z",
+  "target": 1,
+  "results": [
+    {
+      "scenario": "sharing_business_bay",
+      "passed": true,
+      "handedOff": true,
+      "turns": [
+        {
+          "n": 1,
+          "user": "Business bay nearest to metropolis tower\n21 November",
+          "reply": "Understood, Business Bay for November 21st. To help you find the best options nearby, could you please tell me how long you plan to stay, what type of apartment you're looking for (e.g., studio, 1-bedroom), and your maximum monthly budget?",
+          "ms": 27572,
+          "ok": true,
+          "expect": "/duration|how long|budget|studio|bedroom|room|month|rent|type/i",
+          "handedOff": false
+        },
+        {
+          "n": 2,
+          "user": "I room big in an apartment\nNo bed space\nNot\nA whole rooom big",
+          "reply": "Got it, a private room. For how many months are you planning to stay, and what is your maximum monthly budget?",
+          "ms": 5818,
+          "ok": true,
+          "expect": "/budget|month|how long|duration|rent|aed|room/i",
+          "handedOff": false
+        },
+        {
+          "n": 3,
+          "user": "2000 2 months",
+          "reply": "Connecting you to a specialist to help with your request.",
+          "ms": 27886,
+          "ok": true,
+          "expect": "/specialist|operator|transfer|connect|подключа|менеджер/i",
+          "handedOff": true
+        },
+        {
+          "n": 4,
+          "user": "Okay",
+          "reply": "",
+          "ms": 0,
+          "ok": true,
+          "expect": "/summary|specialist|operator|room|business bay|2000|result|follow|^$/i",
+          "handedOff": true
+        }
+      ],
+      "dealId": "21919",
+      "category": "sharing",
+      "crmWrites": [
+        {
+          "tool": "set_wikibot_in_chat_status",
+          "ok": true,
+          "source": "first_message"
+        },
+        {
+          "tool": "set_wikibot_in_chat_status",
+          "ok": true,
+          "dealId": "21919",
+          "fields": {
+            "UF_CRM_OL_BOT_CHAT_STATUS": "4477"
+          },
+          "stub": false,
+          "label": "Connected"
+        },
+        {
+          "tool": "qualify_lead",
+          "ok": true,
+          "dealId": "21919",
+          "fields": {
+            "UF_CRM_1763647077": "4469"
+          },
+          "stub": false,
+          "label": "Sharing"
+        },
+        {
+          "tool": "set_wikibot_in_chat_status",
+          "ok": true,
+          "dealId": "21919",
+          "fields": {
+            "UF_CRM_OL_BOT_CHAT_STATUS": "4479"
+          },
+          "stub": false,
+          "label": "Disconnected"
+        },
+        {
+          "tool": "leave_chat",
+          "ok": true,
+          "dealId": "21919",
+          "fields": {
+            "UF_CRM_1692861855": "3863",
+            "UF_CRM_1769420060313": "2923",
+            "UF_CRM_1692861971": "1637",
+            "UF_CRM_1763647077": "4469"
+          },
+          "stub": false
+        },
+        {
+          "tool": "set_wikibot_in_chat_status",
+          "ok": true,
+          "source": "runTerminal"
+        },
+        {
+          "tool": "leave_chat",
+          "ok": true,
+          "source": "runTerminal"
+        }
+      ],
+      "dealFields": {
+        "dealId": "21919",
+        "category": "sharing",
+        "chatStatus": "disconnected",
+        "apartmentType": "room",
+        "residents": null,
+        "stayDuration": "2-3 month",
+        "planningToMove": null,
+        "budget": "0-2000",
+        "moveInDate": null
+      },
+      "crmChecks": [
+        {
+          "name": "dealId",
+          "ok": true,
+          "got": "21919"
+        },
+        {
+          "name": "tool:set_wikibot_in_chat_status",
+          "ok": true,
+          "got": [
+            "set_wikibot_in_chat_status",
+            "set_wikibot_in_chat_status",
+            "qualify_lead",
+            "set_wikibot_in_chat_status",
+            "leave_chat",
+            "set_wikibot_in_chat_status",
+            "leave_chat"
+          ]
+        },
+        {
+          "name": "tool:qualify_lead",
+          "ok": true,
+          "got": [
+            "set_wikibot_in_chat_status",
+            "set_wikibot_in_chat_status",
+            "qualify_lead",
+            "set_wikibot_in_chat_status",
+            "leave_chat",
+            "set_wikibot_in_chat_status",
+            "leave_chat"
+          ]
+        },
+        {
+          "name": "crm_writes_ok",
+          "ok": true,
+          "got": "all_ok"
+        },
+        {
+          "name": "category",
+          "ok": true,
+          "got": "sharing"
+        },
+        {
+          "name": "chatStatus",
+          "ok": true,
+          "got": "disconnected"
+        },
+        {
+          "name": "apartmentType",
+          "ok": true,
+          "got": "room"
+        }
+      ],
+      "runIndex": 1,
+      "round": 1
+    }
+  ]
+}

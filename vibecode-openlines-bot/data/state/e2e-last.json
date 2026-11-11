@@ -1,59 +1,51 @@
 {
-  "at": "2026-11-11T11:15:53.718Z",
+  "at": "2026-11-11T12:32:17.226Z",
+  "target": 1,
   "results": [
     {
-      "scenario": "pf_794_cost_breakdown",
-      "passed": false,
-      "handedOff": false,
+      "scenario": "sharing_business_bay",
+      "passed": true,
+      "handedOff": true,
       "turns": [
         {
           "n": 1,
-          "user": "Hello, my name is Elizabeth, I am Colife Dubai manager!\n\nWe have received your apartment request from Propertyfinder for unit 794.1\n\nPlease confirm us if we should keep your request open and continue processing it. | [Yes] | [No, thanks] Yes",
-          "reply": "Unit 794.1 is already booked, but I can certainly help you find some great alternatives. To provide the best options, could you please tell me when you are planning to move in and for what duration?",
-          "ms": 28940,
+          "user": "Business bay nearest to metropolis tower\n21 November",
+          "reply": "Understood, Business Bay near Metropolis Tower. To help me find the perfect place for your move-in on November 21st, could you please let me know: 1. How long do you plan to stay (rental period)? 2. What type of apartment are you looking for (e.g., studio, 1-bedroom)? 3. What is your maximum monthly budget in AED?",
+          "ms": 30029,
           "ok": true,
-          "expect": "/794|unit|available|confirm|move|when|date|booked|alternative|^$/i",
+          "expect": "/duration|how long|budget|studio|bedroom|room|month|rent|type/i",
           "handedOff": false
         },
         {
           "n": 2,
-          "user": "As soon as possible. Move in for one month initially, but i could extend. Also depends if there is a discount for long-term stay.",
-          "reply": "I understand you need something immediately for about a month. I'll focus on finding available options for an urgent move-in right away.",
-          "ms": 18487,
+          "user": "I room big in an apartment\nNo bed space\nNot\nA whole rooom big",
+          "reply": "Understood, a spacious private room rather than a bedspace. Could you tell me how long you plan to stay and what your maximum monthly budget in AED is?",
+          "ms": 5976,
           "ok": true,
-          "expect": "/month|discount|long|term|price|aed|include|dewa|wifi|fee|budget|area|booked|alternative|asap|soon/i",
+          "expect": "/budget|month|how long|duration|rent|aed|room/i",
           "handedOff": false
         },
         {
           "n": 3,
-          "user": "Could you give me a breakdown of the total costs for a one month stay?",
-          "reply": "Typically, our monthly rates are all-inclusive, covering DEWA (electricity and water), chiller, Wi-Fi, maintenance, and tenant support, so you won't have to worry about extra utility bills. To provide you with specific options and their exact costs, could you please let me know what type of apartment you are looking for (e.g., a studio or 1-bedroom) and your approximate monthly budget?",
-          "ms": 9650,
+          "user": "2000 2 months",
+          "reply": "I'm transferring you to a specialist to help you find the right room.",
+          "ms": 28049,
           "ok": true,
-          "expect": "/cost|fee|include|dewa|wifi|deposit|total|aed|breakdown|price|specialist|operator/i",
-          "handedOff": false
+          "expect": "/specialist|operator|transfer|connect|подключа|менеджер/i",
+          "handedOff": true
         },
         {
           "n": 4,
-          "user": "Up to 8500 excluding additional fees",
-          "reply": "Got it, a budget of up to 8,500 AED. What type of apartment are you looking for—for example, a studio or a 1-bedroom?",
-          "ms": 17711,
+          "user": "Okay",
+          "reply": "",
+          "ms": 0,
           "ok": true,
-          "expect": "/specialist|operator|connect|подключа|urgent|8500|budget|^$/i",
-          "handedOff": false
-        },
-        {
-          "n": 5,
-          "user": "On the ad it says 8,074 monthly",
-          "reply": "That would fit perfectly within your budget. Just to make sure I find the right matches, are you looking for a studio or a 1-bedroom?",
-          "ms": 8959,
-          "ok": false,
-          "expect": "/8074|ad|price|fee|include|specialist|operator|confirm|aed|^$/i",
-          "handedOff": false
+          "expect": "/summary|specialist|operator|room|business bay|2000|result|follow|^$/i",
+          "handedOff": true
         }
       ],
-      "dealId": "21837",
-      "category": "supertarget",
+      "dealId": "21945",
+      "category": "sharing",
       "crmWrites": [
         {
           "tool": "set_wikibot_in_chat_status",
@@ -61,28 +53,119 @@
           "source": "first_message"
         },
         {
-          "tool": "set_wikibot_in_chat_status",
+          "tool": "qualify_lead",
           "ok": true,
-          "dealId": "21837",
+          "dealId": "21945",
           "fields": {
-            "UF_CRM_OL_BOT_CHAT_STATUS": "4477"
+            "UF_CRM_1763647077": "3925"
           },
           "stub": false,
-          "label": "Connected"
+          "label": "Target"
         },
         {
           "tool": "qualify_lead",
           "ok": true,
-          "dealId": "21837",
+          "dealId": "21945",
           "fields": {
-            "UF_CRM_1763647077": "3923"
+            "UF_CRM_1763647077": "4469"
           },
           "stub": false,
-          "label": "Supertarget"
+          "label": "Sharing"
+        },
+        {
+          "tool": "set_wikibot_in_chat_status",
+          "ok": true,
+          "dealId": "21945",
+          "fields": {
+            "UF_CRM_OL_BOT_CHAT_STATUS": "4479"
+          },
+          "stub": false,
+          "label": "Disconnected"
+        },
+        {
+          "tool": "leave_chat",
+          "ok": true,
+          "dealId": "21945",
+          "fields": {
+            "UF_CRM_1692861855": "3863",
+            "UF_CRM_1769420060313": "2923",
+            "UF_CRM_1692862111": "3183",
+            "UF_CRM_1692861971": "1637",
+            "UF_CRM_1763647077": "4469",
+            "UF_CRM_OL_BOT_MOVE_IN_DATE": "2026-11-21"
+          },
+          "stub": false
+        },
+        {
+          "tool": "set_wikibot_in_chat_status",
+          "ok": true,
+          "source": "runTerminal"
         }
       ],
-      "dealFields": null,
-      "crmChecks": []
+      "dealFields": {
+        "dealId": "21945",
+        "category": "sharing",
+        "chatStatus": "disconnected",
+        "apartmentType": "room",
+        "residents": null,
+        "stayDuration": "2-3 month",
+        "planningToMove": "within two weeks",
+        "budget": "0-2000",
+        "moveInDate": "2026-11-21T03:00:00+03:00"
+      },
+      "crmChecks": [
+        {
+          "name": "dealId",
+          "ok": true,
+          "got": "21945"
+        },
+        {
+          "name": "tool:set_wikibot_in_chat_status",
+          "ok": true,
+          "got": [
+            "set_wikibot_in_chat_status",
+            "qualify_lead",
+            "qualify_lead",
+            "set_wikibot_in_chat_status",
+            "leave_chat",
+            "set_wikibot_in_chat_status"
+          ]
+        },
+        {
+          "name": "tool:qualify_lead",
+          "ok": true,
+          "got": [
+            "set_wikibot_in_chat_status",
+            "qualify_lead",
+            "qualify_lead",
+            "set_wikibot_in_chat_status",
+            "leave_chat",
+            "set_wikibot_in_chat_status"
+          ]
+        },
+        {
+          "name": "crm_writes_ok",
+          "ok": true,
+          "got": "all_ok"
+        },
+        {
+          "name": "category",
+          "ok": true,
+          "got": "sharing"
+        },
+        {
+          "name": "chatStatus",
+          "ok": true,
+          "got": "disconnected"
+        },
+        {
+          "name": "apartmentType",
+          "ok": true,
+          "got": "room"
+        }
+      ],
+      "runIndex": 1,
+      "round": 1
     }
   ]
 }

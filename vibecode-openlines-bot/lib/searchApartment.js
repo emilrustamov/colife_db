@@ -80,10 +80,18 @@ function daysUntilDate(day, month, year) {
  * @returns {Date|null}
  */
 function parseIsoDate(value) {
-  const m = String(value || '').trim().match(/^(\d{4})-(\d{2})-(\d{2})$/);
-  if (!m) return null;
-  const d = new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3]));
-  return Number.isNaN(d.getTime()) ? null : d;
+  const raw = String(value || '').trim();
+  let m = raw.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  if (m) {
+    const d = new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3]));
+    return Number.isNaN(d.getTime()) ? null : d;
+  }
+  m = raw.match(/^(\d{2})-(\d{2})-(\d{4})$/);
+  if (m) {
+    const d = new Date(Number(m[3]), Number(m[2]) - 1, Number(m[1]));
+    return Number.isNaN(d.getTime()) ? null : d;
+  }
+  return null;
 }
 
 /**
@@ -168,6 +176,16 @@ export function extractDaysToCheckin(text) {
     );
   }
 
+  const bareDayMonth = t.match(
+    /\b(\d{1,2})(?:st|nd|rd|th)?\s+(январ|феврал|март|апрел|ма[йя]|июн|июл|август|сентябр|октябр|ноябр|декабр|january|february|march|april|may|june|july|august|september|october|november|december|jan|feb|mar|apr|jun|jul|aug|sep|oct|nov|dec)\b/i,
+  );
+  if (bareDayMonth) {
+    return daysUntilDate(
+      Number.parseInt(bareDayMonth[1], 10),
+      monthIndexFromName(bareDayMonth[2]),
+    );
+  }
+
   const dateMatch = t.match(/(\d{1,2})[./-](\d{1,2})(?:[./-](\d{2,4}))?/);
   if (dateMatch) {
     let year;
@@ -180,6 +198,15 @@ export function extractDaysToCheckin(text) {
       Number.parseInt(dateMatch[2], 10) - 1,
       year,
     );
+  }
+
+  if (/\b(today|сегодня)\b/i.test(t)) return 0;
+  if (/\b(tomorrow|завтра)\b/i.test(t)) return 1;
+  if (/\b(friday|пятниц)/i.test(t)) {
+    const now = new Date();
+    const day = now.getDay();
+    const delta = (5 - day + 7) % 7 || 7;
+    return delta;
   }
 
   return undefined;
@@ -233,8 +260,10 @@ export function extractSearchArgs(text) {
   let period;
   const periodMatch = t.match(/(\d+)\s*(?:month|months|мес|месяц)/i);
   if (periodMatch) period = Number.parseInt(periodMatch[1], 10);
-  else if (/на\s*месяц|for\s*a?\s*month|1\s*month/i.test(t)) period = 1;
-  else if (/год|year|ejari/i.test(t)) period = 12;
+  else if (/на\s*месяц|for\s*a?\s*month|1\s*month|one\s*month|a\s*month/i.test(t)) period = 1;
+  else if (/(?:two|2)\s*months?|(?:three|3)\s*months?/i.test(t)) {
+    period = /\bthree\b|\b3\b/i.test(t) ? 3 : 2;
+  } else if (/год|year|ejari/i.test(t)) period = 12;
 
   let guests;
   if (/на\s*двоих|2\s*(человек|чел|people|persons|guests)|двое|couple|for\s*two/i.test(t)) {

@@ -1,0 +1,100 @@
+{
+  "at": "2026-11-11T12:17:39.230Z",
+  "target": 1,
+  "results": [
+    {
+      "scenario": "bayut_794_weekly_short_term",
+      "passed": false,
+      "handedOff": true,
+      "turns": [
+        {
+          "n": 1,
+          "user": "Hello, my name is Elizabeth, I am Colife Dubai manager!\n\nWe have received your apartment request from Bayut for unit 794.1\n\nPlease confirm us if we should keep your request open and continue processing it. | [Yes] | [No, thanks]",
+          "reply": "",
+          "ms": 1792,
+          "ok": true,
+          "expect": "/794|unit|available|confirm|move|^$/i",
+          "handedOff": false
+        },
+        {
+          "n": 2,
+          "user": "Yes",
+          "reply": "Unfortunately, unit 794.1 is already booked. However, I can quickly find you some great alternatives! Could you please tell me when you are planning to move in and what type of apartment you are looking for?",
+          "ms": 9767,
+          "ok": true,
+          "expect": "/move|when|date|заезд|long|how long|week|month|available|link/i",
+          "handedOff": false
+        },
+        {
+          "n": 3,
+          "user": "Immediate , for 1 month or do you have weekly option",
+          "reply": "I understand you need an immediate move-in and are interested in weekly options. I'm connecting you with a specialist who can provide you with all the details regarding our shortest stay durations.",
+          "ms": 37293,
+          "ok": true,
+          "expect": "/week|short|month|minimum|term|specialist|operator|option/i",
+          "handedOff": true
+        },
+        {
+          "n": 4,
+          "user": "Is there an option for less than a month ?",
+          "reply": "",
+          "ms": 0,
+          "ok": false,
+          "expect": "/week|short|month|minimum|day|days|stay|specialist|operator|connect|подключа/i",
+          "handedOff": true
+        },
+        {
+          "n": 5,
+          "user": "I request you to address my question first so we conclude this in minimal messages",
+          "reply": "",
+          "ms": 0,
+          "ok": true,
+          "expect": "/specialist|operator|connect|подключа|summary|week|short|day|days|type|budget|^$/i",
+          "handedOff": true
+        }
+      ],
+      "dealId": "21921",
+      "category": null,
+      "crmWrites": [
+        {
+          "tool": "set_wikibot_in_chat_status",
+          "ok": true,
+          "source": "first_message"
+        },
+        {
+          "tool": "set_wikibot_in_chat_status",
+          "ok": true,
+          "dealId": "21921",
+          "fields": {
+            "UF_CRM_OL_BOT_CHAT_STATUS": "4479"
+          },
+          "stub": false,
+          "label": "Disconnected"
+        },
+        {
+          "tool": "leave_chat",
+          "ok": true,
+          "dealId": "21921",
+          "fields": {
+            "UF_CRM_1769420060313": "2919"
+          },
+          "stub": false
+        },
+        {
+          "tool": "set_wikibot_in_chat_status",
+          "ok": true,
+          "source": "runTerminal"
+        },
+        {
+          "tool": "leave_chat",
+          "ok": true,
+          "source": "runTerminal"
+        }
+      ],
+      "dealFields": null,
+      "crmChecks": [],
+      "runIndex": 1,
+      "round": 1
+    }
+  ]
+}

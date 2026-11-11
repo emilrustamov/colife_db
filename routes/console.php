@@ -54,6 +54,14 @@ Schedule::command('alma:collect')
     ->everyTwoHours()
     ->timezone('Europe/Moscow');
 
+Schedule::command('landlord-finance:collect')
+    ->dailyAt('06:00')
+    ->timezone('Europe/Moscow');
+
+Schedule::command('landlord-finance:reconcile')
+    ->dailyAt('06:30')
+    ->timezone('Europe/Moscow');
+
 Schedule::command('bitrix:recover-stuck-pauses')->everyFiveMinutes();
 
 Schedule::command('telegram:health')->everyFifteenMinutes();

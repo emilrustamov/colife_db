@@ -3,7 +3,7 @@ import { refreshCatalogKb } from './refresh.js';
 import { DialogStore } from './state.js';
 import { buildSystemInstruction, loadToolSchemas, loadTemplate } from './templates.js';
 import { executeTool } from './tools.js';
-import { upsertChat, insertMessage, bucketEscalateReason } from './analytics.js';
+import { upsertChat, insertMessage, bucketEscalateReason, restoreDialogFromDb } from './analytics.js';
 import {
   detectLang,
   FALLBACK_TEXT,
@@ -12,7 +12,11 @@ import {
   wantsOperator,
 } from './reply.js';
 import {
+  clarifyFallback,
+  enrichStateForLeave,
   extractUnitNumber,
+  hydrateStateFromText,
+  hydrateStateFromTranscript,
   isRobotOnlyMessage,
   looksLikeReasoningLeak,
   looksLikeRobotTemplate,
@@ -173,7 +177,9 @@ export function createBotWorker(config) {
    * @param {string} [notifyText]
    */
   async function runTerminal(dialogId, chatId, state, mode, reason, notifyText = '') {
-    if (state.handedOff && !state.terminalAPendingLeave) return;
+    if (state.handedOff && !state.terminalAPendingLeave && mode !== 'B') return;
+    hydrateStateFromTranscript(state);
+    enrichStateForLeave(state);
     const summary = await buildOperatorSummary(state);
     if (mode === 'A' && notifyText) {
       try {
@@ -195,11 +201,16 @@ export function createBotWorker(config) {
       try {
         state.extras.botChatStatus = 'disconnected';
         await writeChatStatus(state, 'disconnected');
-        await writeLeaveSnapshot(state);
+        if (!state.extras.leaveCrmWritten) {
+          await writeLeaveSnapshot(state);
+          state.extras.crmWrites = [
+            ...(state.extras.crmWrites || []),
+            { tool: 'leave_chat', ok: true, source: 'runTerminal' },
+          ];
+        }
         state.extras.crmWrites = [
           ...(state.extras.crmWrites || []),
           { tool: 'set_wikibot_in_chat_status', ok: true, source: 'runTerminal' },
-          { tool: 'leave_chat', ok: true, source: 'runTerminal' },
         ];
       } catch (err) {
         pushLog({ question: reason, answer: '', handedOff: true, error: `crm_leave: ${err.message}`, dialogId });
@@ -255,6 +266,10 @@ export function createBotWorker(config) {
     if (markProcessed(dedupeKey)) return;
 
     const state = store.get(dialogId);
+    if (!state.extras?.restoredFromDb) {
+      const restored = await restoreDialogFromDb(dialogId, chatId, state);
+      if (restored) hydrateStateFromTranscript(state);
+    }
     if (state.handedOff) return;
 
     const started = Date.now();
@@ -278,6 +293,9 @@ export function createBotWorker(config) {
     state.language = detectLang(text);
     state.transcript.push(`User: ${text}`);
     if (state.transcript.length > 40) state.transcript.splice(0, state.transcript.length - 40);
+    if (!isRobotOnlyMessage(text)) {
+      hydrateStateFromText(state, text);
+    }
 
     if (state.terminalAPendingLeave) {
       await runTerminal(dialogId, chatId, state, 'A', 'terminal_a_continuity');
@@ -444,6 +462,7 @@ export function createBotWorker(config) {
       introduced: state.introduced,
       routingMoveInDate: state.routingMoveInDate,
       savedMoveInDate: state.savedMoveInDate,
+      apartmentType: state.apartmentType,
       budget: state.budget,
       period: state.period,
       types: state.types,
@@ -451,6 +470,8 @@ export function createBotWorker(config) {
       excludeIds: state.excludeIds,
       unitNumber: state.unitNumber,
       unitLookupStatus: state.unitLookupStatus,
+      days_to_checkin: state.extras?.days_to_checkin ?? null,
+      planningToMove: state.planningToMove,
       dealId: state.dealId || '',
       contactId: state.contactId || '',
       shownLinks: state.shownLinks.slice(-5),
@@ -458,7 +479,7 @@ export function createBotWorker(config) {
     })}`);
     if (state.unitNumber) {
       instructionParts.push(
-        `Pending unit from earlier robot/request: ${state.unitNumber} (lookup=${state.unitLookupStatus || 'unknown'}). If client confirms Yes — continue with this unit or say booked and collect missing filters; do not ask apartment type if unit type is already known in state.`,
+        `Pending unit from earlier robot/request: ${state.unitNumber} (lookup=${state.unitLookupStatus || 'unknown'}). If client confirms Yes — call get_apartment_by_unit_number once if lookup is not found yet. Only say booked when tool returns not_found. If found — continue with that unit (do not ask apartment type when type is already known).`,
       );
     }
     const prior = state.transcript.slice(0, -1).slice(-16);
@@ -467,11 +488,12 @@ export function createBotWorker(config) {
     }
     instructionParts.push([
       'Continue this same dialog. Do not re-introduce yourself if Dialog history already has a Bot line.',
-      'Use known filters from history/state; ask only for missing ones.',
+      'Use known filters from history/state; ask only for missing ones. Never re-ask move-in date or rental period if Dialog state JSON already has routingMoveInDate/savedMoveInDate/period/days_to_checkin.',
       'Never output chain-of-thought, skill names, tool plans, or analysis to the client. Client text only via make_answer (or a short plain final answer).',
       'If budget and period are known, call search_apartments before saying there are no options or before handoff (unless terminal A/B already required by scenario).',
-      'If move-in is today/tomorrow, activate_scenario urgent_move_in before search.',
-      'If client asks for room/shared accommodation, activate_scenario sharing.',
+      'If move-in is today/tomorrow or days_to_checkin<=1, activate_scenario urgent_move_in before search.',
+      'If client asks weekly / less than a month / short-term stay, activate_scenario short_term and follow that scenario (handoff after required params; do not keep probing type/budget endlessly).',
+      'If client asks for room/shared accommodation, activate_scenario sharing and treat apartment type as room.',
     ].join(' '));
     const system = instructionParts.filter(Boolean).join('\n\n');
 
@@ -556,9 +578,8 @@ export function createBotWorker(config) {
       && !state.handedOff
       && !state.terminalAPendingLeave
     ) {
-      finalText = state.language === 'ru'
-        ? 'Уточните, пожалуйста, дату заезда и срок аренды — так я подберу варианты точнее.'
-        : 'Could you clarify your move-in date and rental period so I can find the right options?';
+      hydrateStateFromTranscript(state);
+      finalText = clarifyFallback(state);
     }
 
     for (const answer of runtime.pendingAnswers) {
