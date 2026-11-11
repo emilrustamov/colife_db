@@ -1,7 +1,19 @@
 <script setup>
-import { computed } from 'vue';
+import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue';
 import { MENU_GROUPS, MENU_TONE_CLASSES, orderMenuItems } from '../menuGroups';
 
+const SIDEBAR_SCROLL_KEY = 'colife.sidebar.navScrollTop';
+let sidebarScrollTop = 0;
+
+try {
+    const raw = sessionStorage.getItem(SIDEBAR_SCROLL_KEY);
+    const parsed = raw === null ? NaN : Number(raw);
+    if (Number.isFinite(parsed) && parsed >= 0) {
+        sidebarScrollTop = parsed;
+    }
+} catch {
+    sidebarScrollTop = 0;
+}
 
 const props = defineProps({
     menu: { type: Array, default: () => [] },
@@ -155,6 +167,57 @@ const isActive = (key) => props.selectedKey === key;
  */
 const isContactsBranchActive = (item) =>
     item.key === 'contacts' && (isActive('contacts') || props.isContactsChildSelected);
+
+const navRef = ref(null);
+
+/**
+ * @returns {void}
+ */
+const persistNavScroll = () => {
+    const el = navRef.value;
+    if (!el) {
+        return;
+    }
+
+    sidebarScrollTop = el.scrollTop;
+
+    try {
+        sessionStorage.setItem(SIDEBAR_SCROLL_KEY, String(sidebarScrollTop));
+    } catch {}
+};
+
+/**
+ * @returns {void}
+ */
+const restoreNavScroll = () => {
+    const el = navRef.value;
+    if (!el) {
+        return;
+    }
+
+    el.scrollTop = sidebarScrollTop;
+};
+
+onMounted(() => {
+    nextTick(() => {
+        restoreNavScroll();
+        requestAnimationFrame(restoreNavScroll);
+    });
+});
+
+onBeforeUnmount(() => {
+    persistNavScroll();
+});
+
+watch(
+    () => [props.selectedKey, props.settingsOpen, props.menu.length, groupedNav.value.length],
+    () => {
+        nextTick(() => {
+            restoreNavScroll();
+            requestAnimationFrame(restoreNavScroll);
+        });
+    },
+);
 </script>
 
 <template>
@@ -223,7 +286,11 @@ const isContactsBranchActive = (item) =>
             </div>
         </Transition>
 
-        <nav class="ui-scroll min-h-0 flex-1 overflow-y-auto px-2.5 pb-3">
+        <nav
+            ref="navRef"
+            class="ui-scroll min-h-0 flex-1 overflow-y-auto px-2.5 pb-3"
+            @scroll.passive="persistNavScroll"
+        >
             <p v-if="menu.length === 0" class="ui-muted px-2">
                 {{ t(messages, 'menuEmpty') }}
             </p>

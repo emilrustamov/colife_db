@@ -1,6 +1,6 @@
-# Catalog API snapshot 2026-11-11T10:10:52.949Z
+# Catalog API snapshot 2026-11-11T11:07:53.929Z
 
-Objects: 226
+Objects: 224
 
 Use search_apartment filters: area, type (Studio/1br/2br), max price, period months.
 
@@ -222,12 +222,6 @@ area: JVC; type: Studio; price: 7499 AED/month
 available: Now; rentType: R2R
 ✔️ 412 sq ft, 7 floor ✔️ Pearl House 2 | Studio | JVC All included! • DEWA, chiller, Wi-Fi • Maintenance • Tenant support Apartment is fully-furnished! • Studio layout • Living & sleeping area • Kitchen • Bathroom • Balcony Building Amenities: • Swimming pool • Fully equipped gym • Lobby & reception area • Covered parking • 24/7 security • Elevators • Pet-friendly Community & Nearby (Jumeirah Vill
 
-### Studio, Azizi Shaista Residence, Al Furjan
-link: https://colife.ae/catalog/tproduct/605208928-680049908612-studio-azizi-shaista-residence-al-furjan
-area: Al Furjan; type: Studio; price: 7199 AED/month
-available: December; rentType: R2R
-✔️ 413 sq ft, 10 floor ✔️ High floor | Modern layout | Well-connected location All included! • DEWA, chiller, Wi-Fi • Maintenance • Tenant support Apartment is fully-furnished! • Studio layout • Living & sleeping area • Kitchen • Bathroom • Balcony Building Amenities: • Swimming pool • Fully equipped gym • Sauna & steam rooms • 24/7 security & concierge service • Covered parking • High-speed eleva
-
 ### Studio, Building 38, Discovery Gardens
 link: https://colife.ae/catalog/tproduct/605208928-293970422971-studio-building-38-discovery-gardens
 area: Discovery Gardens; type: Studio; price: 7299 AED/month
@@ -245,3 +239,9 @@ link: https://colife.ae/catalog/tproduct/605208928-846164386422-1br-apartment-av
 area: Al Safouh Second; type: 1br Apartment; price: 15999 AED/month
 available: Now; rentType: R2R
 ✔️ 1,083 sq ft, 23 floor ✔️ High floor | Sea & Palm views | Prime Al Safouh location All included! • DEWA, chiller, Wi-Fi • Maintenance • Tenant support Apartment is fully-furnished! • 1 bedroom • Living & dining area • Kitchen • Bathroom • Balcony Building Amenities: • Rooftop swimming pool • Fully equipped gym • Hotel-style services & facilities • 24/7 security & concierge service • Covered park
+
+### Studio, Elite Downtown Residence, Downtown
+link: https://colife.ae/catalog/tproduct/605208928-346144405212-studio-elite-downtown-residence-downtown
+area: Downtown; type: Studio; price: 11299 AED/month
+available: Now; rentType: R2R
+✔️ 524 sq ft, 5 floor ✔️ Elite Downtown Residence | Prime Downtown location | Spacious studio All included! • DEWA, chiller, Wi-Fi • Maintenance • Tenant support Apartment is fully-furnished! • Studio layout • Living & sleeping area • Kitchen • Bathroom • Balcony Building Amenities: • Swimming pool & sun deck • Fully equipped gym • Sauna & steam room • Residents lounge • 24/7 security & concierge 

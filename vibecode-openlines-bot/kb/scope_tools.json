@@ -1,0 +1,20 @@
+{
+  "main": [
+    "search_apartments",
+    "get_min_price",
+    "get_apartment_by_unit_number",
+    "classify_budget_target",
+    "qualify_lead",
+    "leave_chat",
+    "set_wikibot_in_chat_status",
+    "set_move_in_date"
+  ],
+  "scenario:ejari": ["qualify_lead", "leave_chat", "set_wikibot_in_chat_status"],
+  "scenario:non_target": ["qualify_lead", "leave_chat", "set_wikibot_in_chat_status"],
+  "scenario:short_term": ["qualify_lead", "leave_chat", "set_wikibot_in_chat_status"],
+  "scenario:postponed": ["qualify_lead", "leave_chat", "set_wikibot_in_chat_status"],
+  "scenario:sharing": ["qualify_lead", "leave_chat", "set_wikibot_in_chat_status"],
+  "scenario:urgent_move_in": ["qualify_lead", "leave_chat", "set_wikibot_in_chat_status", "get_min_price", "search_apartments"],
+  "scenario:out_of_budget": ["qualify_lead", "leave_chat", "set_wikibot_in_chat_status", "search_apartments", "get_min_price"],
+  "skill:robot_message": ["get_apartment_by_unit_number", "leave_chat", "set_wikibot_in_chat_status"]
+}

@@ -6,6 +6,13 @@ import {
 } from './searchApartment.js';
 import { bucketEscalateReason } from './analytics.js';
 import { activateScenario, scenarioForCategory } from './scenarios.js';
+import {
+  crmEnabled,
+  writeCategory,
+  writeChatStatus,
+  writeLeaveSnapshot,
+  writeMoveInDate,
+} from './crm.js';
 
 /**
  * @param {string} unitNumber
@@ -150,11 +157,20 @@ export async function executeTool(state, name, args, runtime) {
     state.extras.lastQualifyReason = a.reason || '';
     if (a.dealId) state.dealId = String(a.dealId);
     if (a.contactId) state.contactId = String(a.contactId);
+    let crm = { ok: true, stub: !crmEnabled() };
+    try {
+      if (state.category) crm = await writeCategory(state, state.category);
+    } catch (err) {
+      crm = { ok: false, stub: false, error: err.message };
+    }
+    state.extras.crmWrites = [...(state.extras.crmWrites || []), { tool: 'qualify_lead', ...crm }];
     return {
-      ok: true,
+      ok: Boolean(crm.ok),
       category: state.category,
-      stub: true,
+      stub: Boolean(crm.stub),
+      dealId: state.dealId || '',
       reason: a.reason || '',
+      crm,
     };
   }
 
@@ -169,16 +185,46 @@ export async function executeTool(state, name, args, runtime) {
     if (status === 'disconnected') state.statusConnected = false;
     if (a.dealId) state.dealId = String(a.dealId);
     if (a.contactId) state.contactId = String(a.contactId);
-    return { ok: true, status, stub: true, reason: a.reason || '' };
+    let crm = { ok: true, stub: !crmEnabled() };
+    try {
+      if (status) crm = await writeChatStatus(state, status);
+    } catch (err) {
+      crm = { ok: false, stub: false, error: err.message };
+    }
+    state.extras.crmWrites = [...(state.extras.crmWrites || []), { tool: 'set_wikibot_in_chat_status', ...crm }];
+    return {
+      ok: Boolean(crm.ok),
+      status,
+      stub: Boolean(crm.stub),
+      dealId: state.dealId || '',
+      reason: a.reason || '',
+      crm,
+    };
   }
 
   if (name === 'set_move_in_date') {
-    if (!a.contactId && !state.contactId) {
-      return { ok: false, skipped: true, reason: 'contactId required' };
+    if (a.dealId) state.dealId = String(a.dealId);
+    if (a.contactId) state.contactId = String(a.contactId);
+    if (!state.dealId && !a.dealId && crmEnabled()) {
+      // deal will be auto-created in writeMoveInDate
+    } else if (!state.dealId && !crmEnabled() && !a.contactId && !state.contactId) {
+      return { ok: false, skipped: true, reason: 'dealId required' };
     }
-    state.contactId = String(a.contactId || state.contactId);
     state.savedMoveInDate = String(a.move_in_date || '');
-    return { ok: true, stub: true, move_in_date: state.savedMoveInDate };
+    let crm = { ok: true, stub: !crmEnabled() };
+    try {
+      if (state.savedMoveInDate) crm = await writeMoveInDate(state, state.savedMoveInDate);
+    } catch (err) {
+      crm = { ok: false, stub: false, error: err.message };
+    }
+    state.extras.crmWrites = [...(state.extras.crmWrites || []), { tool: 'set_move_in_date', ...crm }];
+    return {
+      ok: Boolean(crm.ok),
+      stub: Boolean(crm.stub),
+      dealId: state.dealId || '',
+      move_in_date: state.savedMoveInDate,
+      crm,
+    };
   }
 
   if (name === 'leave_chat') {
@@ -198,6 +244,13 @@ export async function executeTool(state, name, args, runtime) {
       planning_to_move: state.planningToMove,
       category: state.category,
     };
+    let crm = { ok: true, stub: !crmEnabled() };
+    try {
+      crm = await writeLeaveSnapshot(state);
+    } catch (err) {
+      crm = { ok: false, stub: false, error: err.message };
+    }
+    state.extras.crmWrites = [...(state.extras.crmWrites || []), { tool: 'leave_chat', ...crm }];
     runtime.pendingHandoff = {
       mode: runtime.pendingHandoff?.mode || 'A',
       reason: a.reason || 'leave_chat',
@@ -208,7 +261,13 @@ export async function executeTool(state, name, args, runtime) {
     } else {
       state.handedOff = true;
     }
-    return { ok: true, stub: true, left: true };
+    return {
+      ok: Boolean(crm.ok),
+      stub: Boolean(crm.stub),
+      left: true,
+      dealId: state.dealId || '',
+      crm,
+    };
   }
 
   if (name === 'make_answer') {

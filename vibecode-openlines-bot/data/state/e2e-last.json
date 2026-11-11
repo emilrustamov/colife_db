@@ -1,75 +1,88 @@
 {
-  "at": "2026-11-11T10:43:37.779Z",
+  "at": "2026-11-11T11:15:53.718Z",
   "results": [
     {
-      "scenario": "returning_room_downtown",
-      "passed": true,
+      "scenario": "pf_794_cost_breakdown",
+      "passed": false,
       "handedOff": false,
       "turns": [
         {
           "n": 1,
-          "user": "Hi",
-          "reply": "Hello! This is a Colife Dubai manager, how can I help you with finding housing in Dubai?",
-          "ms": 8812,
+          "user": "Hello, my name is Elizabeth, I am Colife Dubai manager!\n\nWe have received your apartment request from Propertyfinder for unit 794.1\n\nPlease confirm us if we should keep your request open and continue processing it. | [Yes] | [No, thanks] Yes",
+          "reply": "Unit 794.1 is already booked, but I can certainly help you find some great alternatives. To provide the best options, could you please tell me when you are planning to move in and for what duration?",
+          "ms": 28940,
           "ok": true,
-          "expect": "/colife|help|hi|здравству|arrive|dubai/i",
+          "expect": "/794|unit|available|confirm|move|when|date|booked|alternative|^$/i",
           "handedOff": false
         },
         {
           "n": 2,
-          "user": "This is Caroline, you asked me to let you when I will arrive in Dubai.",
-          "reply": "Nice to meet you, Caroline! Please let me know your planned arrival date and what kind of apartment you are looking for (for example, a studio or a 1-bedroom) so I can start searching for the best options for you.",
-          "ms": 11073,
+          "user": "As soon as possible. Move in for one month initially, but i could extend. Also depends if there is a discount for long-term stay.",
+          "reply": "I understand you need something immediately for about a month. I'll focus on finding available options for an urgent move-in right away.",
+          "ms": 18487,
           "ok": true,
-          "expect": "/arrive|when|date|friday|room|offer|thank/i",
+          "expect": "/month|discount|long|term|price|aed|include|dewa|wifi|fee|budget|area|booked|alternative|asap|soon/i",
           "handedOff": false
         },
         {
           "n": 3,
-          "user": "I will arrive friday and I like your offer something about 2000dirham Friday",
-          "reply": "I understand, Caroline. Currently, our monthly rates for apartments in Dubai start from approximately 4,999 AED. Would you like to see the most affordable options we have available, or would you prefer to adjust your budget?",
-          "ms": 41894,
+          "user": "Could you give me a breakdown of the total costs for a one month stay?",
+          "reply": "Typically, our monthly rates are all-inclusive, covering DEWA (electricity and water), chiller, Wi-Fi, maintenance, and tenant support, so you won't have to worry about extra utility bills. To provide you with specific options and their exact costs, could you please let me know what type of apartment you are looking for (e.g., a studio or 1-bedroom) and your approximate monthly budget?",
+          "ms": 9650,
           "ok": true,
-          "expect": "/budget|room|aed|2000|option|downtown|friday|move|specialist|operator|4999|sharing/i",
+          "expect": "/cost|fee|include|dewa|wifi|deposit|total|aed|breakdown|price|specialist|operator/i",
           "handedOff": false
         },
         {
           "n": 4,
-          "user": "3000",
-          "reply": "Would you be able to increase your budget to at least 4,999 AED to see the available options?",
-          "ms": 10589,
+          "user": "Up to 8500 excluding additional fees",
+          "reply": "Got it, a budget of up to 8,500 AED. What type of apartment are you looking for—for example, a studio or a 1-bedroom?",
+          "ms": 17711,
           "ok": true,
-          "expect": "/3000|budget|room|option|link|aed|downtown|specialist|operator|^$/i",
+          "expect": "/specialist|operator|connect|подключа|urgent|8500|budget|^$/i",
           "handedOff": false
         },
         {
           "n": 5,
-          "user": "You offered me last time ca. 2 weeks ago a nice room for 2999 Dirham",
-          "reply": "I apologize for the misunderstanding, Caroline. You're right—if you are looking for a room (sharing option), we do have much more affordable choices that fit your budget. Would you like me to show you the available rooms instead?",
-          "ms": 16859,
-          "ok": true,
-          "expect": "/2999|room|option|available|sorry|alternative|aed|^$/i",
-          "handedOff": false
-        },
-        {
-          "n": 6,
-          "user": "sorry I dont have it anymore is there any nice offer for 4000?",
-          "reply": "For apartments, the monthly rates currently start from 4,999 AED. Would you be able to increase your budget to 4,999 AED to see the available options?",
-          "ms": 25637,
-          "ok": true,
-          "expect": "/4000|room|option|link|aed|downtown|available|found|^$/i",
-          "handedOff": false
-        },
-        {
-          "n": 7,
-          "user": "maybe 2 months, but for sure 1 month downtown",
-          "reply": "Would you be able to increase your budget to 4,999 AED to see the available options in Downtown?",
-          "ms": 46135,
-          "ok": true,
-          "expect": "/downtown|month|room|option|link|aed|specialist|operator|^$/i",
+          "user": "On the ad it says 8,074 monthly",
+          "reply": "That would fit perfectly within your budget. Just to make sure I find the right matches, are you looking for a studio or a 1-bedroom?",
+          "ms": 8959,
+          "ok": false,
+          "expect": "/8074|ad|price|fee|include|specialist|operator|confirm|aed|^$/i",
           "handedOff": false
         }
-      ]
+      ],
+      "dealId": "21837",
+      "category": "supertarget",
+      "crmWrites": [
+        {
+          "tool": "set_wikibot_in_chat_status",
+          "ok": true,
+          "source": "first_message"
+        },
+        {
+          "tool": "set_wikibot_in_chat_status",
+          "ok": true,
+          "dealId": "21837",
+          "fields": {
+            "UF_CRM_OL_BOT_CHAT_STATUS": "4477"
+          },
+          "stub": false,
+          "label": "Connected"
+        },
+        {
+          "tool": "qualify_lead",
+          "ok": true,
+          "dealId": "21837",
+          "fields": {
+            "UF_CRM_1763647077": "3923"
+          },
+          "stub": false,
+          "label": "Supertarget"
+        }
+      ],
+      "dealFields": null,
+      "crmChecks": []
     }
   ]
 }

@@ -12,6 +12,7 @@ class OlBotChat extends Model
     protected $fillable = [
         'chat_id',
         'dialog_id',
+        'deal_id',
         'started_at',
         'ended_at',
         'messages_count',
@@ -27,6 +28,36 @@ class OlBotChat extends Model
         'category',
         'line_id',
     ];
+
+    /**
+     * Absolute Bitrix deal URL if deal_id is set.
+     */
+    public function dealUrl(?string $portalDomain = null): ?string
+    {
+        $dealId = trim((string) $this->deal_id);
+        if ($dealId === '') {
+            return null;
+        }
+        $domain = trim((string) ($portalDomain ?: config('open_lines_source.portal_domain', 'colifepacific.bitrix24.com')));
+        $domain = preg_replace('#^https?://#', '', $domain) ?: 'colifepacific.bitrix24.com';
+
+        return 'https://'.$domain.'/crm/deal/details/'.$dealId.'/';
+    }
+
+    /**
+     * Absolute Bitrix Open Lines / IM dialog URL if dialog_id is set.
+     */
+    public function openLineUrl(?string $portalDomain = null): ?string
+    {
+        $dialogId = trim((string) $this->dialog_id);
+        if ($dialogId === '') {
+            return null;
+        }
+        $domain = trim((string) ($portalDomain ?: config('open_lines_source.portal_domain', 'colifepacific.bitrix24.com')));
+        $domain = preg_replace('#^https?://#', '', $domain) ?: 'colifepacific.bitrix24.com';
+
+        return 'https://'.$domain.'/online/?IM_DIALOG='.rawurlencode($dialogId);
+    }
 
     protected function casts(): array
     {

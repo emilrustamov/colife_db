@@ -1,4 +1,4 @@
-import { computed, onMounted, ref } from 'vue';
+import { computed, onMounted, watch } from 'vue';
 import { router, usePage } from '@inertiajs/vue3';
 import { useAppPreferences } from './useAppPreferences';
 import { useDirectoryNavigation } from '../Pages/Directories/composables/useDirectoryNavigation';
@@ -68,6 +68,13 @@ export const useAdminShell = (options = {}) => {
         setItemVisible(key, visible);
         syncSelectedKey();
     };
+
+    watch(resolvedActiveKey, (value) => {
+        if (value) {
+            selectedKey.value = value;
+            syncSelectedKey();
+        }
+    }, { immediate: true });
 
     onMounted(() => {
         initLocale();

@@ -4,7 +4,6 @@
     "type": "object",
     "required": [
       "reason",
-      "contactId",
       "move_in_date"
     ],
     "properties": {
@@ -12,9 +11,13 @@
         "type": "string",
         "description": "Обоснование решения вызвать данную функцию."
       },
+      "dealId": {
+        "type": "string",
+        "description": "Идентификатор сделки. Пустое значение, если неизвестен — система создаст/подставит сама."
+      },
       "contactId": {
         "type": "string",
-        "description": "Идентификатор контакта."
+        "description": "Идентификатор контакта. Опционально."
       },
       "move_in_date": {
         "type": "string",
@@ -22,5 +25,5 @@
       }
     }
   },
-  "description": "Записывает дату заезда пользователя"
+  "description": "Записывает дату заезда пользователя в сделку"
 }

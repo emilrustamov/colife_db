@@ -52,6 +52,12 @@ class AdminMenu
                 'href' => '/ol-bot/analytics',
             ],
             [
+                'key' => 'ol-bot-catalog',
+                'title' => 'OL Catalog',
+                'icon' => '🏠',
+                'href' => '/ol-bot/analytics?tab=catalog',
+            ],
+            [
                 'key' => 'ol-bot-templates',
                 'title' => 'OL Templates',
                 'icon' => '🤖',

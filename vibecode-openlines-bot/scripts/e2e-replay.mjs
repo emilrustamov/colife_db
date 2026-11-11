@@ -3,6 +3,12 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { createBotWorker } from '../lib/bot.js';
 import { setVibeTestHooks } from '../lib/vibe.js';
+import {
+  crmEnabled,
+  createDeal,
+  getDeal,
+  readDealOlFields,
+} from '../lib/crm.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const root = path.join(__dirname, '..');
@@ -18,6 +24,7 @@ function loadEnvFile() {
 }
 
 loadEnvFile();
+process.env.CRM_DEAL_TITLE = 'Test AI';
 
 const apiKey = process.env.VIBE_API_KEY;
 const botId = process.env.BOT_ID || '43591';
@@ -27,7 +34,19 @@ if (!apiKey) {
   process.exit(1);
 }
 
-/** @type {{ scenario: string, turns: string[], expect?: RegExp[] }[]} */
+/**
+ * @typedef {{ scenario: string, turns: string[], expect?: RegExp[], crmExpect?: {
+ *   tools?: string[],
+ *   category?: RegExp,
+ *   chatStatus?: RegExp,
+ *   apartmentType?: RegExp,
+ *   budget?: RegExp,
+ *   moveInDate?: boolean|RegExp,
+ *   requireDeal?: boolean,
+ * } }} E2eScenario
+ */
+
+/** @type {E2eScenario[]} */
 const scenarios = [
   {
     scenario: 'marina_studio_budget',
@@ -51,6 +70,11 @@ const scenarios = [
       /jlt|hills|option|link|aed|studio|found|colife\.ae/i,
       /wifi|wi-?fi|internet|included|speed|specialist|operator|confirm/i,
     ],
+    crmExpect: {
+      requireDeal: true,
+      tools: ['set_wikibot_in_chat_status'],
+      chatStatus: /connected|disconnected/i,
+    },
   },
   {
     scenario: 'unit_958_postponed_window',
@@ -79,6 +103,11 @@ const scenarios = [
       /studio|jlt|option|link|aed|move|confirm|found|budget|colife/i,
       /specialist|operator|connect|подключа|менеджер|summary|handoff/i,
     ],
+    crmExpect: {
+      requireDeal: true,
+      tools: ['set_wikibot_in_chat_status'],
+      chatStatus: /connected|disconnected/i,
+    },
   },
   {
     scenario: 'sharing_business_bay',
@@ -94,6 +123,13 @@ const scenarios = [
       /specialist|operator|transfer|connect|подключа|менеджер/i,
       /summary|specialist|operator|room|business bay|2000|result|follow|^$/i,
     ],
+    crmExpect: {
+      requireDeal: true,
+      tools: ['set_wikibot_in_chat_status', 'qualify_lead'],
+      category: /sharing|out of budget|target|supertarget/i,
+      chatStatus: /connected|disconnected/i,
+      apartmentType: /room|bedspace|studio|no information/i,
+    },
   },
   {
     scenario: 'bayut_48_budget_flex',
@@ -167,8 +203,8 @@ const scenarios = [
       /794|unit|available|confirm|move|when|date|booked|alternative|^$/i,
       /month|discount|long|term|price|aed|include|dewa|wifi|fee|budget|area|booked|alternative|asap|soon/i,
       /cost|fee|include|dewa|wifi|deposit|total|aed|breakdown|price|specialist|operator/i,
-      /8500|budget|option|fee|include|aed|price|unit|^$/i,
-      /8074|ad|price|fee|include|specialist|operator|confirm|aed|^$/i,
+      /specialist|operator|connect|подключа|urgent|8500|budget|studio|bedroom|type|^$/i,
+      /8074|ad|price|fee|include|specialist|operator|confirm|aed|studio|bedroom|type|^$/i,
     ],
   },
   {
@@ -217,6 +253,63 @@ function makeEvent(dialogId, text, n) {
   };
 }
 
+/**
+ * @param {E2eScenario} item
+ * @param {object} state
+ * @param {object|null} dealFields
+ * @returns {{ ok: boolean, checks: object[] }}
+ */
+function verifyCrm(item, state, dealFields) {
+  const checks = [];
+  const exp = item.crmExpect;
+  if (!exp) return { ok: true, checks };
+
+  const writes = state.extras?.crmWrites || [];
+  const toolsCalled = writes.map((w) => w.tool);
+
+  if (exp.requireDeal) {
+    const ok = Boolean(state.dealId);
+    checks.push({ name: 'dealId', ok, got: state.dealId || null });
+  }
+  if (exp.tools?.length) {
+    for (const tool of exp.tools) {
+      const ok = toolsCalled.includes(tool);
+      checks.push({ name: `tool:${tool}`, ok, got: toolsCalled });
+    }
+    const failedWrite = writes.find((w) => w.ok === false);
+    checks.push({
+      name: 'crm_writes_ok',
+      ok: !failedWrite,
+      got: failedWrite || 'all_ok',
+    });
+  }
+  if (exp.category) {
+    const live = dealFields?.category || state.category || '';
+    checks.push({ name: 'category', ok: exp.category.test(String(live)), got: live });
+  }
+  if (exp.chatStatus) {
+    const live = dealFields?.chatStatus || state.extras?.botChatStatus || '';
+    checks.push({ name: 'chatStatus', ok: exp.chatStatus.test(String(live)), got: live });
+  }
+  if (exp.apartmentType) {
+    const live = dealFields?.apartmentType || state.apartmentType || '';
+    checks.push({ name: 'apartmentType', ok: exp.apartmentType.test(String(live)), got: live });
+  }
+  if (exp.budget) {
+    const live = dealFields?.budget || '';
+    checks.push({ name: 'budget', ok: exp.budget.test(String(live)), got: live });
+  }
+  if (exp.moveInDate) {
+    const live = dealFields?.moveInDate || state.savedMoveInDate || '';
+    const ok = typeof exp.moveInDate === 'boolean'
+      ? Boolean(live)
+      : exp.moveInDate.test(String(live));
+    checks.push({ name: 'moveInDate', ok, got: live });
+  }
+
+  return { ok: checks.every((c) => c.ok), checks };
+}
+
 async function runScenario(item) {
   /** @type {string[]} */
   const outbound = [];
@@ -241,6 +334,15 @@ async function runScenario(item) {
     catalogRefreshMs: 24 * 60 * 60 * 1000,
   });
   const dialogId = `e2e-${item.scenario}-${Date.now()}`;
+  const state = worker.store.get(dialogId);
+
+  let dealId = null;
+  if (crmEnabled()) {
+    dealId = await createDeal('Test AI');
+    state.dealId = dealId;
+    console.log(`[${item.scenario}] CRM deal #${dealId}`);
+  }
+
   const turns = [];
 
   for (let i = 0; i < item.turns.length; i += 1) {
@@ -269,28 +371,102 @@ async function runScenario(item) {
     }
   }
 
+  /** @type {object|null} */
+  let dealFields = null;
+  let crm = { ok: true, checks: [] };
+  if (item.crmExpect) {
+    if (crmEnabled() && state.dealId) {
+      try {
+        const deal = await getDeal(state.dealId);
+        dealFields = await readDealOlFields(deal);
+        console.log(`[${item.scenario}] CRM fields:`, JSON.stringify(dealFields));
+      } catch (err) {
+        console.log(`[${item.scenario}] CRM get failed: ${err.message}`);
+      }
+    } else if (!crmEnabled()) {
+      console.log(`[${item.scenario}] CRM disabled — checking local state only`);
+    }
+    crm = verifyCrm(item, state, dealFields);
+    for (const check of crm.checks) {
+      console.log(`[${item.scenario}] CRM ${check.ok ? 'PASS' : 'FAIL'} ${check.name}: ${JSON.stringify(check.got)}`);
+    }
+  }
+
   setVibeTestHooks(null);
-  const passed = turns.every((t) => t.ok);
-  return { scenario: item.scenario, passed, handedOff, turns };
+  const passed = turns.every((t) => t.ok) && crm.ok;
+  return {
+    scenario: item.scenario,
+    passed,
+    handedOff,
+    turns,
+    dealId: state.dealId || dealId,
+    category: state.category,
+    crmWrites: state.extras?.crmWrites || [],
+    dealFields,
+    crmChecks: crm.checks,
+  };
+}
+
+/**
+ * @param {string[]} argv
+ * @returns {{ only: string|null, count: number }}
+ */
+function parseArgs(argv) {
+  let only = null;
+  let count = 0;
+  for (const arg of argv) {
+    if (arg.startsWith('--count=')) {
+      count = Math.max(0, Number.parseInt(arg.slice('--count='.length), 10) || 0);
+      continue;
+    }
+    if (arg === '--count' || arg.startsWith('-')) continue;
+    only = arg;
+  }
+  return { only, count };
 }
 
 async function main() {
-  const only = process.argv[2];
-  const list = only ? scenarios.filter((s) => s.scenario === only) : scenarios;
+  const { only, count } = parseArgs(process.argv.slice(2));
+  const base = only ? scenarios.filter((s) => s.scenario === only) : scenarios;
+  if (!base.length) {
+    console.error('No scenarios matched');
+    process.exit(1);
+  }
+  const target = count > 0 ? count : base.length;
+  const queue = [];
+  for (let i = 0; i < target; i += 1) {
+    queue.push(base[i % base.length]);
+  }
+
   const results = [];
-  for (const item of list) {
-    console.log(`\n======== ${item.scenario} ========`);
-    results.push(await runScenario(item));
+  for (let i = 0; i < queue.length; i += 1) {
+    const item = queue[i];
+    const round = Math.floor(i / base.length) + 1;
+    const label = count > 0 ? `${item.scenario} [${i + 1}/${target} r${round}]` : item.scenario;
+    console.log(`\n======== ${label} ========`);
+    const result = await runScenario(item);
+    results.push({ ...result, runIndex: i + 1, round });
+    const passN = results.filter((r) => r.passed).length;
+    console.log(`[progress] ${i + 1}/${target} done · pass ${passN} · fail ${i + 1 - passN}`);
   }
   const outPath = path.join(root, 'data/state/e2e-last.json');
+  const batchPath = path.join(root, 'data/state', `e2e-batch-${new Date().toISOString().replace(/[:.]/g, '-')}.json`);
   fs.mkdirSync(path.dirname(outPath), { recursive: true });
-  fs.writeFileSync(outPath, JSON.stringify({ at: new Date().toISOString(), results }, null, 2));
+  const payload = { at: new Date().toISOString(), target, results };
+  fs.writeFileSync(outPath, JSON.stringify(payload, null, 2));
+  fs.writeFileSync(batchPath, JSON.stringify(payload, null, 2));
   const failed = results.filter((r) => !r.passed);
   console.log('\n======== SUMMARY ========');
+  console.log(`CRM: ${crmEnabled() ? 'enabled' : 'disabled'}`);
+  console.log(`chats: ${results.length} · pass ${results.length - failed.length} · fail ${failed.length}`);
   for (const r of results) {
-    console.log(`${r.passed ? 'PASS' : 'FAIL'} ${r.scenario} (${r.turns.filter((t) => t.ok).length}/${r.turns.length})`);
+    const crmPart = r.crmChecks?.length
+      ? ` crm ${r.crmChecks.filter((c) => c.ok).length}/${r.crmChecks.length}`
+      : '';
+    console.log(`${r.passed ? 'PASS' : 'FAIL'} #${r.runIndex} ${r.scenario} (${r.turns.filter((t) => t.ok).length}/${r.turns.length}${crmPart}) deal=${r.dealId || '—'}`);
   }
   console.log(`saved ${outPath}`);
+  console.log(`saved ${batchPath}`);
   process.exit(failed.length ? 1 : 0);
 }
 

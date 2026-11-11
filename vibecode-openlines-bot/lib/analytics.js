@@ -8,14 +8,16 @@ export async function upsertChat(row) {
   if (!getPool()) return;
   await query(
     `INSERT INTO ol_bot_chats
-      (chat_id, dialog_id, started_at, ended_at, messages_count, duration_sec,
+      (chat_id, dialog_id, deal_id, started_at, ended_at, messages_count, duration_sec,
        first_response_sec, avg_response_sec, max_response_sec, escalated, escalate_reason,
        escalate_bucket, credits, tags, category, line_id)
      VALUES
-      (:chat_id, :dialog_id, :started_at, :ended_at, :messages_count, :duration_sec,
+      (:chat_id, :dialog_id, :deal_id, :started_at, :ended_at, :messages_count, :duration_sec,
        :first_response_sec, :avg_response_sec, :max_response_sec, :escalated, :escalate_reason,
        :escalate_bucket, :credits, :tags, :category, :line_id)
      ON DUPLICATE KEY UPDATE
+       dialog_id=COALESCE(VALUES(dialog_id), dialog_id),
+       deal_id=COALESCE(VALUES(deal_id), deal_id),
        ended_at=VALUES(ended_at),
        messages_count=VALUES(messages_count),
        duration_sec=VALUES(duration_sec),
@@ -28,7 +30,10 @@ export async function upsertChat(row) {
        credits=VALUES(credits),
        tags=VALUES(tags),
        category=VALUES(category)`,
-    row,
+    {
+      ...row,
+      deal_id: row.deal_id != null && row.deal_id !== '' ? String(row.deal_id) : null,
+    },
   );
 }
 

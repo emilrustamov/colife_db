@@ -2,11 +2,14 @@
 import { Link } from '@inertiajs/vue3';
 import { computed } from 'vue';
 import OlBotLayout from './OlBotLayout.vue';
+import { useOlBotI18n } from './composables/useOlBotI18n';
 
 const props = defineProps({
     chat: { type: Object, required: true },
     messages: { type: Array, default: () => [] },
 });
+
+const { t, formatDateTime } = useOlBotI18n();
 
 const rows = computed(() =>
     props.messages.map((msg) => {
@@ -41,11 +44,28 @@ const roleClass = (role) => {
 <template>
     <OlBotLayout
         :title="`Chat ${chat.chat_id}`"
-        :subtitle="`${chat.started_at} · msgs ${chat.messages_count} · esc ${chat.escalated ? 'yes' : 'no'} · ${chat.tags || chat.category || '—'}`"
+        :subtitle="`${formatDateTime(chat.started_at)} · msgs ${chat.messages_count} · esc ${chat.escalated ? 'yes' : 'no'} · ${chat.tags || chat.category || '—'}`"
         active-key="ol-bot-analytics"
     >
-        <div class="flex justify-end">
-            <Link href="/ol-bot/analytics" class="ui-btn ui-btn-secondary">Back</Link>
+        <div class="flex flex-wrap items-center justify-between gap-3">
+            <div class="flex flex-wrap items-center gap-2 text-sm">
+                <a
+                    v-if="chat.open_line_url"
+                    :href="chat.open_line_url"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    class="ui-btn ui-btn-secondary"
+                >Open Line</a>
+                <a
+                    v-if="chat.deal_url"
+                    :href="chat.deal_url"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    class="ui-btn ui-btn-secondary"
+                >Deal {{ chat.deal_id }}</a>
+                <span v-if="!chat.open_line_url && !chat.deal_url" class="text-ink-muted">No Bitrix links</span>
+            </div>
+            <Link href="/ol-bot/analytics" class="ui-btn ui-btn-secondary">{{ t('backToAnalytics') }}</Link>
         </div>
 
         <div class="space-y-3">
@@ -56,7 +76,7 @@ const roleClass = (role) => {
             >
                 <div class="mb-2 flex flex-wrap items-center gap-2">
                     <span class="ui-chip" :class="roleClass(msg.role)">{{ msg.role }}</span>
-                    <span class="text-xs text-ink-muted">{{ msg.created_at }}</span>
+                    <span class="text-xs text-ink-muted">{{ formatDateTime(msg.created_at) }}</span>
                 </div>
                 <pre v-if="msg.body" class="whitespace-pre-wrap font-sans leading-relaxed text-ink">{{ msg.body }}</pre>
                 <div v-else class="text-xs italic text-ink-muted">(no client text)</div>

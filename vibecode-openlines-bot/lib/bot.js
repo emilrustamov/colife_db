@@ -25,6 +25,7 @@ import {
   handoffToOperator,
   sendMessage,
 } from './vibe.js';
+import { crmEnabled, writeChatStatus, writeLeaveSnapshot } from './crm.js';
 
 /**
  * @param {object} result
@@ -190,6 +191,20 @@ export function createBotWorker(config) {
     }
     state.handedOff = true;
     state.terminalAPendingLeave = false;
+    if (crmEnabled()) {
+      try {
+        state.extras.botChatStatus = 'disconnected';
+        await writeChatStatus(state, 'disconnected');
+        await writeLeaveSnapshot(state);
+        state.extras.crmWrites = [
+          ...(state.extras.crmWrites || []),
+          { tool: 'set_wikibot_in_chat_status', ok: true, source: 'runTerminal' },
+          { tool: 'leave_chat', ok: true, source: 'runTerminal' },
+        ];
+      } catch (err) {
+        pushLog({ question: reason, answer: '', handedOff: true, error: `crm_leave: ${err.message}`, dialogId });
+      }
+    }
     if (chatId != null) {
       try {
         await handoffToOperator(apiKey, botId, chatId);
@@ -202,6 +217,7 @@ export function createBotWorker(config) {
     await upsertChat({
       chat_id: m.chatId,
       dialog_id: m.dialogId,
+      deal_id: state.dealId || null,
       started_at: new Date(m.startedAt).toISOString().slice(0, 19).replace('T', ' '),
       ended_at: new Date(now).toISOString().slice(0, 19).replace('T', ' '),
       messages_count: m.messages,
@@ -279,6 +295,17 @@ export function createBotWorker(config) {
     if (!state.statusConnected) {
       state.statusConnected = true;
       state.extras.botChatStatus = 'connected';
+      if (crmEnabled()) {
+        try {
+          await writeChatStatus(state, 'connected');
+          state.extras.crmWrites = [
+            ...(state.extras.crmWrites || []),
+            { tool: 'set_wikibot_in_chat_status', ok: true, source: 'first_message' },
+          ];
+        } catch (err) {
+          pushLog({ question: text, answer: '', handedOff: false, error: `crm_status: ${err.message}`, dialogId });
+        }
+      }
     }
 
     if (isRobotOnlyMessage(text)) {
@@ -356,7 +383,11 @@ export function createBotWorker(config) {
       thinking: [],
       searchedThisTurn: false,
     };
-    const tools = await loadToolSchemas();
+    const robotTurn = looksLikeRobotTemplate(text);
+    const toolsScope = robotTurn
+      ? 'skill:robot_message'
+      : (state.activeScenario ? `scenario:${state.activeScenario}` : 'main');
+    const tools = await loadToolSchemas(toolsScope);
     tools.push(
       {
         type: 'function',
@@ -400,7 +431,7 @@ export function createBotWorker(config) {
     );
 
     const instructionParts = [await buildSystemInstruction(state.activeScenario)];
-    if (looksLikeRobotTemplate(text)) {
+    if (robotTurn) {
       const robot = await loadTemplate('skill:robot_message');
       if (robot) instructionParts.push(`# Active skill: robot_message\n${robot}`);
     }
@@ -606,6 +637,7 @@ export function createBotWorker(config) {
     await upsertChat({
       chat_id: m.chatId,
       dialog_id: m.dialogId,
+      deal_id: state.dealId || null,
       started_at: new Date(m.startedAt).toISOString().slice(0, 19).replace('T', ' '),
       ended_at: null,
       messages_count: m.messages,

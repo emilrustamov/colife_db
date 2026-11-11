@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use App\Models\OlBotApartment;
 use App\Models\OlBotChat;
 use Carbon\Carbon;
 use Illuminate\Support\Collection;
@@ -87,7 +88,7 @@ class OlBotAnalytics
     /**
      * Paginated chat list for analytics table.
      *
-     * @return array{data: list<OlBotChat>, total: int}
+     * @return array{data: list<array<string, mixed>>, total: int}
      */
     public function chats(int $page = 1, int $perPage = 50, ?string $q = null): array
     {
@@ -96,14 +97,70 @@ class OlBotAnalytics
             $query->where(function ($builder) use ($q) {
                 $builder->where('chat_id', 'like', '%'.$q.'%')
                     ->orWhere('dialog_id', 'like', '%'.$q.'%')
+                    ->orWhere('deal_id', 'like', '%'.$q.'%')
                     ->orWhere('tags', 'like', '%'.$q.'%')
                     ->orWhere('category', 'like', '%'.$q.'%')
                     ->orWhere('escalate_reason', 'like', '%'.$q.'%');
             });
         }
         $total = (clone $query)->count();
-        $data = $query->forPage($page, $perPage)->get();
+        $data = $query->forPage($page, $perPage)->get()->map(function (OlBotChat $chat) {
+            return array_merge($chat->toArray(), [
+                'deal_url' => $chat->dealUrl(),
+                'open_line_url' => $chat->openLineUrl(),
+            ]);
+        });
 
         return ['data' => $data->all(), 'total' => $total];
+    }
+
+    /**
+     * Paginated apartment catalog snapshot used by the bot.
+     *
+     * @return array{data: list<OlBotApartment>, total: int, synced_at: string|null}
+     */
+    public function apartments(int $page = 1, int $perPage = 50, ?string $q = null): array
+    {
+        $query = OlBotApartment::query()->orderBy('area')->orderBy('title');
+        if ($q) {
+            $like = '%'.$q.'%';
+            $query->where(function ($builder) use ($like) {
+                $builder->where('title', 'like', $like)
+                    ->orWhere('uid', 'like', $like)
+                    ->orWhere('sku', 'like', $like)
+                    ->orWhere('unit_number', 'like', $like)
+                    ->orWhere('area', 'like', $like)
+                    ->orWhere('type', 'like', $like)
+                    ->orWhere('category', 'like', $like)
+                    ->orWhere('rent_type', 'like', $like);
+            });
+        }
+
+        $total = (clone $query)->count();
+        $data = $query->forPage($page, $perPage)->get([
+            'id',
+            'uid',
+            'title',
+            'sku',
+            'unit_number',
+            'link',
+            'area',
+            'type',
+            'capacity',
+            'available_from',
+            'rent_type',
+            'category',
+            'price_unit',
+            'price',
+            'synced_at',
+        ]);
+
+        $syncedAt = OlBotApartment::query()->max('synced_at');
+
+        return [
+            'data' => $data->all(),
+            'total' => $total,
+            'synced_at' => $syncedAt ? (string) $syncedAt : null,
+        ];
     }
 }

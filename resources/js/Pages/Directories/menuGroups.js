@@ -39,7 +39,7 @@ export const MENU_GROUPS = [
         id: 'olBot',
         labelKey: 'menuGroupOlBot',
         tone: 'violet',
-        keys: ['ol-bot-analytics', 'ol-bot-templates'],
+        keys: ['ol-bot-analytics', 'ol-bot-catalog', 'ol-bot-templates'],
     },
 ];
 

@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\OlBot;
 
 use App\Http\Controllers\Controller;
+use App\Models\OlBotApartment;
 use App\Models\OlBotChat;
 use App\Models\OlBotMessage;
 use App\Services\OlBotAnalytics;
@@ -13,15 +14,29 @@ use Inertia\Response;
 class AnalyticsController extends Controller
 {
     /**
-     * Chats table + weekly summary tabs.
+     * Chats / weekly / catalog tabs.
      */
     public function index(Request $request, OlBotAnalytics $analytics): Response
     {
         $tab = $request->string('tab')->toString() ?: 'chats';
+        if (! in_array($tab, ['chats', 'weekly', 'catalog'], true)) {
+            $tab = 'chats';
+        }
+
         $page = max(1, (int) $request->input('page', 1));
         $q = $request->string('q')->toString() ?: null;
-        $chats = $analytics->chats($page, 50, $q);
-        $weekly = $tab === 'weekly' ? $analytics->weeklySummary() : [];
+
+        $chats = ['data' => [], 'total' => 0];
+        $weekly = [];
+        $apartments = ['data' => [], 'total' => 0, 'synced_at' => null];
+
+        if ($tab === 'chats') {
+            $chats = $analytics->chats($page, 50, $q);
+        } elseif ($tab === 'weekly') {
+            $weekly = $analytics->weeklySummary();
+        } else {
+            $apartments = $analytics->apartments($page, 50, $q);
+        }
 
         return Inertia::render('OlBot/Analytics', [
             'tab' => $tab,
@@ -30,7 +45,10 @@ class AnalyticsController extends Controller
             'chats' => $chats['data'],
             'total' => $chats['total'],
             'weekly' => $weekly,
-            'catalogCount' => \App\Models\OlBotApartment::query()->count(),
+            'apartments' => $apartments['data'],
+            'apartmentsTotal' => $apartments['total'],
+            'catalogSyncedAt' => $apartments['synced_at'],
+            'catalogCount' => OlBotApartment::query()->count(),
         ]);
     }
 
@@ -46,7 +64,10 @@ class AnalyticsController extends Controller
             ->get();
 
         return Inertia::render('OlBot/ChatShow', [
-            'chat' => $chat,
+            'chat' => array_merge($chat->toArray(), [
+                'deal_url' => $chat->dealUrl(),
+                'open_line_url' => $chat->openLineUrl(),
+            ]),
             'messages' => $messages,
         ]);
     }

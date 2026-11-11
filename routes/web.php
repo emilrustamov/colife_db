@@ -53,9 +53,17 @@ Route::middleware([RedirectLocalhost::class])->group(function () {
     Route::middleware(['auth'])->prefix('ol-bot')->name('ol-bot.')->group(function (): void {
         Route::get('/', fn () => redirect()->route('ol-bot.analytics'));
         Route::get('/templates', [OlBotTemplateController::class, 'index'])->name('templates');
+        Route::get('/templates/main', [OlBotTemplateController::class, 'main'])->name('templates.main');
+        Route::get('/templates/scenarios', [OlBotTemplateController::class, 'scenarios'])->name('templates.scenarios');
+        Route::get('/templates/scenarios/{name}', [OlBotTemplateController::class, 'scenario'])->name('templates.scenario');
+        Route::get('/templates/skills', [OlBotTemplateController::class, 'skills'])->name('templates.skills');
+        Route::get('/templates/skills/{name}', [OlBotTemplateController::class, 'skill'])->name('templates.skill');
+        Route::get('/templates/tools', [OlBotTemplateController::class, 'tools'])->name('templates.tools');
+        Route::get('/templates/tools/{name}', [OlBotTemplateController::class, 'tool'])->name('templates.tool');
         Route::post('/templates', [OlBotTemplateController::class, 'store'])->name('templates.store');
-        Route::get('/templates/{version}', [OlBotTemplateController::class, 'show'])->name('templates.show');
-        Route::post('/templates/{version}/activate', [OlBotTemplateController::class, 'activate'])->name('templates.activate');
+        Route::post('/templates/scope-tools', [OlBotTemplateController::class, 'syncTools'])->name('templates.scope-tools');
+        Route::get('/templates/versions/{version}', [OlBotTemplateController::class, 'show'])->name('templates.show');
+        Route::post('/templates/{version}/activate', [OlBotTemplateController::class, 'activate'])->whereNumber('version')->name('templates.activate');
         Route::get('/analytics', [OlBotAnalyticsController::class, 'index'])->name('analytics');
         Route::get('/analytics/chats/{chatId}', [OlBotAnalyticsController::class, 'show'])->name('analytics.chat');
     });
