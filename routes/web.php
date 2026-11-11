@@ -3,6 +3,8 @@
 use App\Http\Controllers\AuthController;
 use App\Http\Controllers\DirectoryController;
 use App\Http\Controllers\DiskBrowser;
+use App\Http\Controllers\OlBot\AnalyticsController as OlBotAnalyticsController;
+use App\Http\Controllers\OlBot\TemplateController as OlBotTemplateController;
 use App\Http\Controllers\RoleAdmin;
 use App\Http\Controllers\UserAdmin;
 use App\Http\Middleware\RedirectLocalhost;
@@ -46,5 +48,15 @@ Route::middleware([RedirectLocalhost::class])->group(function () {
         Route::post('/api/admin/roles', [RoleAdmin::class, 'store']);
         Route::put('/api/admin/roles/{role}', [RoleAdmin::class, 'update']);
         Route::delete('/api/admin/roles/{role}', [RoleAdmin::class, 'destroy']);
+    });
+
+    Route::middleware(['auth'])->prefix('ol-bot')->name('ol-bot.')->group(function (): void {
+        Route::get('/', fn () => redirect()->route('ol-bot.analytics'));
+        Route::get('/templates', [OlBotTemplateController::class, 'index'])->name('templates');
+        Route::post('/templates', [OlBotTemplateController::class, 'store'])->name('templates.store');
+        Route::get('/templates/{version}', [OlBotTemplateController::class, 'show'])->name('templates.show');
+        Route::post('/templates/{version}/activate', [OlBotTemplateController::class, 'activate'])->name('templates.activate');
+        Route::get('/analytics', [OlBotAnalyticsController::class, 'index'])->name('analytics');
+        Route::get('/analytics/chats/{chatId}', [OlBotAnalyticsController::class, 'show'])->name('analytics.chat');
     });
 });

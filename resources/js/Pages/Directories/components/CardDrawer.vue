@@ -13,6 +13,7 @@ const props = defineProps({
     timeline: { type: Array, default: () => [] },
     messages: { type: Object, required: true },
     t: { type: Function, required: true },
+    translateMenuTitle: { type: Function, default: null },
     closeCardModal: { type: Function, required: true },
     setCardModalTab: { type: Function, required: true },
     renderValue: { type: Function, required: true },
@@ -43,7 +44,23 @@ const drawerTitle = computed(() => {
         return fullName;
     }
 
-    return props.current?.title ?? 'Directory';
+    if (props.current?.key && typeof props.translateMenuTitle === 'function') {
+        return props.translateMenuTitle(props.current.key, props.current.title);
+    }
+
+    return props.current?.title ?? props.t(props.messages, 'directoryFallback');
+});
+
+const directoryLabel = computed(() => {
+    if (!props.current?.key) {
+        return props.current?.title ?? '';
+    }
+
+    if (typeof props.translateMenuTitle === 'function') {
+        return props.translateMenuTitle(props.current.key, props.current.title);
+    }
+
+    return props.current.title ?? props.current.key;
 });
 
 const isDeletedInBitrix = computed(() => {
@@ -64,7 +81,7 @@ const isDeletedInBitrix = computed(() => {
     >
         <div
             v-if="cardModalOpen && menuLength > 0"
-            class="fixed inset-0 bg-black/40"
+            class="ui-overlay"
             :class="backdropClass"
             aria-hidden="true"
             @click.self="closeCardModal"
@@ -80,24 +97,24 @@ const isDeletedInBitrix = computed(() => {
     >
         <aside
             v-if="cardModalOpen && menuLength > 0"
-            class="fixed right-0 top-0 flex h-full w-[min(72vw,56rem)] min-w-[18rem] flex-col border-l border-slate-200 bg-white shadow-[-6px_0_24px_rgba(0,0,0,0.1)] dark:border-slate-700 dark:bg-slate-900 dark:shadow-[-6px_0_24px_rgba(0,0,0,0.35)]"
+            class="fixed right-0 top-0 flex h-full w-[min(72vw,56rem)] min-w-[18rem] flex-col border-l border-line bg-surface shadow-[-12px_0_40px_rgba(28,25,23,0.12)] dark:shadow-[-12px_0_40px_rgba(0,0,0,0.45)]"
             :class="panelClass"
             role="dialog"
             aria-modal="true"
             :aria-label="t(messages, 'card')"
         >
-            <div class="flex shrink-0 items-center justify-between gap-3 border-b border-slate-200 px-4 py-3 dark:border-slate-700">
+            <div class="flex shrink-0 items-center justify-between gap-3 border-b border-line px-4 py-3.5">
                 <div class="min-w-0">
-                    <p v-if="overlay && current?.title" class="mb-0.5 truncate text-[11px] font-medium text-slate-500 dark:text-slate-400">
-                        {{ current.title }}
+                    <p v-if="overlay && directoryLabel" class="mb-0.5 truncate text-[11px] font-medium text-ink-muted">
+                        {{ directoryLabel }}
                     </p>
                     <div class="flex min-w-0 flex-wrap items-center gap-2">
-                        <h2 class="min-w-0 truncate text-base font-semibold text-slate-900 dark:text-slate-100">
+                        <h2 class="min-w-0 truncate text-lg font-bold tracking-tight text-ink">
                             {{ drawerTitle }}
                         </h2>
                         <span
                             v-if="isDeletedInBitrix"
-                            class="inline-flex shrink-0 items-center rounded bg-red-600 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-white dark:bg-red-500"
+                            class="ui-chip bg-red-600 text-white dark:bg-red-500"
                         >
                             {{ t(messages, 'deletedInBitrix') }}
                         </span>
@@ -105,34 +122,26 @@ const isDeletedInBitrix = computed(() => {
                 </div>
                 <button
                     type="button"
-                    class="shrink-0 cursor-pointer rounded-md border border-slate-300 px-2.5 py-1.5 text-xs font-medium text-slate-700 transition hover:bg-slate-50 dark:border-slate-600 dark:text-slate-200 dark:hover:bg-slate-800"
+                    class="ui-btn ui-btn-secondary shrink-0"
                     @click="closeCardModal"
                 >
                     {{ t(messages, 'closeCard') }}
                 </button>
             </div>
-            <div class="flex shrink-0 items-center justify-between border-b border-slate-200 px-4 dark:border-slate-700">
+            <div class="flex shrink-0 items-center justify-between border-b border-line px-4">
                 <div class="flex gap-0.5">
                     <button
                         type="button"
-                        class="cursor-pointer border-b-2 px-3 py-2.5 text-sm font-medium transition"
-                        :class="
-                            cardModalTab === 'form'
-                                ? 'border-slate-900 text-slate-900 dark:border-slate-100 dark:text-slate-100'
-                                : 'border-transparent text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-slate-200'
-                        "
+                        class="ui-tab"
+                        :class="cardModalTab === 'form' ? 'ui-tab-active' : 'ui-tab-idle'"
                         @click="setCardModalTab('form')"
                     >
                         {{ t(messages, 'card') }}
                     </button>
                     <button
                         type="button"
-                        class="cursor-pointer border-b-2 px-3 py-2.5 text-sm font-medium transition"
-                        :class="
-                            cardModalTab === 'timeline'
-                                ? 'border-slate-900 text-slate-900 dark:border-slate-100 dark:text-slate-100'
-                                : 'border-transparent text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-slate-200'
-                        "
+                        class="ui-tab"
+                        :class="cardModalTab === 'timeline' ? 'ui-tab-active' : 'ui-tab-idle'"
                         @click="setCardModalTab('timeline')"
                     >
                         {{ t(messages, 'timeline') }}
@@ -140,18 +149,18 @@ const isDeletedInBitrix = computed(() => {
                 </div>
                 <label
                     v-if="cardModalTab === 'timeline'"
-                    class="inline-flex cursor-pointer items-center gap-1.5 text-xs text-slate-600 dark:text-slate-300"
+                    class="inline-flex cursor-pointer items-center gap-1.5 text-xs text-ink-muted"
                 >
                     <input
                         v-model="showTechnicalFields"
                         type="checkbox"
-                        class="h-3.5 w-3.5 rounded border-slate-300 text-slate-900 focus:ring-slate-400 dark:border-slate-600 dark:bg-slate-800"
+                        class="ui-check"
                     >
-                    <span>Показать служебные поля</span>
+                    <span>{{ t(messages, 'showTechnicalFields') }}</span>
                 </label>
             </div>
-            <div class="min-h-0 flex-1 overflow-y-auto">
-                <div v-if="rowDetailLoading" class="flex items-center justify-center py-16 text-sm text-slate-500 dark:text-slate-400">
+            <div class="ui-scroll min-h-0 flex-1 overflow-y-auto">
+                <div v-if="rowDetailLoading" class="ui-muted flex items-center justify-center py-16">
                     {{ t(messages, 'loading') }}
                 </div>
                 <template v-else>

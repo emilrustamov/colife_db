@@ -20,7 +20,7 @@
         })();
     </script>
 </head>
-<body class="bg-slate-100 text-slate-900 dark:bg-slate-950 dark:text-slate-100">
+<body class="bg-canvas font-sans text-ink">
     @inertia
 </body>
 </html>

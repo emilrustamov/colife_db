@@ -1,17 +1,36 @@
-import { computed, ref } from 'vue';
+import { computed, ref, unref } from 'vue';
 
 export const useDirectoryNavigation = ({ directories, router, hiddenKeysStorageKey = 'colife.directories.hiddenKeys' }) => {
-    const menu = ref(directories);
     const selectedKey = ref(null);
     const hiddenKeys = ref([]);
     const settingsOpen = ref(false);
     const contactsExpanded = ref(false);
     const contactChildrenKeys = ['contact-phones', 'contact-emails'];
 
+    const menu = computed(() => {
+        const source = unref(directories);
+        return Array.isArray(source) ? source : [];
+    });
+
     const visibleMenu = computed(() => menu.value.filter((item) => !hiddenKeys.value.includes(item.key)));
     const visibleTopLevelMenu = computed(() => visibleMenu.value.filter((item) => !contactChildrenKeys.includes(item.key)));
     const visibleContactsChildren = computed(() => visibleMenu.value.filter((item) => contactChildrenKeys.includes(item.key)));
     const isContactsChildSelected = computed(() => contactChildrenKeys.includes(selectedKey.value));
+
+    /**
+     * @param {string|null} key
+     * @returns {{ key: string, href?: string }|null}
+     */
+    const findMenuItem = (key) => menu.value.find((item) => item.key === key) ?? null;
+
+    /**
+     * @param {string|null} key
+     * @returns {boolean}
+     */
+    const isLinkItem = (key) => {
+        const item = findMenuItem(key);
+        return typeof item?.href === 'string' && item.href.trim() !== '';
+    };
 
     const loadHiddenKeys = () => {
         if (typeof window === 'undefined') {
@@ -29,17 +48,44 @@ export const useDirectoryNavigation = ({ directories, router, hiddenKeysStorageK
 
     const syncSelectedKey = () => {
         const visible = visibleMenu.value;
-        if (!visible.some((item) => item.key === selectedKey.value)) {
-            selectedKey.value = visible[0]?.key ?? null;
+        if (visible.some((item) => item.key === selectedKey.value)) {
+            return;
         }
+
+        selectedKey.value = visible.find((item) => !item.href)?.key ?? visible[0]?.key ?? null;
     };
 
+    /**
+     * @param {string} key
+     * @param {boolean} [toggleContactsExpansion]
+     * @returns {void}
+     */
     const selectDirectory = (key, toggleContactsExpansion = false) => {
         if (toggleContactsExpansion) {
             contactsExpanded.value = !contactsExpanded.value;
         }
 
-        if (!key || key === selectedKey.value) {
+        if (!key) {
+            return;
+        }
+
+        const item = findMenuItem(key);
+        const href = typeof item?.href === 'string' ? item.href.trim() : '';
+
+        if (href !== '') {
+            if (key === selectedKey.value && typeof window !== 'undefined') {
+                const current = `${window.location.pathname}${window.location.search}`;
+                if (current === href || window.location.pathname.startsWith(href)) {
+                    return;
+                }
+            }
+
+            selectedKey.value = key;
+            router.get(href);
+            return;
+        }
+
+        if (key === selectedKey.value) {
             return;
         }
 
@@ -66,6 +112,8 @@ export const useDirectoryNavigation = ({ directories, router, hiddenKeysStorageK
         visibleTopLevelMenu,
         visibleContactsChildren,
         isContactsChildSelected,
+        isLinkItem,
+        findMenuItem,
         loadHiddenKeys,
         syncSelectedKey,
         selectDirectory,

@@ -2,6 +2,7 @@
 
 namespace App\Http\Middleware;
 
+use App\Support\AdminMenu;
 use Illuminate\Http\Request;
 use Inertia\Middleware;
 
@@ -31,6 +32,9 @@ class InertiaShare extends Middleware
 
         return [
             ...parent::share($request),
+            'flash' => [
+                'status' => fn () => $request->session()->get('status'),
+            ],
             'auth' => [
                 'user' => $user === null ? null : [
                     'id' => $user->id,
@@ -42,6 +46,7 @@ class InertiaShare extends Middleware
                     ],
                 ],
             ],
+            'adminMenu' => fn () => AdminMenu::forUser($user),
         ];
     }
 }

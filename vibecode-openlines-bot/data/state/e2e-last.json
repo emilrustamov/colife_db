@@ -1,0 +1,75 @@
+{
+  "at": "2026-11-11T10:43:37.779Z",
+  "results": [
+    {
+      "scenario": "returning_room_downtown",
+      "passed": true,
+      "handedOff": false,
+      "turns": [
+        {
+          "n": 1,
+          "user": "Hi",
+          "reply": "Hello! This is a Colife Dubai manager, how can I help you with finding housing in Dubai?",
+          "ms": 8812,
+          "ok": true,
+          "expect": "/colife|help|hi|здравству|arrive|dubai/i",
+          "handedOff": false
+        },
+        {
+          "n": 2,
+          "user": "This is Caroline, you asked me to let you when I will arrive in Dubai.",
+          "reply": "Nice to meet you, Caroline! Please let me know your planned arrival date and what kind of apartment you are looking for (for example, a studio or a 1-bedroom) so I can start searching for the best options for you.",
+          "ms": 11073,
+          "ok": true,
+          "expect": "/arrive|when|date|friday|room|offer|thank/i",
+          "handedOff": false
+        },
+        {
+          "n": 3,
+          "user": "I will arrive friday and I like your offer something about 2000dirham Friday",
+          "reply": "I understand, Caroline. Currently, our monthly rates for apartments in Dubai start from approximately 4,999 AED. Would you like to see the most affordable options we have available, or would you prefer to adjust your budget?",
+          "ms": 41894,
+          "ok": true,
+          "expect": "/budget|room|aed|2000|option|downtown|friday|move|specialist|operator|4999|sharing/i",
+          "handedOff": false
+        },
+        {
+          "n": 4,
+          "user": "3000",
+          "reply": "Would you be able to increase your budget to at least 4,999 AED to see the available options?",
+          "ms": 10589,
+          "ok": true,
+          "expect": "/3000|budget|room|option|link|aed|downtown|specialist|operator|^$/i",
+          "handedOff": false
+        },
+        {
+          "n": 5,
+          "user": "You offered me last time ca. 2 weeks ago a nice room for 2999 Dirham",
+          "reply": "I apologize for the misunderstanding, Caroline. You're right—if you are looking for a room (sharing option), we do have much more affordable choices that fit your budget. Would you like me to show you the available rooms instead?",
+          "ms": 16859,
+          "ok": true,
+          "expect": "/2999|room|option|available|sorry|alternative|aed|^$/i",
+          "handedOff": false
+        },
+        {
+          "n": 6,
+          "user": "sorry I dont have it anymore is there any nice offer for 4000?",
+          "reply": "For apartments, the monthly rates currently start from 4,999 AED. Would you be able to increase your budget to 4,999 AED to see the available options?",
+          "ms": 25637,
+          "ok": true,
+          "expect": "/4000|room|option|link|aed|downtown|available|found|^$/i",
+          "handedOff": false
+        },
+        {
+          "n": 7,
+          "user": "maybe 2 months, but for sure 1 month downtown",
+          "reply": "Would you be able to increase your budget to 4,999 AED to see the available options in Downtown?",
+          "ms": 46135,
+          "ok": true,
+          "expect": "/downtown|month|room|option|link|aed|specialist|operator|^$/i",
+          "handedOff": false
+        }
+      ]
+    }
+  ]
+}

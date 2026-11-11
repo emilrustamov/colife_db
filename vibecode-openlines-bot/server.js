@@ -18,7 +18,7 @@ const worker = createBotWorker({
   knowledgeBase: loadKnowledgeBase(),
   pollMs: Number(process.env.POLL_MS || 3000),
   catalogRefreshMs: Number(process.env.CATALOG_REFRESH_MS || 60 * 60 * 1000),
-  model: process.env.AI_MODEL || 'bitrix/bitrixgpt-5.5',
+  model: process.env.AI_MODEL || 'bitrix/bitrixgpt-5.5-thinking',
 });
 const runtime = worker.start();
 

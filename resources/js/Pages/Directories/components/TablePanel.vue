@@ -11,6 +11,7 @@ const props = defineProps({
     current: { type: Object, default: null },
     messages: { type: Object, required: true },
     t: { type: Function, required: true },
+    translateMenuTitle: { type: Function, required: true },
     isUsersDirectory: { type: Boolean, default: false },
     isRolesDirectory: { type: Boolean, default: false },
     canManageUsers: { type: Boolean, default: false },
@@ -61,98 +62,132 @@ const rowClass = (row) => {
     const deleted = isRowDeleted(row);
 
     if (deleted && selected) {
-        return 'bg-slate-200/90 text-slate-400 dark:bg-slate-800/80 dark:text-slate-500';
+        return 'bg-stone-200/90 text-stone-400 dark:bg-slate-800/80 dark:text-slate-500';
     }
 
     if (deleted) {
-        return 'bg-slate-100/90 text-slate-400 hover:bg-slate-100 dark:bg-slate-800/50 dark:text-slate-500 dark:hover:bg-slate-800/60';
+        return 'bg-stone-100/90 text-stone-400 hover:bg-stone-100 dark:bg-slate-800/50 dark:text-slate-500 dark:hover:bg-slate-800/60';
     }
 
     if (selected) {
-        return 'bg-blue-50/70 dark:bg-blue-900/30';
+        return 'bg-brand-soft/80 dark:bg-brand/15';
     }
 
-    return 'hover:bg-slate-50 dark:hover:bg-slate-800/50';
+    return 'hover:bg-stone-50 dark:hover:bg-slate-800/50';
 };
 </script>
 
 <template>
-    <section
-        class="flex min-h-0 min-w-0 flex-col overflow-hidden border-b border-slate-200 bg-white p-3 dark:border-slate-700 dark:bg-slate-900 lg:h-full lg:max-h-[calc(100vh-3rem)] lg:border-r lg:border-b-0">
-        <div v-if="menu.length === 0"
-            class="rounded-lg border border-dashed border-slate-300 bg-slate-50/80 p-6 text-center text-sm text-slate-600 dark:border-slate-600 dark:bg-slate-800/40 dark:text-slate-300">
+    <section class="ui-page lg:!h-full">
+        <div v-if="menu.length === 0" class="ui-empty">
             {{ t(messages, 'menuEmpty') }}
         </div>
         <template v-else>
-            <div class="shrink-0 space-y-2.5 pb-2.5">
-                <div
-                    class="flex min-w-0 flex-nowrap items-center gap-2 overflow-x-auto border-b border-slate-100 pb-2.5 text-slate-600 dark:border-slate-800 dark:text-slate-300">
-                    <span v-if="paginationMeta.from != null && paginationMeta.to != null"
-                        class="shrink-0 whitespace-nowrap text-xs text-slate-500 dark:text-slate-400">
-                        {{ paginationMeta.from }}–{{ paginationMeta.to }}
-                    </span>
-                    <template v-if="rows.length > 0 || (paginationMeta.last_page ?? 1) > 1">
-                        <button type="button"
-                            class="shrink-0 rounded-md border border-slate-300 px-2 py-0.5 text-xs font-medium disabled:opacity-40 dark:border-slate-600"
-                            :disabled="(paginationMeta.current_page ?? 1) <= 1 || loading"
-                            @click="goPage((paginationMeta.current_page ?? 1) - 1)">
-                            {{ t(messages, 'prev') }}
-                        </button>
-                        <span class="shrink-0 whitespace-nowrap text-xs">{{ paginationMeta.current_page ?? 1 }} / {{
-                            paginationMeta.last_page ?? 1 }}</span>
-                        <button type="button"
-                            class="shrink-0 rounded-md border border-slate-300 px-2 py-0.5 text-xs font-medium disabled:opacity-40 dark:border-slate-600"
-                            :disabled="(paginationMeta.current_page ?? 1) >= (paginationMeta.last_page ?? 1) || loading"
-                            @click="goPage((paginationMeta.current_page ?? 1) + 1)">
-                            {{ t(messages, 'next') }}
-                        </button>
-                    </template>
-                    <h1
-                        class="min-w-[8rem] flex-1 truncate text-sm font-semibold text-slate-900 dark:text-slate-100 sm:min-w-0 sm:text-base">
-                        {{ current?.title ?? 'Directory' }}
-                    </h1>
-                    <span class="shrink-0 whitespace-nowrap text-xs text-slate-500 dark:text-slate-400">
-                        {{ paginationMeta.total ?? 0 }} {{ t(messages, 'totalRows') }} · {{ t(messages, 'page') }}
-                        {{ paginationMeta.current_page ?? 1 }} {{ t(messages, 'pageOf') }} {{ paginationMeta.last_page
-                        ?? 1 }}
-                    </span>
-                    <div class="ms-auto flex shrink-0 items-center gap-1.5">
-                        <span v-if="loading"
-                            class="rounded-full bg-slate-100 px-2 py-0.5 text-xs text-slate-600 dark:bg-slate-800 dark:text-slate-300">{{
-                                t(messages, 'loading') }}</span>
-                        <button v-if="isUsersDirectory && canManageRoles" type="button"
-                            class="rounded-md border border-slate-300 px-2.5 py-1 text-xs font-medium text-slate-700 transition hover:bg-slate-100 dark:border-slate-600 dark:text-slate-200 dark:hover:bg-slate-800"
-                            @click="goRoles">
+            <div class="ui-enter shrink-0 space-y-3 pb-3">
+                <div class="flex min-w-0 flex-wrap items-start justify-between gap-3">
+                    <div class="min-w-0">
+                        <h1 class="ui-section-title truncate">
+                            {{ current?.key ? translateMenuTitle(current.key, current.title) : t(messages, 'directoryFallback') }}
+                        </h1>
+                        <p class="ui-muted mt-0.5 text-xs">
+                            <template v-if="paginationMeta.from != null && paginationMeta.to != null">
+                                {{ paginationMeta.from }}–{{ paginationMeta.to }} ·
+                            </template>
+                            {{ paginationMeta.total ?? 0 }} {{ t(messages, 'totalRows') }}
+                        </p>
+                    </div>
+                    <div class="flex shrink-0 flex-wrap items-center gap-1.5">
+                        <span v-if="loading" class="ui-chip bg-brand-soft text-brand dark:bg-brand/20 dark:text-brand">
+                            {{ t(messages, 'loading') }}
+                        </span>
+                        <button
+                            v-if="isUsersDirectory && canManageRoles"
+                            type="button"
+                            class="ui-btn ui-btn-secondary"
+                            @click="goRoles"
+                        >
                             {{ t(messages, 'goRoles') }}
                         </button>
-                        <button v-if="isRolesDirectory && canManageUsers" type="button"
-                            class="rounded-md border border-slate-300 px-2.5 py-1 text-xs font-medium text-slate-700 transition hover:bg-slate-100 dark:border-slate-600 dark:text-slate-200 dark:hover:bg-slate-800"
-                            @click="goUsers">
+                        <button
+                            v-if="isRolesDirectory && canManageUsers"
+                            type="button"
+                            class="ui-btn ui-btn-secondary"
+                            @click="goUsers"
+                        >
                             {{ t(messages, 'goUsers') }}
                         </button>
-                        <button v-if="isUsersDirectory && canManageUsers" type="button"
-                            class="rounded-md bg-slate-900 px-2.5 py-1 text-xs font-medium text-white transition hover:bg-slate-800 dark:bg-slate-100 dark:text-slate-900 dark:hover:bg-slate-200"
-                            @click="openCreateUserModal">
+                        <button
+                            v-if="isUsersDirectory && canManageUsers"
+                            type="button"
+                            class="ui-btn ui-btn-primary"
+                            @click="openCreateUserModal"
+                        >
                             {{ t(messages, 'addUser') }}
                         </button>
-                        <button v-if="isRolesDirectory && canManageRoles" type="button"
-                            class="rounded-md bg-slate-900 px-2.5 py-1 text-xs font-medium text-white transition hover:bg-slate-800 dark:bg-slate-100 dark:text-slate-900 dark:hover:bg-slate-200"
-                            @click="openCreateRoleModal">
+                        <button
+                            v-if="isRolesDirectory && canManageRoles"
+                            type="button"
+                            class="ui-btn ui-btn-primary"
+                            @click="openCreateRoleModal"
+                        >
                             {{ t(messages, 'addRole') }}
                         </button>
                     </div>
                 </div>
-                <div>
-                    <input :value="query" type="text" :placeholder="t(messages, 'search')"
-                        class="w-full rounded-md border border-slate-300 bg-white px-2.5 py-1.5 text-sm outline-none ring-blue-500 focus:ring-2 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100"
-                        @input="setQuery($event.target.value)">
+
+                <div class="flex min-w-0 flex-col gap-2 sm:flex-row sm:items-center">
+                    <div class="relative min-w-0 flex-1">
+                        <svg
+                            xmlns="http://www.w3.org/2000/svg"
+                            viewBox="0 0 24 24"
+                            fill="none"
+                            stroke="currentColor"
+                            stroke-width="1.75"
+                            class="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-stone-400 dark:text-slate-500"
+                            aria-hidden="true"
+                        >
+                            <circle cx="11" cy="11" r="7" />
+                            <path stroke-linecap="round" d="m20 20-3-3" />
+                        </svg>
+                        <input
+                            :value="query"
+                            type="text"
+                            :placeholder="t(messages, 'search')"
+                            class="ui-input !pl-9"
+                            @input="setQuery($event.target.value)"
+                        >
+                    </div>
+                    <div
+                        v-if="rows.length > 0 || (paginationMeta.last_page ?? 1) > 1"
+                        class="flex shrink-0 items-center gap-1.5"
+                    >
+                        <button
+                            type="button"
+                            class="ui-btn ui-btn-secondary !px-2.5"
+                            :disabled="(paginationMeta.current_page ?? 1) <= 1 || loading"
+                            @click="goPage((paginationMeta.current_page ?? 1) - 1)"
+                        >
+                            {{ t(messages, 'prev') }}
+                        </button>
+                        <span class="min-w-[4.5rem] text-center text-xs font-medium text-stone-600 dark:text-slate-300">
+                            {{ paginationMeta.current_page ?? 1 }} / {{ paginationMeta.last_page ?? 1 }}
+                        </span>
+                        <button
+                            type="button"
+                            class="ui-btn ui-btn-secondary !px-2.5"
+                            :disabled="(paginationMeta.current_page ?? 1) >= (paginationMeta.last_page ?? 1) || loading"
+                            @click="goPage((paginationMeta.current_page ?? 1) + 1)"
+                        >
+                            {{ t(messages, 'next') }}
+                        </button>
+                    </div>
                 </div>
             </div>
 
             <div
-                class="relative min-h-0 min-w-0 flex-1 overflow-hidden rounded-md border border-slate-200 dark:border-slate-700">
+                class="relative min-h-0 min-w-0 flex-1 overflow-hidden rounded-xl border border-line shadow-sm">
                 <button v-show="showTableScrollLeft" type="button"
-                    class="absolute left-0 top-0 z-20 flex h-full w-9 shrink-0 items-center justify-center border-0 bg-gradient-to-r from-white via-white/90 to-transparent py-2 pl-1 pr-2 text-slate-600 shadow-none transition hover:text-slate-900 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 dark:from-slate-900 dark:via-slate-900/90 dark:text-slate-300 dark:hover:text-white"
+                    class="absolute left-0 top-0 z-20 flex h-full w-9 shrink-0 items-center justify-center border-0 bg-gradient-to-r from-page via-page/90 to-transparent py-2 pl-1 pr-2 text-ink-muted shadow-none transition hover:text-ink focus:outline-none focus-visible:ring-2 focus-visible:ring-brand"
                     :aria-label="t(messages, 'scrollTableLeft')" @mouseenter="startAutoTableScroll(-1)"
                     @mouseleave="stopAutoTableScroll" @click="nudgeTableScroll(-1)">
                     <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
@@ -161,7 +196,7 @@ const rowClass = (row) => {
                     </svg>
                 </button>
                 <button v-show="showTableScrollRight" type="button"
-                    class="absolute right-0 top-0 z-20 flex h-full w-9 shrink-0 items-center justify-center border-0 bg-gradient-to-l from-white via-white/90 to-transparent py-2 pl-2 pr-1 text-slate-600 shadow-none transition hover:text-slate-900 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 dark:from-slate-900 dark:via-slate-900/90 dark:text-slate-300 dark:hover:text-white"
+                    class="absolute right-0 top-0 z-20 flex h-full w-9 shrink-0 items-center justify-center border-0 bg-gradient-to-l from-page via-page/90 to-transparent py-2 pl-2 pr-1 text-ink-muted shadow-none transition hover:text-ink focus:outline-none focus-visible:ring-2 focus-visible:ring-brand"
                     :aria-label="t(messages, 'scrollTableRight')" @mouseenter="startAutoTableScroll(1)"
                     @mouseleave="stopAutoTableScroll" @click="nudgeTableScroll(1)">
                     <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
@@ -169,19 +204,19 @@ const rowClass = (row) => {
                         <path stroke-linecap="round" stroke-linejoin="round" d="M9 6l6 6-6 6" />
                     </svg>
                 </button>
-                <div :ref="setTableScrollRef" class="h-full min-h-0 overflow-auto overscroll-x-contain"
+                <div :ref="setTableScrollRef" class="ui-scroll h-full min-h-0 overflow-auto overscroll-x-contain"
                     @scroll.passive="updateTableScrollHints">
                     <RecordTable variant="scroll">
                         <thead :class="rtTheadSticky">
                             <Draggable :model-value="orderedFields" tag="tr" :item-key="fieldItemKey"
                                 handle=".col-drag-handle" :animation="200"
-                                ghost-class="!bg-amber-100 dark:!bg-amber-900/30" class="bg-slate-50/95 dark:bg-slate-800/95"
+                                ghost-class="!bg-brand-soft" class="bg-surface-muted/95"
                                 @update:model-value="setOrderedFields" @end="persistColumnOrder">
                                 <template #item="{ element: field }">
                                     <th :class="rtThDense">
                                         <div class="flex min-w-0 items-center gap-0.5">
                                             <button type="button"
-                                                class="col-drag-handle shrink-0 cursor-grab touch-manipulation rounded p-0.5 text-slate-400 hover:bg-slate-200 hover:text-slate-700 active:cursor-grabbing dark:hover:bg-slate-600 dark:hover:text-slate-200"
+                                                class="col-drag-handle shrink-0 cursor-grab touch-manipulation rounded p-0.5 text-stone-400 hover:bg-stone-200 hover:text-stone-700 active:cursor-grabbing dark:hover:bg-slate-600 dark:hover:text-slate-200"
                                                 :title="t(messages, 'dragColumn')"
                                                 :aria-label="t(messages, 'dragColumn')" @click.stop>
                                                 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"
@@ -191,12 +226,12 @@ const rowClass = (row) => {
                                                 </svg>
                                             </button>
                                             <button type="button"
-                                                class="min-w-0 flex-1 cursor-pointer px-1 text-left transition hover:text-slate-800 dark:hover:text-slate-100"
+                                                class="min-w-0 flex-1 cursor-pointer px-1 text-left transition hover:text-stone-800 dark:hover:text-slate-100"
                                                 @click="toggleSort(field)">
                                                 <span class="inline-flex min-w-0 items-center gap-1">
                                                     <span class="truncate">{{ field }}</span>
                                                     <span v-if="sortField === field"
-                                                        class="shrink-0 text-[10px] font-bold text-slate-800 dark:text-slate-100"
+                                                        class="shrink-0 text-[10px] font-bold text-brand"
                                                         aria-hidden="true">
                                                         {{ sortDir === 'asc' ? '↑' : '↓' }}
                                                     </span>
@@ -220,8 +255,8 @@ const rowClass = (row) => {
                                         type="button"
                                         class="max-w-full cursor-pointer truncate text-left underline underline-offset-2"
                                         :class="isRowDeleted(row)
-                                            ? 'text-slate-400 decoration-slate-300 hover:text-slate-500 dark:text-slate-500 dark:decoration-slate-600'
-                                            : 'text-sky-700 decoration-sky-300 hover:text-sky-900 dark:text-sky-300 dark:decoration-sky-700 dark:hover:text-sky-100'"
+                                            ? 'text-stone-400 decoration-stone-300 hover:text-stone-500 dark:text-slate-500 dark:decoration-slate-600'
+                                            : 'text-brand decoration-brand-muted hover:text-brand-hover dark:text-brand dark:decoration-brand/40'"
                                         @click.stop="openLinkedCell(cellHref(row, field))"
                                         v-html="highlightHtml(row[field], query)"
                                     ></button>

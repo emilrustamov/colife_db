@@ -1,5 +1,6 @@
 import fs from 'node:fs';
 import path from 'node:path';
+import { getPool, query } from './db.js';
 
 const DEFAULT_SOURCES = [
   {
@@ -78,10 +79,19 @@ function normalizeProduct(product, source) {
       ]
     : [];
 
+  const unitNumber =
+    chars['Unit number'] ||
+    chars['Unit Number'] ||
+    chars.Unit ||
+    chars.SKU ||
+    product.sku ||
+    '';
+
   return {
     uid: String(product.uid),
     title: product.title || '',
     sku: product.sku || '',
+    unitNumber: String(unitNumber || ''),
     link: product.url || '',
     area: chars.Area || '',
     type: chars.Type || '',
@@ -209,6 +219,7 @@ export async function refreshCatalogFromApi() {
       );
     }
     fs.writeFileSync(textPath, `${lines.join('\n\n')}\n`, 'utf8');
+    await syncApartmentsToDb(all, updatedAt);
 
     return {
       ok: true,
@@ -225,6 +236,45 @@ export async function refreshCatalogFromApi() {
       updatedAt,
       error: err.message,
     };
+  }
+}
+
+/**
+ * @param {object[]} apartments
+ * @param {string} updatedAt
+ * @returns {Promise<void>}
+ */
+export async function syncApartmentsToDb(apartments, updatedAt) {
+  if (!getPool()) return;
+  await query('DELETE FROM ol_bot_apartments');
+  for (const item of apartments) {
+    await query(
+      `INSERT INTO ol_bot_apartments
+        (uid, source, title, sku, unit_number, link, area, type, capacity, available_from,
+         rent_type, category, price_unit, price, price_variants_json, text_body, synced_at)
+       VALUES
+        (:uid, :source, :title, :sku, :unit_number, :link, :area, :type, :capacity, :available_from,
+         :rent_type, :category, :price_unit, :price, :price_variants_json, :text_body, :synced_at)`,
+      {
+        uid: String(item.uid),
+        source: String(item.source || ''),
+        title: String(item.title || ''),
+        sku: String(item.sku || ''),
+        unit_number: String(item.unitNumber || ''),
+        link: String(item.link || ''),
+        area: String(item.area || ''),
+        type: String(item.type || ''),
+        capacity: String(item.capacity || ''),
+        available_from: String(item.availableFrom || ''),
+        rent_type: String(item.rentType || ''),
+        category: String(item.category || ''),
+        price_unit: String(item.priceUnit || ''),
+        price: item.price != null ? Number(item.price) : null,
+        price_variants_json: JSON.stringify(item.priceVariants || []),
+        text_body: String(item.text || '').slice(0, 5000),
+        synced_at: updatedAt.slice(0, 19).replace('T', ' '),
+      },
+    );
   }
 }
 

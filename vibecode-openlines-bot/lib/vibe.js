@@ -39,6 +39,16 @@ export async function getEvents(apiKey, botId, query = {}) {
   return vibeFetch(apiKey, `/bots/${botId}/events${suffix}`);
 }
 
+/** @type {{ sendMessage?: Function, handoffToOperator?: Function }|null} */
+let testHooks = null;
+
+/**
+ * @param {{ sendMessage?: Function, handoffToOperator?: Function }|null} hooks
+ */
+export function setVibeTestHooks(hooks) {
+  testHooks = hooks;
+}
+
 /**
  * @param {string} apiKey
  * @param {number|string} botId
@@ -46,6 +56,9 @@ export async function getEvents(apiKey, botId, query = {}) {
  * @param {object} fields
  */
 export async function sendMessage(apiKey, botId, dialogId, fields) {
+  if (testHooks?.sendMessage) {
+    return testHooks.sendMessage(apiKey, botId, dialogId, fields);
+  }
   return vibeFetch(apiKey, `/bots/${botId}/messages`, {
     method: 'POST',
     body: JSON.stringify({ dialogId, fields }),
@@ -58,6 +71,9 @@ export async function sendMessage(apiKey, botId, dialogId, fields) {
  * @param {number|string} chatId
  */
 export async function handoffToOperator(apiKey, botId, chatId) {
+  if (testHooks?.handoffToOperator) {
+    return testHooks.handoffToOperator(apiKey, botId, chatId);
+  }
   return vibeFetch(apiKey, `/bots/${botId}/openlines/session/operator`, {
     method: 'POST',
     body: JSON.stringify({ chatId }),

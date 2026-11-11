@@ -20,6 +20,7 @@ alwaysApply: true
 - Alma contacts — кэш клиентов Alma и API смены `external_id` по email, `alma:collect`, `Alma*`, `CollectAlmaContacts`, `ALMA_*`. См. `docs/ALMA.md`.
 - Alma Bridge — перенос `/var/www/alma` (B24 → Alma realty/contracts) в Laravel; `ALMA_BRIDGE_ENABLED` (cutover off по умолчанию), `AlmaBridge*`, `/api/webhooks/bitrix/alma`, `/api/alma-bridge/*`. Не смешивать с DB-sync SPA 144/167/183. См. `docs/ALMA_BRIDGE.md`.
 - Open Lines Source — автопостановка `SOURCE_ID` сделки ГК по первому сообщению OL, роуты `/api/open-lines/*` и `/api/webhooks/bitrix/open-lines`, `OlDealSource`, `OpenLines*`, `UF_CRM_1792743514293`. См. `docs/OPEN_LINES_SOURCE.md`.
+- OL Bot — свой Vibecode OL-бот с начинкой Wikibot (`vibecode-openlines-bot`, supervisor `colife-ol-bot`), админка `/ol-bot/*`, таблицы `ol_bot_*`. Не смешивать с Open Lines Source / Wikibot billing. См. `docs/OL_BOT.md`.
 - Telegram alerts — редкие крит. алерты в ColifeErrorsBot (OAuth Bitrix / disk sync / паузы queue / supervisor / `/up`), `telegram:health`, `telegram:setup`, `Telegram*`, `TELEGRAM_*`. См. `docs/TELEGRAM_ALERTS.md`.
 
 Не смешивай задачи доп. модулей с логикой основной синхронизации/хранилища без явного запроса.

@@ -340,7 +340,7 @@ class DirectoryController extends Controller
             ],
             'bitrix-units-snapshot' => [
                 'key' => 'bitrix-units-snapshot',
-                'title' => 'Фин отчет',
+                'title' => 'Financial report',
                 'icon' => '📡',
                 'table' => 'bitrix_units_snapshot',
                 'id' => 'id',
@@ -348,7 +348,7 @@ class DirectoryController extends Controller
             ],
             'disk' => [
                 'key' => 'disk',
-                'title' => 'Диск',
+                'title' => 'Disk',
                 'icon' => '📁',
                 'table' => 'disk_synced_files',
                 'id' => 'id',

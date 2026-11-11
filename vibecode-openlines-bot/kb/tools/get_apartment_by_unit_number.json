@@ -1,0 +1,16 @@
+{
+  "name": "get_apartment_by_unit_number",
+  "parameters": {
+    "type": "object",
+    "required": [
+      "unitNumber"
+    ],
+    "properties": {
+      "unitNumber": {
+        "type": "string",
+        "description": "Номер юнита (unit number) апартамента"
+      }
+    }
+  },
+  "description": "Находит в каталоге апартамент по номеру юнита (unit number). Возвращает найденный апартамент или not_found, если апартамента с таким номером в каталоге нет."
+}

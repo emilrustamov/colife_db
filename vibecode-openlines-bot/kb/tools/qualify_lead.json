@@ -1,0 +1,41 @@
+{
+  "name": "qualify_lead",
+  "parameters": {
+    "type": "object",
+    "required": [
+      "reason",
+      "category"
+    ],
+    "properties": {
+      "dealId": {
+        "type": "string",
+        "description": "Идентификатор сделки. Пустое значение, если неизвестен."
+      },
+      "reason": {
+        "type": "string",
+        "description": "Обоснование решения присвоить указанную категорию. В числе прочего укажи, сколько дней от текущей даты до заезда."
+      },
+      "category": {
+        "enum": [
+          "non_target",
+          "out_of_budget",
+          "supertarget",
+          "target",
+          "postponed",
+          "student",
+          "sharing",
+          "short_term",
+          "ejari",
+          "no_information"
+        ],
+        "type": "string",
+        "description": "Категория лида"
+      },
+      "contactId": {
+        "type": "string",
+        "description": "Идентификатор контакта. Пустое значение, если неизвестен."
+      }
+    }
+  },
+  "description": "Квалифицирует лида. Присваивает лиду соответствующую категорию"
+}

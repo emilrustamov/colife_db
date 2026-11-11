@@ -13,6 +13,7 @@ const UNLIMITED_BUDGET = 99999;
  * @property {number} [period]
  * @property {number[]} [exclude_ids]
  * @property {number} [days_to_checkin]
+ * @property {string} [move_in_date]
  * @property {boolean} [areaFlexible]
  * @property {number} [guests]
  */
@@ -72,6 +73,37 @@ function daysUntilDate(day, month, year) {
   if (target < now) target.setFullYear(y + 1);
   const diff = Math.ceil((target.getTime() - now.getTime()) / 86400000);
   return Number.isFinite(diff) && diff >= 0 ? diff : undefined;
+}
+
+/**
+ * @param {string|null|undefined} value
+ * @returns {Date|null}
+ */
+function parseIsoDate(value) {
+  const m = String(value || '').trim().match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  if (!m) return null;
+  const d = new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3]));
+  return Number.isNaN(d.getTime()) ? null : d;
+}
+
+/**
+ * Soft availability: keep item if availableFrom is empty/unparsed or <= move-in date.
+ *
+ * @param {string|null|undefined} availableFrom
+ * @param {Date} moveIn
+ * @returns {boolean}
+ */
+function availableByMoveIn(availableFrom, moveIn) {
+  const raw = String(availableFrom || '').trim();
+  if (!raw) return true;
+  const iso = parseIsoDate(raw);
+  if (iso) return iso.getTime() <= moveIn.getTime();
+  const days = extractDaysToCheckin(raw);
+  if (days == null) return true;
+  const available = new Date();
+  available.setHours(0, 0, 0, 0);
+  available.setDate(available.getDate() + days);
+  return available.getTime() <= moveIn.getTime();
 }
 
 /**
@@ -387,6 +419,11 @@ function findMatchingApartments(args, sourceApartments) {
       apartmentId: Number(item.apartmentId ?? item.uid),
     }))
     .filter((item) => !excludeIds.some((v) => Number(v) === Number(item.apartmentId)));
+
+  const moveIn = parseIsoDate(args.move_in_date);
+  if (moveIn) {
+    apartments = apartments.filter((item) => availableByMoveIn(item.availableFrom, moveIn));
+  }
 
   const areas = (args.area ?? []).filter(Boolean);
   const types = (args.types ?? []).map((item) => typeToLabel(item)).filter(Boolean);

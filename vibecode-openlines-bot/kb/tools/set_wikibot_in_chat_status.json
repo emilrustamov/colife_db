@@ -1,0 +1,34 @@
+{
+  "name": "set_wikibot_in_chat_status",
+  "parameters": {
+    "type": "object",
+    "required": [
+      "reason",
+      "status"
+    ],
+    "properties": {
+      "dealId": {
+        "type": "string",
+        "description": "Идентификатор сделки. Пустое значение, если неизвестен."
+      },
+      "reason": {
+        "type": "string",
+        "description": "Обоснование решения присвоить указанный статус."
+      },
+      "status": {
+        "enum": [
+          "not_connected",
+          "connected",
+          "disconnected"
+        ],
+        "type": "string",
+        "description": "Статус бота в чате"
+      },
+      "contactId": {
+        "type": "string",
+        "description": "Идентификатор контакта. Пустое значение, если неизвестен."
+      }
+    }
+  },
+  "description": "Установка статуса бота в чате"
+}

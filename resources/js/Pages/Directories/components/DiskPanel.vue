@@ -471,35 +471,35 @@ onUnmounted(() => {
 </script>
 
 <template>
-    <section class="flex min-h-0 flex-col p-4 md:p-6">
+    <section class="ui-page lg:!h-full">
         <div class="mb-4 flex flex-wrap items-center justify-between gap-3">
             <div class="min-w-0 flex-1">
                 <nav class="flex flex-wrap items-center gap-1.5 text-sm">
                     <button
                         type="button"
-                        class="font-semibold text-slate-900 transition hover:text-slate-600 dark:text-slate-100 dark:hover:text-slate-300"
+                        class="ui-section-title !text-lg transition hover:text-brand"
                         @click="goToRoot"
                     >
                         {{ t(messages, 'disk') }}
                     </button>
                     <template v-for="segment in breadcrumbSegments" :key="segment.path">
-                        <span class="text-slate-400" aria-hidden="true">/</span>
+                        <span class="text-stone-300 dark:text-slate-600" aria-hidden="true">/</span>
                         <button
                             type="button"
-                            class="truncate font-medium text-slate-600 transition hover:text-slate-900 dark:text-slate-300 dark:hover:text-slate-100"
+                            class="truncate font-medium text-stone-600 transition hover:text-brand dark:text-slate-300 dark:hover:text-brand"
                             @click="goToBreadcrumb(segment.path)"
                         >
                             {{ segment.name }}
                         </button>
                     </template>
                     <template v-if="isInsideFolder">
-                        <span class="text-slate-400" aria-hidden="true">/</span>
-                        <span class="truncate font-medium text-slate-600 dark:text-slate-300">
+                        <span class="text-stone-300 dark:text-slate-600" aria-hidden="true">/</span>
+                        <span class="truncate font-medium text-stone-700 dark:text-slate-200">
                             {{ currentFolderTitle }}
                         </span>
                     </template>
                 </nav>
-                <p class="mt-1 text-sm text-slate-500 dark:text-slate-400">
+                <p class="ui-muted mt-1">
                     {{ isInsideFolder ? t(messages, 'diskFilesInFolder') : t(messages, 'diskHint') }}
                 </p>
                 <div
@@ -511,7 +511,7 @@ onUnmounted(() => {
                         :href="currentFolder.list_element_url"
                         target="_blank"
                         rel="noopener"
-                        class="inline-flex items-center gap-1.5 text-sm font-medium text-sky-700 underline-offset-2 hover:underline dark:text-sky-300"
+                        class="ui-link inline-flex items-center gap-1.5 text-sm"
                     >
                         <svg class="h-4 w-4 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true">
                             <path stroke-linecap="round" stroke-linejoin="round" d="M3.75 6.75h16.5M3.75 12h16.5M3.75 17.25h16.5" />
@@ -523,7 +523,7 @@ onUnmounted(() => {
                         :href="currentFolder.folder_url"
                         target="_blank"
                         rel="noopener"
-                        class="inline-flex items-center gap-1.5 text-sm font-medium text-sky-700 underline-offset-2 hover:underline dark:text-sky-300"
+                        class="ui-link inline-flex items-center gap-1.5 text-sm"
                     >
                         <svg class="h-4 w-4 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true">
                             <path stroke-linecap="round" stroke-linejoin="round" d="M13.5 6H18a.75.75 0 0 1 .75.75V11.5M10.5 13.5 18.75 5.25M6.75 8.25v9a.75.75 0 0 0 .75.75h9" />
@@ -536,14 +536,14 @@ onUnmounted(() => {
                 <button
                     v-if="isInsideFolder || parentPath"
                     type="button"
-                    class="rounded-lg border border-slate-300 px-3 py-2 text-xs font-medium text-slate-700 transition hover:bg-slate-50 dark:border-slate-600 dark:text-slate-200 dark:hover:bg-slate-800"
+                    class="ui-btn ui-btn-secondary"
                     @click="goBackToFolders"
                 >
                     ← {{ t(messages, 'diskBack') }}
                 </button>
                 <button
                     type="button"
-                    class="rounded-lg border border-slate-300 px-3 py-2 text-xs font-medium text-slate-700 transition hover:bg-slate-50 dark:border-slate-600 dark:text-slate-200 dark:hover:bg-slate-800"
+                    class="ui-btn ui-btn-secondary"
                     @click="refreshAll"
                 >
                     {{ t(messages, 'diskRefresh') }}
@@ -560,17 +560,17 @@ onUnmounted(() => {
                 <input
                     v-model="folderQuery"
                     type="search"
-                    class="w-full max-w-md rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 outline-none ring-slate-400 focus:ring-2 dark:border-slate-600 dark:bg-slate-950 dark:text-slate-100"
+                    class="ui-input max-w-md"
                     :placeholder="t(messages, 'diskSearchFolders')"
                 >
-                <span class="text-xs text-slate-500 dark:text-slate-400">
+                <span class="ui-muted text-xs">
                     {{ folderMeta.total }} {{ t(messages, 'diskFolders') }}
                 </span>
             </div>
 
-            <div class="min-h-0 flex-1 overflow-y-auto">
-                <p v-if="loadingFolders" class="py-8 text-sm text-slate-500 dark:text-slate-400">{{ t(messages, 'loading') }}</p>
-                <p v-else-if="folders.length === 0" class="py-8 text-sm text-slate-500 dark:text-slate-400">{{ t(messages, 'empty') }}</p>
+            <div class="ui-scroll min-h-0 flex-1 overflow-y-auto">
+                <p v-if="loadingFolders" class="ui-muted py-8">{{ t(messages, 'loading') }}</p>
+                <p v-else-if="folders.length === 0" class="ui-empty">{{ t(messages, 'empty') }}</p>
                 <div
                     v-else
                     class="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6"
@@ -579,19 +579,19 @@ onUnmounted(() => {
                         v-for="folder in folders"
                         :key="folderKey(folder)"
                         :href="folderSharePath(folder)"
-                        class="group flex flex-col items-start rounded-xl border border-slate-200 bg-white p-3 text-left no-underline transition hover:-translate-y-0.5 hover:border-amber-300 hover:bg-amber-50/40 hover:shadow-sm dark:border-slate-700 dark:bg-slate-950 dark:hover:border-amber-500/40 dark:hover:bg-amber-950/20"
+                        class="group flex flex-col items-start rounded-xl border border-stone-200 bg-white p-3.5 text-left no-underline transition hover:-translate-y-0.5 hover:border-brand/50 hover:bg-brand-soft/50 hover:shadow-sm dark:border-slate-700 dark:bg-slate-900/60 dark:hover:border-brand/40 dark:hover:bg-brand/10"
                         @click.prevent="openNode(folder)"
                     >
                         <svg
                             xmlns="http://www.w3.org/2000/svg"
                             viewBox="0 0 24 24"
                             fill="currentColor"
-                            class="h-10 w-10 text-amber-400 transition group-hover:text-amber-500 dark:text-amber-400/90"
+                            class="h-10 w-10 text-brand transition group-hover:text-brand-hover"
                             aria-hidden="true"
                         >
                             <path d="M2 6.75A2.75 2.75 0 0 1 4.75 4h4.086a1.75 1.75 0 0 1 1.237.513l1.328 1.328A.25.25 0 0 0 11.586 6H19.25A2.75 2.75 0 0 1 22 8.75v8.5A2.75 2.75 0 0 1 19.25 20H4.75A2.75 2.75 0 0 1 2 17.25v-10.5Z" />
                         </svg>
-                        <div class="mt-2 w-full truncate text-sm font-semibold text-slate-900 dark:text-slate-100" :title="folder.name || folder.folder_name">
+                        <div class="mt-2 w-full truncate text-sm font-semibold text-stone-900 dark:text-slate-100" :title="folder.name || folder.folder_name">
                             {{ folder.name || folder.folder_name }}
                         </div>
                     </a>
@@ -600,20 +600,20 @@ onUnmounted(() => {
 
             <div
                 v-if="folderMeta.last_page > 1"
-                class="mt-4 flex items-center justify-between gap-3 border-t border-slate-200 pt-3 text-sm dark:border-slate-700"
+                class="mt-4 flex items-center justify-between gap-3 border-t border-stone-200 pt-3 text-sm dark:border-slate-700"
             >
                 <button
                     type="button"
-                    class="rounded-lg border border-slate-300 px-3 py-1.5 disabled:opacity-40 dark:border-slate-600"
+                    class="ui-btn ui-btn-secondary"
                     :disabled="folderMeta.current_page <= 1 || loadingFolders"
                     @click="fetchFolders(folderMeta.current_page - 1)"
                 >
                     {{ t(messages, 'prev') }}
                 </button>
-                <span>{{ folderMeta.current_page }} / {{ folderMeta.last_page }}</span>
+                <span class="text-stone-600 dark:text-slate-300">{{ folderMeta.current_page }} / {{ folderMeta.last_page }}</span>
                 <button
                     type="button"
-                    class="rounded-lg border border-slate-300 px-3 py-1.5 disabled:opacity-40 dark:border-slate-600"
+                    class="ui-btn ui-btn-secondary"
                     :disabled="folderMeta.current_page >= folderMeta.last_page || loadingFolders"
                     @click="fetchFolders(folderMeta.current_page + 1)"
                 >
@@ -627,33 +627,33 @@ onUnmounted(() => {
                 <input
                     v-model="fileQuery"
                     type="search"
-                    class="w-full max-w-md rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 outline-none ring-slate-400 focus:ring-2 dark:border-slate-600 dark:bg-slate-950 dark:text-slate-100"
+                    class="ui-input max-w-md"
                     :placeholder="t(messages, 'diskSearchFiles')"
                 >
-                <label class="inline-flex cursor-pointer items-center gap-2 text-sm text-slate-600 dark:text-slate-300">
-                    <input v-model="includeDeleted" type="checkbox" class="rounded border-slate-300 dark:border-slate-600">
+                <label class="inline-flex cursor-pointer items-center gap-2 text-sm text-stone-600 dark:text-slate-300">
+                    <input v-model="includeDeleted" type="checkbox" class="ui-check">
                     <span>{{ t(messages, 'diskShowDeleted') }}</span>
                 </label>
             </div>
 
-            <div class="min-h-0 flex-1 overflow-auto rounded-xl border border-slate-200 dark:border-slate-700">
-                <p v-if="loadingFiles" class="p-6 text-sm text-slate-500 dark:text-slate-400">{{ t(messages, 'loading') }}</p>
-                <p v-else-if="files.length === 0" class="p-6 text-sm text-slate-500 dark:text-slate-400">{{ t(messages, 'empty') }}</p>
-                <table v-else class="min-w-full text-left text-sm">
-                    <thead class="sticky top-0 bg-slate-50 text-xs uppercase tracking-wide text-slate-500 dark:bg-slate-900 dark:text-slate-400">
+            <div class="ui-scroll min-h-0 flex-1 overflow-auto rounded-xl border border-stone-200/90 dark:border-slate-700/80">
+                <p v-if="loadingFiles" class="ui-muted p-6">{{ t(messages, 'loading') }}</p>
+                <p v-else-if="files.length === 0" class="ui-empty m-4">{{ t(messages, 'empty') }}</p>
+                <table v-else class="min-w-full text-left text-sm leading-snug">
+                    <thead class="sticky top-0 bg-stone-50/95 text-xs uppercase tracking-wide text-stone-500 backdrop-blur-sm dark:bg-slate-800/95 dark:text-slate-400">
                         <tr>
-                            <th class="px-3 py-2 font-semibold">{{ t(messages, 'diskFileName') }}</th>
-                            <th class="px-3 py-2 font-semibold">{{ t(messages, 'diskField') }}</th>
-                            <th class="px-3 py-2 font-semibold">{{ t(messages, 'diskStatus') }}</th>
-                            <th class="px-3 py-2 font-semibold">{{ t(messages, 'diskSyncedAt') }}</th>
-                            <th class="px-3 py-2 font-semibold" />
+                            <th class="px-3 py-2.5 font-semibold">{{ t(messages, 'diskFileName') }}</th>
+                            <th class="px-3 py-2.5 font-semibold">{{ t(messages, 'diskField') }}</th>
+                            <th class="px-3 py-2.5 font-semibold">{{ t(messages, 'diskStatus') }}</th>
+                            <th class="px-3 py-2.5 font-semibold">{{ t(messages, 'diskSyncedAt') }}</th>
+                            <th class="px-3 py-2.5 font-semibold" />
                         </tr>
                     </thead>
                     <tbody>
                         <tr
                             v-for="file in files"
                             :key="file.id"
-                            class="border-t border-slate-100 dark:border-slate-800"
+                            class="border-t border-stone-100 transition hover:bg-stone-50/80 dark:border-slate-800 dark:hover:bg-white/[0.03]"
                             :class="file.is_deleted ? 'opacity-60' : ''"
                         >
                             <td class="px-3 py-2">
@@ -666,20 +666,20 @@ onUnmounted(() => {
                                 >
                                     <div
                                         v-if="isImageFile(file)"
-                                        class="h-10 w-10 shrink-0 overflow-hidden rounded-md border border-slate-200 bg-slate-50 dark:border-slate-700 dark:bg-slate-900"
+                                        class="h-10 w-10 shrink-0 overflow-hidden rounded-lg border border-stone-200 bg-stone-50 dark:border-slate-700 dark:bg-slate-900"
                                     >
                                         <img :src="file.preview_url" :alt="file.original_name" class="h-full w-full object-cover">
                                     </div>
                                     <div
                                         v-else
-                                        class="flex h-10 w-10 shrink-0 items-center justify-center rounded-md border border-slate-200 bg-slate-50 text-[10px] font-semibold uppercase text-slate-400 dark:border-slate-700 dark:bg-slate-900"
+                                        class="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border border-stone-200 bg-stone-50 text-[10px] font-semibold uppercase text-stone-400 dark:border-slate-700 dark:bg-slate-900"
                                     >
                                         {{ isPdfFile(file) ? 'pdf' : 'file' }}
                                     </div>
                                     <div class="min-w-0">
                                         <div
-                                            class="truncate font-medium text-slate-900 dark:text-slate-100"
-                                            :class="canPreviewFile(file) ? 'underline-offset-2 hover:underline' : ''"
+                                            class="truncate font-medium text-stone-900 dark:text-slate-100"
+                                            :class="canPreviewFile(file) ? 'underline-offset-2 hover:text-brand hover:underline' : ''"
                                             :title="file.original_name"
                                         >
                                             {{ file.original_name || `file_${file.bitrix_file_id}` }}
@@ -690,11 +690,11 @@ onUnmounted(() => {
                                     </div>
                                 </button>
                             </td>
-                            <td class="px-3 py-2 text-slate-600 dark:text-slate-300">{{ file.field_code }}</td>
-                            <td class="px-3 py-2">
+                            <td class="px-3 py-2.5 text-stone-600 dark:text-slate-300">{{ file.field_code }}</td>
+                            <td class="px-3 py-2.5">
                                 <div class="flex flex-wrap items-center gap-1.5">
                                     <span
-                                        class="rounded-full px-2 py-0.5 text-xs font-medium"
+                                        class="ui-chip"
                                         :class="file.is_deleted
                                             ? 'bg-rose-100 text-rose-700 dark:bg-rose-950 dark:text-rose-300'
                                             : 'bg-emerald-100 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300'"
@@ -703,21 +703,21 @@ onUnmounted(() => {
                                     </span>
                                     <span
                                         v-if="isDuplicateFile(file)"
-                                        class="rounded-full bg-amber-100 px-2 py-0.5 text-xs font-medium text-amber-800 dark:bg-amber-950 dark:text-amber-300"
+                                        class="ui-chip bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300"
                                     >
                                         {{ t(messages, 'diskDuplicate') }}
                                     </span>
                                 </div>
                             </td>
-                            <td class="px-3 py-2 whitespace-nowrap text-slate-600 dark:text-slate-300">
+                            <td class="px-3 py-2.5 whitespace-nowrap text-stone-600 dark:text-slate-300">
                                 {{ formatDate(file.last_synced_at) }}
                             </td>
-                            <td class="px-3 py-2 text-right">
+                            <td class="px-3 py-2.5 text-right">
                                 <div class="inline-flex items-center gap-2">
                                     <button
                                         v-if="canPreviewFile(file)"
                                         type="button"
-                                        class="rounded-lg border border-slate-300 px-2.5 py-1 text-xs font-medium text-slate-700 transition hover:bg-slate-50 dark:border-slate-600 dark:text-slate-200 dark:hover:bg-slate-800"
+                                        class="ui-btn ui-btn-secondary"
                                         @click="openPreview(file)"
                                     >
                                         {{ t(messages, 'diskPreview') }}
@@ -725,7 +725,7 @@ onUnmounted(() => {
                                     <button
                                         v-if="file.exists"
                                         type="button"
-                                        class="rounded-lg border border-slate-300 px-2.5 py-1 text-xs font-medium text-slate-700 transition hover:bg-slate-50 dark:border-slate-600 dark:text-slate-200 dark:hover:bg-slate-800"
+                                        class="ui-btn ui-btn-secondary"
                                         @click="downloadFile(file)"
                                     >
                                         {{ t(messages, 'diskDownload') }}
@@ -739,20 +739,20 @@ onUnmounted(() => {
 
             <div
                 v-if="fileMeta.last_page > 1"
-                class="mt-4 flex items-center justify-between gap-3 border-t border-slate-200 pt-3 text-sm dark:border-slate-700"
+                class="mt-4 flex items-center justify-between gap-3 border-t border-stone-200 pt-3 text-sm dark:border-slate-700"
             >
                 <button
                     type="button"
-                    class="rounded-lg border border-slate-300 px-3 py-1.5 disabled:opacity-40 dark:border-slate-600"
+                    class="ui-btn ui-btn-secondary"
                     :disabled="fileMeta.current_page <= 1 || loadingFiles"
                     @click="fetchFiles(fileMeta.current_page - 1)"
                 >
                     {{ t(messages, 'prev') }}
                 </button>
-                <span>{{ fileMeta.current_page }} / {{ fileMeta.last_page }} · {{ fileMeta.total }} {{ t(messages, 'totalRows') }}</span>
+                <span class="text-stone-600 dark:text-slate-300">{{ fileMeta.current_page }} / {{ fileMeta.last_page }} · {{ fileMeta.total }} {{ t(messages, 'totalRows') }}</span>
                 <button
                     type="button"
-                    class="rounded-lg border border-slate-300 px-3 py-1.5 disabled:opacity-40 dark:border-slate-600"
+                    class="ui-btn ui-btn-secondary"
                     :disabled="fileMeta.current_page >= fileMeta.last_page || loadingFiles"
                     @click="fetchFiles(fileMeta.current_page + 1)"
                 >
@@ -764,34 +764,34 @@ onUnmounted(() => {
         <Teleport to="body">
             <div
                 v-if="previewFile"
-                class="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/70 p-4"
+                class="ui-overlay z-50 flex items-center justify-center p-4"
                 role="dialog"
                 aria-modal="true"
                 @click.self="closePreview"
             >
-                <div class="flex max-h-[92vh] w-full max-w-6xl flex-col overflow-hidden rounded-xl bg-white shadow-xl dark:bg-slate-900">
-                    <div class="flex items-center justify-between gap-3 border-b border-slate-200 px-4 py-3 dark:border-slate-700">
-                        <div class="min-w-0 truncate text-sm font-medium text-slate-900 dark:text-slate-100" :title="previewFile.original_name">
+                <div class="flex max-h-[92vh] w-full max-w-6xl flex-col overflow-hidden rounded-2xl border border-stone-200 bg-white shadow-xl dark:border-slate-700 dark:bg-slate-900">
+                    <div class="flex items-center justify-between gap-3 border-b border-stone-200 px-4 py-3 dark:border-slate-700">
+                        <div class="min-w-0 truncate text-sm font-semibold text-stone-900 dark:text-slate-100" :title="previewFile.original_name">
                             {{ previewFile.original_name || `file_${previewFile.bitrix_file_id}` }}
                         </div>
                         <div class="flex shrink-0 items-center gap-2">
                             <button
                                 type="button"
-                                class="rounded-lg border border-slate-300 px-2.5 py-1 text-xs font-medium text-slate-700 transition hover:bg-slate-50 dark:border-slate-600 dark:text-slate-200 dark:hover:bg-slate-800"
+                                class="ui-btn ui-btn-secondary"
                                 @click="downloadFile(previewFile)"
                             >
                                 {{ t(messages, 'diskDownload') }}
                             </button>
                             <button
                                 type="button"
-                                class="rounded-lg border border-slate-300 px-2.5 py-1 text-xs font-medium text-slate-700 transition hover:bg-slate-50 dark:border-slate-600 dark:text-slate-200 dark:hover:bg-slate-800"
+                                class="ui-btn ui-btn-secondary"
                                 @click="closePreview"
                             >
                                 {{ t(messages, 'diskClosePreview') }}
                             </button>
                         </div>
                     </div>
-                    <div class="flex min-h-0 flex-1 items-center justify-center bg-slate-100 p-3 dark:bg-slate-950">
+                    <div class="flex min-h-0 flex-1 items-center justify-center bg-stone-100 p-3 dark:bg-slate-950">
                         <img
                             v-if="isImageFile(previewFile)"
                             :src="previewFile.preview_url"
@@ -801,7 +801,7 @@ onUnmounted(() => {
                         <iframe
                             v-else-if="isPdfFile(previewFile)"
                             :src="previewFile.preview_url"
-                            class="h-[80vh] w-full rounded-md border border-slate-200 bg-white dark:border-slate-700"
+                            class="h-[80vh] w-full rounded-md border border-stone-200 bg-white dark:border-slate-700"
                             title="PDF preview"
                         />
                     </div>

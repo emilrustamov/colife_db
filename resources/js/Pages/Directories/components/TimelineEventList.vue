@@ -1,5 +1,6 @@
 <script setup>
 import { computed } from 'vue';
+import { useAppPreferences } from '../../../composables/useAppPreferences';
 
 const props = defineProps({
     timeline: { type: Array, default: () => [] },
@@ -8,6 +9,8 @@ const props = defineProps({
     renderValue: { type: Function, required: true },
     showTechnicalFields: { type: Boolean, default: false },
 });
+
+const { locale } = useAppPreferences();
 
 const technicalFields = new Set([
     'bitrix_id',
@@ -26,88 +29,24 @@ const alwaysHiddenFields = new Set([
     'changed_by_bitrix_user_name',
 ]);
 
-const fieldLabels = {
-    first_name: 'Имя',
-    last_name: 'Фамилия',
-    contact_type_id: 'Тип контакта',
-    contact_type_name: 'Тип контакта',
-    nationality: 'Национальность',
-    gender: 'Пол',
-    language: 'Язык',
-    birth_date: 'Дата рождения',
-    is_deleted: 'Удален',
-    changed_by_bitrix_user_name: 'Изменил в Bitrix',
-    changed_by_bitrix_user_id: 'ID пользователя Bitrix',
-    title: 'Название',
-    stage_id: 'Стадия',
-    building_id: 'Билдинг',
-    landlord_contact_id: 'Лендлорд',
-    metro_station_id: 'Станция метро',
-    apartment_type_id: 'Тип апартамента',
-    internal_number: 'Внутренний номер',
-    address: 'Адрес',
-    property_mode: 'Режим сдачи',
-    rental_type: 'Тип аренды',
-    status: 'Статус',
-    floor: 'Этаж',
-    metro_minutes: 'Минут до метро',
-    transport_type: 'Транспорт',
-    parking_number: 'Парковка',
-    google_maps_link: 'Google Maps',
-    bathrooms: 'Ванные',
-    rooms: 'Комнаты',
-    area_sqm: 'Площадь',
-    wifi_name: 'Wi-Fi имя',
-    wifi_password: 'Wi-Fi пароль',
-    access_cards: 'Карты доступа',
-    parking_cards: 'Карты паркинга',
-    keys_count: 'Ключи',
-    lock_pass: 'Код замка',
-    keybox_code: 'Код keybox',
-    room_keys_notes: 'Заметки по ключам',
-    apartment_id: 'Апартамент',
-    unit_id: 'Юнит',
-    tenant_contact_id: 'Тенант',
-    co_tenant_contact_id: 'Ко-тенант',
-    stage_id: 'Стадия',
-    contract_type: 'Тип контракта',
-    type_of_deal: 'Тип сделки',
-    type_of_payment: 'Тип оплаты',
-    contract_start_date: 'Дата начала контракта',
-    contract_end_date: 'Дата окончания контракта',
-    months_of_stay: 'Месяцев проживания',
-    rental_price: 'Аренда',
-    deposit: 'Депозит',
-    total_contract_amount: 'Сумма контракта',
-    opportunity: 'Сумма',
-    currency_id: 'Валюта',
-    passport_number: 'Паспорт / ID',
-    check_in_date: 'Дата заселения',
-    check_out_date: 'Дата выселения',
-    pml_start_date: 'PML start',
-    pml_end_date: 'PML end',
-    dtcm_start_date: 'DTCM start',
-    dtcm_end_date: 'DTCM end',
-    termination_date: 'Дата расторжения',
-    termination_reason: 'Причина расторжения',
-    disk_url: 'Ссылка на диск',
-    value: 'Значение',
+const dateLocale = computed(() => (locale.value === 'en' ? 'en-GB' : 'ru-RU'));
+
+/**
+ * @param {string} key
+ * @returns {string}
+ */
+const fieldLabel = (key) => {
+    const pack = props.messages?.[locale.value] ?? props.messages?.ru ?? {};
+    return pack.fields?.[key] ?? props.messages?.ru?.fields?.[key] ?? key;
 };
 
-const eventLabels = {
-    'bitrix.contact.created': 'Контакт Bitrix создан',
-    'bitrix.contact.updated': 'Контакт Bitrix обновлен',
-    'bitrix.contact.deleted': 'Контакт Bitrix удален',
-    'bitrix.apartment.created': 'Апартамент Bitrix создан',
-    'bitrix.apartment.updated': 'Апартамент Bitrix обновлен',
-    'bitrix.apartment.deleted': 'Апартамент Bitrix удален',
-    'bitrix.unit.created': 'Юнит Bitrix создан',
-    'bitrix.unit.updated': 'Юнит Bitrix обновлен',
-    'bitrix.unit.deleted': 'Юнит Bitrix удален',
-    'bitrix.unit_stay.created': 'Tenant Contract создан',
-    'bitrix.unit_stay.updated': 'Tenant Contract обновлён',
-    'bitrix.apartment_ownership.created': 'Landlord Contract создан',
-    'bitrix.apartment_ownership.updated': 'Landlord Contract обновлён',
+/**
+ * @param {string} key
+ * @returns {string}
+ */
+const eventLabel = (key) => {
+    const pack = props.messages?.[locale.value] ?? props.messages?.ru ?? {};
+    return pack.events?.[key] ?? props.messages?.ru?.events?.[key] ?? key;
 };
 
 const isIsoDateLike = (value) => {
@@ -155,7 +94,7 @@ const formatDate = (value) => {
         return String(value);
     }
 
-    return new Intl.DateTimeFormat('ru-RU', {
+    return new Intl.DateTimeFormat(dateLocale.value, {
         day: '2-digit',
         month: '2-digit',
         year: 'numeric',
@@ -176,7 +115,7 @@ const formatDateForField = (value) => {
         return String(value);
     }
 
-    return new Intl.DateTimeFormat('ru-RU', {
+    return new Intl.DateTimeFormat(dateLocale.value, {
         day: '2-digit',
         month: '2-digit',
         year: 'numeric',
@@ -193,7 +132,7 @@ const formatDateTime = (value) => {
         return String(value);
     }
 
-    return new Intl.DateTimeFormat('ru-RU', {
+    return new Intl.DateTimeFormat(dateLocale.value, {
         day: '2-digit',
         month: '2-digit',
         year: 'numeric',
@@ -213,7 +152,7 @@ const formatTime = (value) => {
         return String(value);
     }
 
-    return new Intl.DateTimeFormat('ru-RU', {
+    return new Intl.DateTimeFormat(dateLocale.value, {
         hour: '2-digit',
         minute: '2-digit',
         second: '2-digit',
@@ -247,14 +186,14 @@ const getDayLabel = (value) => {
     const dayKey = getDayKey(date);
 
     if (dayKey === todayKey) {
-        return 'Сегодня';
+        return props.t(props.messages, 'today');
     }
 
     if (dayKey === yesterdayKey) {
-        return 'Вчера';
+        return props.t(props.messages, 'yesterday');
     }
 
-    return new Intl.DateTimeFormat('ru-RU', {
+    return new Intl.DateTimeFormat(dateLocale.value, {
         day: '2-digit',
         month: '2-digit',
         year: 'numeric',
@@ -302,7 +241,7 @@ const display = (value, key = null) => {
     }
 
     if (typeof value === 'boolean') {
-        return value ? 'Да' : 'Нет';
+        return value ? props.t(props.messages, 'yes') : props.t(props.messages, 'no');
     }
 
     if (typeof value === 'number') {
@@ -351,7 +290,7 @@ const buildChanges = (event) => {
         .filter((key) => !(key === 'is_deleted' && normalize(newValues[key]) === 0))
         .map((key) => ({
             key,
-            label: fieldLabels[key] ?? key,
+            label: fieldLabel(key),
             from: display(oldValues[key], key),
             to: display(newValues[key], key),
         }));
@@ -376,7 +315,7 @@ const buildChanges = (event) => {
 };
 
 const buildEventLabel = (event) => {
-    const baseLabel = eventLabels[event.event] ?? event.event;
+    const baseLabel = eventLabel(event.event);
     if (event.event !== 'bitrix.contact.updated') {
         return baseLabel;
     }
@@ -415,33 +354,33 @@ const items = computed(() => {
 </script>
 
 <template>
-    <div v-if="items.length === 0" class="rounded-lg border border-dashed border-slate-300 px-4 py-8 text-center text-sm text-slate-500 dark:border-slate-600 dark:text-slate-400">
+    <div v-if="items.length === 0" class="ui-empty">
         {{ t(messages, 'noEvents') }}
     </div>
-    <div v-else class="relative space-y-2.5 pl-5">
-        <div class="pointer-events-none absolute bottom-0 left-2 top-0 w-px bg-slate-200 dark:bg-slate-700"></div>
+    <div v-else class="relative space-y-3 pl-5">
+        <div class="pointer-events-none absolute bottom-1 left-2 top-1 w-px bg-gradient-to-b from-brand/50 via-stone-200 to-transparent dark:via-slate-700"></div>
         <template v-for="event in items" :key="event.id">
-            <div v-if="event.showDayHeader" class="text-[11px] font-medium text-slate-500 dark:text-slate-400">
+            <div v-if="event.showDayHeader" class="pt-1 text-[11px] font-bold uppercase tracking-[0.12em] text-stone-400 dark:text-slate-500">
                 {{ event.dayLabel }}
             </div>
-            <div class="relative rounded-md border border-slate-200/80 bg-slate-50/60 p-2.5 dark:border-slate-700 dark:bg-slate-800/40">
-                <span class="absolute -left-[1.05rem] top-3.5 h-2.5 w-2.5 rounded-full border-2 border-white bg-slate-500 dark:border-slate-900 dark:bg-slate-300"></span>
-                <span class="absolute -left-[0.4rem] top-[1.05rem] h-px w-[0.7rem] bg-slate-300 dark:bg-slate-600"></span>
-                <div class="mb-0.5 text-[11px] text-slate-500 dark:text-slate-400">{{ event.timeLabel }}</div>
-                <div class="mb-1.5 text-sm font-medium text-slate-900 dark:text-slate-100">{{ event.eventLabel }}</div>
-                <div class="space-y-1.5">
+            <div class="relative rounded-xl border border-stone-200/90 bg-white p-3 shadow-sm dark:border-slate-700/80 dark:bg-slate-900/70">
+                <span class="absolute -left-[1.05rem] top-4 h-2.5 w-2.5 rounded-full border-2 border-page bg-brand shadow-sm"></span>
+                <span class="absolute -left-[0.4rem] top-[1.2rem] h-px w-[0.7rem] bg-brand/40"></span>
+                <div class="mb-1 text-[11px] font-medium text-stone-400 dark:text-slate-500">{{ event.timeLabel }}</div>
+                <div class="mb-2 text-sm font-semibold leading-snug text-stone-900 dark:text-slate-100">{{ event.eventLabel }}</div>
+                <div class="space-y-2">
                     <div
                         v-for="change in event.changes"
                         :key="`${event.id}-${change.key}`"
-                        class="rounded border border-slate-200/80 bg-white/80 px-2 py-1.5 dark:border-slate-700 dark:bg-slate-900/40"
+                        class="rounded-lg border border-stone-100 bg-stone-50/80 px-2.5 py-2 dark:border-slate-700/70 dark:bg-slate-800/40"
                     >
-                        <div class="mb-1 text-[11px] font-medium text-slate-500 dark:text-slate-400">{{ change.label }}</div>
-                        <div class="grid grid-cols-[1fr_auto_1fr] items-center gap-1.5 text-xs">
-                            <div class="rounded bg-rose-50 px-1.5 py-0.5 text-rose-700 dark:bg-rose-950/30 dark:text-rose-300">
+                        <div class="mb-1.5 text-[11px] font-semibold uppercase tracking-wide text-stone-400 dark:text-slate-500">{{ change.label }}</div>
+                        <div class="grid grid-cols-[1fr_auto_1fr] items-stretch gap-2 text-xs leading-relaxed">
+                            <div class="rounded-md bg-rose-50 px-2 py-1.5 text-rose-700 dark:bg-rose-950/35 dark:text-rose-300">
                                 {{ change.from }}
                             </div>
-                            <div class="text-slate-400">→</div>
-                            <div class="rounded bg-emerald-50 px-1.5 py-0.5 text-emerald-700 dark:bg-emerald-950/30 dark:text-emerald-300">
+                            <div class="self-center text-stone-300 dark:text-slate-600">→</div>
+                            <div class="rounded-md bg-emerald-50 px-2 py-1.5 text-emerald-700 dark:bg-emerald-950/35 dark:text-emerald-300">
                                 {{ change.to }}
                             </div>
                         </div>

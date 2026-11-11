@@ -33,6 +33,11 @@ const props = defineProps({
     },
 });
 
+const adminMenu = computed(() => {
+    const shared = inertiaPage.props.adminMenu;
+    return Array.isArray(shared) && shared.length > 0 ? shared : props.directories;
+});
+
 const {
     menu,
     selectedKey,
@@ -43,12 +48,13 @@ const {
     visibleTopLevelMenu,
     visibleContactsChildren,
     isContactsChildSelected,
+    isLinkItem,
     loadHiddenKeys,
     syncSelectedKey,
     selectDirectory,
     setItemVisible,
 } = useDirectoryNavigation({
-    directories: props.directories,
+    directories: adminMenu,
     router,
 });
 const canManageUsers = computed(() => inertiaPage.props.auth?.user?.can?.manageUsers === true);
@@ -161,7 +167,7 @@ const {
 });
 
 const loadDirectoryList = (skipRefetchFlag) => {
-    if (selectedKey.value === 'disk') {
+    if (selectedKey.value === 'disk' || isLinkItem(selectedKey.value)) {
         return Promise.resolve();
     }
 
@@ -189,7 +195,7 @@ const highlightHtml = (value, search) => {
     try {
         return escaped.replace(
             new RegExp(`(${escapeRegex(q)})`, 'gi'),
-            '<mark class="rounded bg-amber-200 px-0.5 dark:bg-amber-500/35">$1</mark>',
+            '<mark class="rounded bg-brand-soft px-0.5 text-ink">$1</mark>',
         );
     } catch {
         return escaped;
@@ -438,9 +444,8 @@ onBeforeUnmount(() => {
 </script>
 
 <template>
-    <div class="min-h-screen bg-slate-100 p-3 md:p-4 dark:bg-slate-950">
-        <div class="mx-auto max-w-[1700px] overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm dark:border-slate-700 dark:bg-slate-900">
-            <div class="grid min-h-[calc(100vh-3rem)] grid-cols-1 lg:grid-cols-[260px_minmax(0,1fr)]">
+    <div class="ui-shell">
+        <div class="ui-frame">
                 <Sidebar
                     :menu="menu"
                     :visible-top-level-menu="visibleTopLevelMenu"
@@ -478,6 +483,7 @@ onBeforeUnmount(() => {
                     :current="current"
                     :messages="messages"
                     :t="t"
+                    :translate-menu-title="translateMenuTitle"
                     :is-users-directory="isUsersDirectory"
                     :is-roles-directory="isRolesDirectory"
                     :can-manage-users="canManageUsers"
@@ -510,7 +516,6 @@ onBeforeUnmount(() => {
                     :handle-row-dbl-click="handleRowDblClick"
                     :open-linked-cell="openLinkedRecord"
                 />
-            </div>
         </div>
         <CardDrawer
             :card-modal-open="cardModalOpen"
@@ -522,6 +527,7 @@ onBeforeUnmount(() => {
             :timeline="timeline"
             :messages="messages"
             :t="t"
+            :translate-menu-title="translateMenuTitle"
             :close-card-modal="closeCardModal"
             :set-card-modal-tab="setCardModalTab"
             :render-value="renderValue"
@@ -537,6 +543,7 @@ onBeforeUnmount(() => {
             :timeline="relatedTimeline"
             :messages="messages"
             :t="t"
+            :translate-menu-title="translateMenuTitle"
             :close-card-modal="closeRelatedCard"
             :set-card-modal-tab="setRelatedCardTab"
             :render-value="renderValue"
