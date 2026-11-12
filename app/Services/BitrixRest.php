@@ -44,13 +44,45 @@ class BitrixRest
      */
     public function postJson(string $method, array $payload, ?string $domain = null): array
     {
-        $response = $this->post($method, $payload, $domain);
-        $response->throw();
+        $attempts = 0;
+        $maxAttempts = 6;
 
-        /** @var array<string, mixed> $json */
+        while (true) {
+            $response = $this->post($method, $payload, $domain);
+
+            if ($this->isRateLimited($response) && $attempts < $maxAttempts) {
+                $attempts++;
+                sleep(min(90, 10 * $attempts));
+
+                continue;
+            }
+
+            $response->throw();
+
+            /** @var array<string, mixed> $json */
+            $json = $response->json();
+
+            return $json;
+        }
+    }
+
+    /**
+     * Whether Bitrix blocked the method due to operation/query limits.
+     */
+    private function isRateLimited(Response $response): bool
+    {
+        if ($response->status() === 429) {
+            return true;
+        }
+
         $json = $response->json();
+        if (! is_array($json)) {
+            return false;
+        }
 
-        return $json;
+        $error = (string) ($json['error'] ?? '');
+
+        return in_array($error, ['OPERATION_TIME_LIMIT', 'QUERY_LIMIT_EXCEEDED'], true);
     }
 
     private function resolveToken(string $domain): string

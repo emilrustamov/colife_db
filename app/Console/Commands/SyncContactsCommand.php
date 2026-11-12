@@ -3,8 +3,9 @@
 namespace App\Console\Commands;
 
 use App\Models\Contact;
-use App\Services\EntitySync;
 use App\Services\BitrixRest;
+use App\Services\CollectFailureAlert;
+use App\Services\EntitySync;
 use App\Support\BitrixSoftDelete;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\Log;
@@ -16,8 +17,11 @@ class SyncContactsCommand extends Command
 
     protected $description = 'Sync contacts from Bitrix24 to local database';
 
-    public function handle(EntitySync $syncService, BitrixRest $bitrixRestClient): int
-    {
+    public function handle(
+        EntitySync $syncService,
+        BitrixRest $bitrixRestClient,
+        CollectFailureAlert $collectFailureAlert,
+    ): int {
         $this->info('Bitrix contacts sync started...');
 
         try {
@@ -45,6 +49,15 @@ class SyncContactsCommand extends Command
             Log::channel('bitrix_contacts')->error('Bitrix contacts sync failed', [
                 'error' => $e->getMessage(),
             ]);
+
+            $collectFailureAlert->notify(
+                'bitrix_sync_contacts_failed',
+                '📇',
+                'Sync contacts failed',
+                'AE',
+                'bitrix:sync-contacts',
+                $e,
+            );
 
             $this->error('Bitrix contacts sync failed: '.$e->getMessage());
 

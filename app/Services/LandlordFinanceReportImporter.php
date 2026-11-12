@@ -81,10 +81,8 @@ class LandlordFinanceReportImporter
                 $logger->error('Landlord finance index import failed', $error);
             }
 
-            $delayMs = max(0, (int) config('services.landlord_finance.request_delay_ms', 200));
-            if ($delayMs > 0) {
-                usleep($delayMs * 1000);
-            }
+            $delayMs = max(800, (int) config('services.landlord_finance.request_delay_ms', 200));
+            usleep($delayMs * 1000);
         }
 
         $summary = [
@@ -113,22 +111,32 @@ class LandlordFinanceReportImporter
      */
     public function collectLinks(string $indexSpreadsheetId, array $months): array
     {
-        $token = $this->sheetsAccessToken();
+        $token = $this->sheetsApi->accessTokenValue();
         $links = [];
 
         foreach ($months as $month) {
-            $meta = Http::withToken($token)
-                ->acceptJson()
-                ->timeout((int) config('services.landlord_finance.timeout', 60))
-                ->get('https://sheets.googleapis.com/v4/spreadsheets/'.$indexSpreadsheetId, [
-                    'ranges' => ["'{$month}'!A1:B"],
-                    'includeGridData' => 'true',
-                    'fields' => 'sheets.data.rowData.values(formattedValue,hyperlink,userEnteredValue)',
-                ]);
+            $query = http_build_query([
+                'includeGridData' => 'true',
+                'fields' => 'sheets.data.rowData.values(formattedValue,hyperlink,userEnteredValue)',
+            ]);
+            $query .= '&ranges='.rawurlencode("'{$month}'!A1:B");
 
-            if ($meta->failed()) {
+            $meta = null;
+            for ($attempt = 1; $attempt <= 5; $attempt++) {
+                $meta = Http::withToken($token)
+                    ->acceptJson()
+                    ->timeout((int) config('services.landlord_finance.timeout', 60))
+                    ->get('https://sheets.googleapis.com/v4/spreadsheets/'.$indexSpreadsheetId.'?'.$query);
+
+                if ($meta->status() !== 429) {
+                    break;
+                }
+                usleep((int) (min(30, 2 ** $attempt) * 1_000_000));
+            }
+
+            if ($meta === null || $meta->failed()) {
                 throw new RuntimeException(
-                    'Index sheet '.$month.' failed ('.$meta->status().'): '.$meta->body()
+                    'Index sheet '.$month.' failed ('.($meta?->status() ?? 0).'): '.($meta?->body() ?? '')
                 );
             }
 
@@ -200,7 +208,7 @@ class LandlordFinanceReportImporter
     private function importOne(array $link, int $year, bool $dryRun): array
     {
         $spreadsheetId = $link['spreadsheet_id'];
-        $meta = $this->spreadsheetMeta($spreadsheetId);
+        $meta = $this->sheetsApi->spreadsheetMeta($spreadsheetId);
         $bookTitle = (string) ($meta['title'] ?? '');
         $sheets = $meta['sheets'];
 
@@ -228,37 +236,58 @@ class LandlordFinanceReportImporter
             throw new RuntimeException('Target worksheet not found.');
         }
 
+        if (preg_match('/^\d{4}\s+.+/', $targetTitle) === 1) {
+            $layout = 'unit_tabs';
+        } elseif (preg_match('/^\d{4}$/', $targetTitle) === 1) {
+            $layout = 'year_tabs';
+        } else {
+            $layout = 'apt_tabs';
+        }
+        $sheetName = $targetTitle;
+
+        $existing = LandlordFinanceSheet::query()
+            ->where('spreadsheet_id', $spreadsheetId)
+            ->where('sheet_name', $sheetName)
+            ->whereNotNull('last_synced_at')
+            ->whereNull('last_error')
+            ->orderByDesc('id')
+            ->first();
+        if ($existing !== null && ! $dryRun) {
+            return [
+                'registry_id' => (int) $existing->id,
+                'processed' => null,
+                'skipped' => null,
+            ];
+        }
+
         $quoted = "'".str_replace("'", "''", $targetTitle)."'";
         $header = $this->sheetsApi->values($spreadsheetId, $quoted.'!A1:E4');
         $aptName = trim((string) ($header[0][2] ?? $header[0][1] ?? ''));
         $ownerName = trim((string) ($header[1][2] ?? $header[1][1] ?? ''));
 
-        $layout = preg_match('/^\d{4}\s+.+/', $targetTitle) === 1 ? 'unit_tabs' : 'year_tabs';
-        $sheetName = $layout === 'unit_tabs' ? $targetTitle : '';
-
         $landlordId = '';
-        $unitId = '';
+        $apartId = '';
         $ownershipId = null;
 
         if ($layout === 'unit_tabs') {
-            $unitIdCell = (string) config('services.landlord_finance.unit_id_cell', 'E2');
+            $apartIdCell = (string) config('services.landlord_finance.apart_id_cell', 'E2');
             $landlordIdCell = (string) config('services.landlord_finance.landlord_id_cell', 'E3');
-            $unitRows = $this->sheetsApi->values($spreadsheetId, $quoted.'!'.$unitIdCell);
+            $apartRows = $this->sheetsApi->values($spreadsheetId, $quoted.'!'.$apartIdCell);
             $landlordRows = $this->sheetsApi->values($spreadsheetId, $quoted.'!'.$landlordIdCell);
-            $unitId = trim((string) ($unitRows[0][0] ?? ''));
+            $apartId = trim((string) ($apartRows[0][0] ?? ''));
             $landlordId = trim((string) ($landlordRows[0][0] ?? ''));
         }
 
-        if ($unitId === '' || $landlordId === '') {
+        if ($apartId === '' || $landlordId === '') {
             $aptNo = $this->parseAptNumber($link['name'].' '.$bookTitle.' '.$aptName);
             $unit = $this->findAlmaUnit($aptNo, $aptName, $bookTitle, $link['name']);
-            $unitId = (string) $unit['ext'];
+            $apartId = (string) $unit['ext'];
 
-            $ownership = $this->bitrixOwnershipForUnit($unitId);
+            $ownership = $this->bitrixOwnershipForUnit($apartId);
             $landlordId = trim((string) ($ownership['contactId'] ?? ''));
             $ownershipId = ((int) ($ownership['id'] ?? 0)) ?: null;
             if ($landlordId === '') {
-                throw new RuntimeException('Bitrix SPA 148 contactId empty for apartment '.$unitId.'.');
+                throw new RuntimeException('Bitrix SPA 148 contactId empty for apartment '.$apartId.'.');
             }
         }
 
@@ -271,9 +300,9 @@ class LandlordFinanceReportImporter
             );
         }
 
-        $unitCheck = $this->almaApi->unitByExternalId($unitId);
+        $unitCheck = $this->almaApi->unitByExternalId($apartId);
         if ($unitCheck === null || empty($unitCheck['id'])) {
-            throw new RuntimeException('Alma unit missing for external_id '.$unitId.'.');
+            throw new RuntimeException('Alma unit missing for external_id '.$apartId.'.');
         }
 
         $entry = LandlordFinanceSheet::query()->updateOrCreate(
@@ -285,7 +314,7 @@ class LandlordFinanceReportImporter
                 'title' => $aptName !== '' ? $aptName : ($link['name'] !== '' ? $link['name'] : $bookTitle),
                 'layout' => $layout,
                 'landlord_id' => $landlordId,
-                'unit_id' => $unitId,
+                'apart_id' => $apartId,
                 'bitrix_ownership_id' => $ownershipId,
                 'is_active' => true,
                 'last_error' => null,
@@ -296,7 +325,7 @@ class LandlordFinanceReportImporter
             return ['registry_id' => (int) $entry->id];
         }
 
-        CollectLandlordFinance::dispatchSync((int) $entry->id, [$year], false);
+        CollectLandlordFinance::dispatchSync((int) $entry->id, [$year], false, false);
 
         $entry->refresh();
         if ($entry->last_error) {
@@ -307,39 +336,6 @@ class LandlordFinanceReportImporter
             'registry_id' => (int) $entry->id,
             'processed' => null,
             'skipped' => null,
-        ];
-    }
-
-    /**
-     * @return array{title: string, sheets: list<array{id: int|string, title: string}>}
-     */
-    private function spreadsheetMeta(string $spreadsheetId): array
-    {
-        $token = $this->sheetsAccessToken();
-        $response = Http::withToken($token)
-            ->acceptJson()
-            ->timeout((int) config('services.landlord_finance.timeout', 60))
-            ->get('https://sheets.googleapis.com/v4/spreadsheets/'.$spreadsheetId, [
-                'fields' => 'properties.title,sheets.properties(sheetId,title)',
-            ]);
-
-        if ($response->failed()) {
-            throw new RuntimeException(
-                'Spreadsheet meta failed ('.$response->status().'): '.$response->body()
-            );
-        }
-
-        $sheets = [];
-        foreach ($response->json('sheets') ?? [] as $sheet) {
-            $sheets[] = [
-                'id' => $sheet['properties']['sheetId'] ?? '',
-                'title' => (string) ($sheet['properties']['title'] ?? ''),
-            ];
-        }
-
-        return [
-            'title' => (string) ($response->json('properties.title') ?? ''),
-            'sheets' => $sheets,
         ];
     }
 
@@ -502,12 +498,4 @@ class LandlordFinanceReportImporter
         return $units;
     }
 
-    private function sheetsAccessToken(): string
-    {
-        $ref = new \ReflectionClass($this->sheetsApi);
-        $method = $ref->getMethod('accessToken');
-        $method->setAccessible(true);
-
-        return (string) $method->invoke($this->sheetsApi);
-    }
 }

@@ -4,11 +4,13 @@ namespace App\Providers;
 
 use App\Listeners\NotifyTelegramOnJobFailed;
 use App\Listeners\NotifyTelegramOnLongWait;
+use App\Listeners\NotifyTelegramOnScheduledTaskFailed;
 use App\Models\Contact;
 use App\Models\User;
 use App\Observers\ContactObserver;
 use App\Support\BitrixSync;
 use Illuminate\Cache\RateLimiting\Limit;
+use Illuminate\Console\Events\ScheduledTaskFailed;
 use Illuminate\Http\Request;
 use Illuminate\Queue\Events\JobFailed;
 use Illuminate\Support\Facades\Event;
@@ -36,6 +38,7 @@ class AppServiceProvider extends ServiceProvider
 
         Event::listen(JobFailed::class, NotifyTelegramOnJobFailed::class);
         Event::listen(LongWaitDetected::class, NotifyTelegramOnLongWait::class);
+        Event::listen(ScheduledTaskFailed::class, NotifyTelegramOnScheduledTaskFailed::class);
 
         RateLimiter::for('bitrix-install', function (Request $request) {
             return Limit::perMinute(120)->by($request->ip());

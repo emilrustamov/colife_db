@@ -105,6 +105,7 @@ class OwnershipProfile extends SpaProfile
         return [
             'stageIdMap' => $this->loadStageIdMap(),
             'apartmentIdByBitrixId' => DB::table('apartments')
+                ->where('portal_id', $this->portalId())
                 ->pluck('id', 'bitrix_id')
                 ->mapWithKeys(static fn ($id, $bitrixId): array => [(int) $bitrixId => (string) $id])
                 ->all(),
@@ -145,6 +146,7 @@ class OwnershipProfile extends SpaProfile
 
         return [
             'id' => $existingId ?? (string) Str::uuid(),
+            'portal_id' => $this->portalId(),
             'bitrix_id' => $bitrixId,
             'title' => BitrixValue::str($item['title'] ?? null),
             'stage_id' => $stageCode !== '' ? ($stageIdMap[$stageCode] ?? null) : null,

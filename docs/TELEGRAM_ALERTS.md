@@ -9,6 +9,8 @@
 - Паузы: `BP_WAIT_REJECTED` на `/api/bp/wait` (403 / auth)
 - Паузы: `PauseJob` окончательно упал после retries
 - Collect упал (раз в сутки на ключ): ChatApp AE/HK, Twilio, VDSina, Wazzup, Wikibot, `payments:collect`, Alma
+- Bitrix sync упал: `bitrix:sync-contacts`, SPA (`ownerships` / `unit-stays` / …)
+- Schedule: любая scheduled-команда с non-zero exit (`ScheduledTaskFailed`)
 
 **По расписанию `telegram:health` (каждые 15 мин):**
 
@@ -16,9 +18,12 @@
 - Disk sync: `ERROR` / `failed > 0` в логах `bitrix_disk` за последние N часов
 - Паузы: overdue/stuck jobs в очереди `bp-pauses`
 - Паузы: свежие `failed_jobs` по `bp-pauses`
+- Storage: каталоги `storage/logs` / `storage/framework*` без `+x` или не writable (тихо чинит `0775`; в TG только если не удалось)
 - Supervisor: `horizon` не `RUNNING`
 - Job finally failed / Horizon long wait (мгновенно, с dedupe)
 - HTTP: `APP_URL/up` не отвечает 2xx (nginx/php недоступны снаружи)
+
+> Важно: если `/api/bp/wait` падает 500 **до** постановки в очередь (как при битых правах на логи), `PauseQueueHealth` молчит — очередь пустая. За это отвечает `StorageHealth`.
 
 В тексте: эмодзи, код портала (AE / HK / TR) и ссылка `https://…`.  
 Dedupe: schedule — раз в сутки; мгновенные паузы — раз в час на портал (`TELEGRAM_INSTANT_DEDUPE_TTL`).
@@ -75,8 +80,10 @@ Schedule telegram:health (каждые 15 мин)
 | `app/Services/BitrixOAuthHealth.php` | проверка токенов |
 | `app/Services/DiskSyncHealth.php` | проверка disk логов |
 | `app/Services/PauseQueueHealth.php` | overdue/stuck + failed_jobs пауз |
+| `app/Services/StorageHealth.php` | права `storage/logs` / framework (тихая починка; TG только если fail) |
 | `app/Services/SupervisorHealth.php` | статус queue-воркеров |
 | `app/Services/AppHttpHealth.php` | `APP_URL/up` |
+| `app/Listeners/NotifyTelegramOnScheduledTaskFailed.php` | schedule non-zero exit → TG |
 | `app/Console/Commands/TelegramHealthCmd.php` | `telegram:health` |
 | `app/Console/Commands/TelegramSetupCmd.php` | `telegram:setup` |
 | `routes/console.php` | schedule |

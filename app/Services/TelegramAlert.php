@@ -36,7 +36,11 @@ class TelegramAlert
         }
 
         Cache::put($cacheKey, true, $ttl);
-        Log::info('TELEGRAM_ALERT_SENT', ['dedupe_key' => $dedupeKey]);
+
+        try {
+            Log::info('TELEGRAM_ALERT_SENT', ['dedupe_key' => $dedupeKey]);
+        } catch (\Throwable) {
+        }
 
         return true;
     }

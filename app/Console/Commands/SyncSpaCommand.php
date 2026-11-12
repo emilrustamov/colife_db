@@ -10,6 +10,7 @@ use App\Models\UnitStay;
 use App\Services\BitrixListSync;
 use App\Services\BitrixRest;
 use App\Services\BitrixStages;
+use App\Services\CollectFailureAlert;
 use App\Services\Profiles\ApartmentProfile;
 use App\Services\Profiles\OwnershipProfile;
 use App\Services\Profiles\UnitProfile;
@@ -33,7 +34,8 @@ class SyncSpaCommand extends Command
         BitrixListSync $listSync,
         BitrixRest $bitrixRestClient,
         BitrixStages $stages,
-        BitrixSync $syncContext
+        BitrixSync $syncContext,
+        CollectFailureAlert $collectFailureAlert,
     ): int {
         $entity = strtolower(trim((string) $this->argument('entity')));
         $config = $this->entityConfig($entity);
@@ -99,6 +101,14 @@ class SyncSpaCommand extends Command
 
             return self::SUCCESS;
         } catch (Throwable $e) {
+            $collectFailureAlert->notify(
+                'bitrix_sync_spa_failed:'.$config['entity_key'],
+                '📇',
+                'Sync '.$config['entity_key'].' failed',
+                'AE',
+                'bitrix:sync-spa '.$entity,
+                $e,
+            );
             $this->error($config['label'].' sync failed: '.$e->getMessage());
 
             return self::FAILURE;
@@ -170,7 +180,7 @@ class SyncSpaCommand extends Command
                     'ufCrm10_1708956056', 'ufCrm10_1708955996', 'ufCrm10_1714652654',
                     'ufCrm10_1714652687', 'ufCrm10TerminationDate', 'ufCrm10_1727422412',
                 ],
-                'portal_id' => null,
+                'portal_id' => Portal::idByCode('ae'),
                 'force_upsert' => false,
             ],
             'unit-stays', 'stays' => [
@@ -189,7 +199,7 @@ class SyncSpaCommand extends Command
                     'ufCrm20RentalPrice', 'ufCrm20Deposit', 'ufCrm20TotalContractAmount',
                     'ufCrm20_1696523391', 'ufCrm20ContractStartDate', 'ufCrm20ContractEndDate',
                 ],
-                'portal_id' => null,
+                'portal_id' => Portal::idByCode('ae'),
                 'force_upsert' => false,
             ],
             default => null,

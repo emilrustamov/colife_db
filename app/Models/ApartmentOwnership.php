@@ -21,6 +21,7 @@ class ApartmentOwnership extends Model
      */
     protected $fillable = [
         'id',
+        'portal_id',
         'bitrix_id',
         'title',
         'stage_id',

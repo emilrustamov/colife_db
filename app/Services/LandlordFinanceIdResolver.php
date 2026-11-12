@@ -12,35 +12,35 @@ class LandlordFinanceIdResolver
     ) {}
 
     /**
-     * Resolve finance landlord_id/unit_id from Alma unit external_id via active owner contract.
+     * Resolve finance landlord_id/apart_id from Alma unit external_id via active owner contract.
      *
-     * Finance API expects external ids: client.external_id + unit.external_id.
+     * Finance API expects external ids: client.external_id + unit.external_id (apart_id).
      *
-     * @return array{landlord_id: string, unit_id: string, alma_client_id: int, alma_unit_id: int}
+     * @return array{landlord_id: string, apart_id: string, alma_client_id: int, alma_unit_id: int}
      */
-    public function fromUnitExternalId(string $unitExternalId): array
+    public function fromApartExternalId(string $apartExternalId): array
     {
-        $unitExternalId = trim($unitExternalId);
-        if ($unitExternalId === '') {
-            throw new RuntimeException('Alma unit external_id is empty.');
+        $apartExternalId = trim($apartExternalId);
+        if ($apartExternalId === '') {
+            throw new RuntimeException('Alma apart external_id is empty.');
         }
 
-        $unit = $this->almaApi->unitByExternalId($unitExternalId);
+        $unit = $this->almaApi->unitByExternalId($apartExternalId);
         if ($unit === null || empty($unit['id'])) {
-            throw new RuntimeException('Alma unit not found for external_id '.$unitExternalId.'.');
+            throw new RuntimeException('Alma unit not found for external_id '.$apartExternalId.'.');
         }
 
         $almaUnitId = (int) $unit['id'];
         $owner = $this->findOwnerForUnit($almaUnitId);
         if ($owner === null) {
             throw new RuntimeException(
-                'No active Alma owner contract for unit '.$unitExternalId.' (alma_unit_id='.$almaUnitId.').'
+                'No active Alma owner contract for apart '.$apartExternalId.' (alma_unit_id='.$almaUnitId.').'
             );
         }
 
         return [
             'landlord_id' => (string) $owner['client_external_id'],
-            'unit_id' => (string) ($unit['external_id'] ?? $unitExternalId),
+            'apart_id' => (string) ($unit['external_id'] ?? $apartExternalId),
             'alma_client_id' => (int) $owner['client_id'],
             'alma_unit_id' => $almaUnitId,
         ];
@@ -49,14 +49,14 @@ class LandlordFinanceIdResolver
     /**
      * Validate pair of finance ids against Alma (both must exist as external_ids).
      *
-     * @return array{landlord_id: string, unit_id: string, alma_client_id: int, alma_unit_id: int}
+     * @return array{landlord_id: string, apart_id: string, alma_client_id: int, alma_unit_id: int}
      */
-    public function fromExternalPair(string $landlordExternalId, string $unitExternalId): array
+    public function fromExternalPair(string $landlordExternalId, string $apartExternalId): array
     {
         $landlordExternalId = trim($landlordExternalId);
-        $unitExternalId = trim($unitExternalId);
-        if ($landlordExternalId === '' || $unitExternalId === '') {
-            throw new RuntimeException('Alma landlord/unit external_id is empty.');
+        $apartExternalId = trim($apartExternalId);
+        if ($landlordExternalId === '' || $apartExternalId === '') {
+            throw new RuntimeException('Alma landlord/apart external_id is empty.');
         }
 
         $client = $this->almaApi->clientByExternalId($landlordExternalId);
@@ -64,14 +64,14 @@ class LandlordFinanceIdResolver
             throw new RuntimeException('Alma client not found for external_id '.$landlordExternalId.'.');
         }
 
-        $unit = $this->almaApi->unitByExternalId($unitExternalId);
+        $unit = $this->almaApi->unitByExternalId($apartExternalId);
         if ($unit === null || empty($unit['id'])) {
-            throw new RuntimeException('Alma unit not found for external_id '.$unitExternalId.'.');
+            throw new RuntimeException('Alma unit not found for external_id '.$apartExternalId.'.');
         }
 
         return [
             'landlord_id' => (string) ($client['external_id'] ?? $landlordExternalId),
-            'unit_id' => (string) ($unit['external_id'] ?? $unitExternalId),
+            'apart_id' => (string) ($unit['external_id'] ?? $apartExternalId),
             'alma_client_id' => (int) $client['id'],
             'alma_unit_id' => (int) $unit['id'],
         ];

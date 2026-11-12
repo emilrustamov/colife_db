@@ -7,6 +7,7 @@ use App\Services\BitrixOAuth;
 use App\Services\BitrixOAuthHealth;
 use App\Services\DiskSyncHealth;
 use App\Services\PauseQueueHealth;
+use App\Services\StorageHealth;
 use App\Services\SupervisorHealth;
 use App\Services\TelegramAlertText;
 use App\Services\TelegramBot;
@@ -16,7 +17,7 @@ class TelegramHealthCmd extends Command
 {
     protected $signature = 'telegram:health {--demo : Send sample alert texts for every check type}';
 
-    protected $description = 'Check OAuth, disk, pauses queue, supervisor, /up; alert Telegram on critical issues';
+    protected $description = 'Check OAuth, disk, pauses queue, storage rights, supervisor, /up; alert Telegram on critical issues';
 
     /**
      * Run health checks and send Telegram alerts when needed.
@@ -25,6 +26,7 @@ class TelegramHealthCmd extends Command
         BitrixOAuthHealth $oauthHealth,
         DiskSyncHealth $diskHealth,
         PauseQueueHealth $pauseHealth,
+        StorageHealth $storageHealth,
         SupervisorHealth $supervisorHealth,
         AppHttpHealth $httpHealth,
         TelegramBot $bot,
@@ -39,6 +41,7 @@ class TelegramHealthCmd extends Command
             $oauthHealth->check(),
             $diskHealth->check(),
             $pauseHealth->check(),
+            $storageHealth->check(),
             $supervisorHealth->check(),
             $httpHealth->check(),
         );
@@ -81,6 +84,8 @@ class TelegramHealthCmd extends Command
             $text->message('❌', 'Паузы отвалились', $hk, 'Проверь OAuth и failed_jobs — BP могут зависнуть.'),
             $text->message('⏸️', 'Паузы: wait отклонён', $hk, 'Bitrix шлёт wait, сервер отвечает 403 — BP зависают на паузе.'),
             $text->message('❌', 'Паузы: job упал', $hk, 'Bitrix OAuth refresh failed.'),
+            $text->message('📂', 'Storage rights broken', null, 'logs (0664, writable=no)'),
+            $text->message('⏰', 'Schedule failed', null, "bitrix:sync-contacts\nHTTP 429 OPERATION_TIME_LIMIT"),
             $text->message('⚙️', 'Воркеры очереди отвалились', null, 'Паузы и фоновые job не обрабатываются.'),
             $text->message('🌐', 'API отвалился', null, 'Bitrix не достучится до пауз и вебхуков.'),
         ];

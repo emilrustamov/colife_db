@@ -25,6 +25,7 @@ class CollectLandlordFinance
         private readonly ?int $registryId = null,
         private readonly ?array $years = null,
         private readonly bool $dryRun = false,
+        private readonly bool $notifyOnFailure = true,
     ) {}
 
     /**
@@ -116,7 +117,7 @@ class CollectLandlordFinance
                         'spreadsheet_id' => $entry->spreadsheet_id,
                         'sheet_name' => $entry->sheet_name,
                         'landlord_id' => $entry->landlord_id,
-                        'unit_id' => $entry->unit_id,
+                        'apart_id' => $entry->apart_id,
                         'bitrix_ownership_id' => $entry->bitrix_ownership_id,
                         'error' => $e->getMessage(),
                     ]);
@@ -143,14 +144,16 @@ class CollectLandlordFinance
             $logger->error('Landlord finance collect failed', [
                 'error' => $e->getMessage(),
             ]);
-            $collectFailureAlert->notify(
-                'landlord_finance_collect_failed',
-                '📊',
-                'Landlord finance collect упал',
-                'AE',
-                'проверь Google SA / реестр / Bitrix 148 / Alma',
-                $e,
-            );
+            if ($this->notifyOnFailure) {
+                $collectFailureAlert->notify(
+                    'landlord_finance_collect_failed',
+                    '📊',
+                    'Landlord finance collect упал',
+                    'AE',
+                    'проверь Google SA / реестр / Bitrix 148 / Alma',
+                    $e,
+                );
+            }
 
             throw $e;
         }
@@ -212,7 +215,7 @@ class CollectLandlordFinance
                 'spreadsheet_id' => $child->spreadsheet_id,
                 'sheet_name' => $child->sheet_name,
                 'landlord_id' => $child->landlord_id,
-                'unit_id' => $child->unit_id,
+                'apart_id' => $child->apart_id,
                 'bitrix_ownership_id' => $child->bitrix_ownership_id,
                 'persisted' => ! $this->dryRun,
             ]);
@@ -220,7 +223,7 @@ class CollectLandlordFinance
             $targets[] = $child;
         }
 
-        if (! $this->dryRun && $entry->landlord_id === null && $entry->unit_id === null) {
+        if (! $this->dryRun && $entry->landlord_id === null && $entry->apart_id === null) {
             $entry->forceFill([
                 'layout' => 'unit_tabs',
                 'last_synced_at' => now(),
@@ -254,14 +257,14 @@ class CollectLandlordFinance
         }
 
         $landlordId = trim((string) ($entry->landlord_id ?? ''));
-        $unitId = trim((string) ($entry->unit_id ?? ''));
-        if ($landlordId === '' || $unitId === '') {
+        $apartId = trim((string) ($entry->apart_id ?? ''));
+        if ($landlordId === '' || $apartId === '') {
             throw new RuntimeException(
-                'Registry #'.($entry->id ?: 'new').' needs Alma landlord_id/unit_id (external_id from Alma or one-time sheet cells).'
+                'Registry #'.($entry->id ?: 'new').' needs Alma landlord_id/apart_id (external_id from Alma or one-time sheet cells).'
             );
         }
 
-        $targets = $this->resolveTabs($entry, $titles);
+        $targets = $this->resolveTabs($entry, $titles, $sheetsApi);
         if ($targets === []) {
             $logger->info('No finance tabs to sync', [
                 'id' => $entry->id,
@@ -280,7 +283,7 @@ class CollectLandlordFinance
             $year = $target['year'];
             $range = $this->quoteSheet($sheetName).'!B'.$startRow.':M'.$endRow;
             $rows = $sheetsApi->values($entry->spreadsheet_id, $range);
-            $payload = $parser->buildPayload($landlordId, $unitId, $year, $rows);
+            $payload = $parser->buildPayload($landlordId, $apartId, $year, $rows);
 
             if ($payload === []) {
                 $logger->info('No finance data for tab', [
@@ -297,7 +300,7 @@ class CollectLandlordFinance
                 'spreadsheet_id' => $entry->spreadsheet_id,
                 'sheet' => $sheetName,
                 'landlord_id' => $landlordId,
-                'unit_id' => $unitId,
+                'apart_id' => $apartId,
                 'bitrix_ownership_id' => $entry->bitrix_ownership_id,
                 'year' => $year,
                 'items' => count($payload),
@@ -339,16 +342,16 @@ class CollectLandlordFinance
         bool $allowCellBootstrap,
     ): void {
         $landlordId = trim((string) ($entry->landlord_id ?? ''));
-        $unitId = trim((string) ($entry->unit_id ?? ''));
+        $apartId = trim((string) ($entry->apart_id ?? ''));
 
-        if ($landlordId !== '' && $unitId !== '') {
+        if ($landlordId !== '' && $apartId !== '') {
             return;
         }
 
-        if ($unitId !== '') {
-            $resolved = $idResolver->fromUnitExternalId($unitId);
+        if ($apartId !== '') {
+            $resolved = $idResolver->fromApartExternalId($apartId);
             $entry->landlord_id = $resolved['landlord_id'];
-            $entry->unit_id = $resolved['unit_id'];
+            $entry->apart_id = $resolved['apart_id'];
 
             return;
         }
@@ -357,27 +360,27 @@ class CollectLandlordFinance
             return;
         }
 
-        $unitIdCell = (string) config('services.landlord_finance.unit_id_cell', 'E2');
+        $apartIdCell = (string) config('services.landlord_finance.apart_id_cell', 'E2');
         $landlordIdCell = (string) config('services.landlord_finance.landlord_id_cell', 'E3');
         $quoted = $this->quoteSheet($sheetNameForCells);
-        $unitRows = $sheetsApi->values($entry->spreadsheet_id, $quoted.'!'.$unitIdCell);
+        $apartRows = $sheetsApi->values($entry->spreadsheet_id, $quoted.'!'.$apartIdCell);
         $landlordRows = $sheetsApi->values($entry->spreadsheet_id, $quoted.'!'.$landlordIdCell);
 
-        $bootUnit = trim((string) ($unitRows[0][0] ?? ''));
+        $bootApart = trim((string) ($apartRows[0][0] ?? ''));
         $bootLandlord = trim((string) ($landlordRows[0][0] ?? ''));
 
-        if ($bootUnit !== '' && $bootLandlord !== '') {
-            $resolved = $idResolver->fromExternalPair($bootLandlord, $bootUnit);
+        if ($bootApart !== '' && $bootLandlord !== '') {
+            $resolved = $idResolver->fromExternalPair($bootLandlord, $bootApart);
             $entry->landlord_id = $resolved['landlord_id'];
-            $entry->unit_id = $resolved['unit_id'];
+            $entry->apart_id = $resolved['apart_id'];
 
             return;
         }
 
-        if ($bootUnit !== '') {
-            $resolved = $idResolver->fromUnitExternalId($bootUnit);
+        if ($bootApart !== '') {
+            $resolved = $idResolver->fromApartExternalId($bootApart);
             $entry->landlord_id = $resolved['landlord_id'];
-            $entry->unit_id = $resolved['unit_id'];
+            $entry->apart_id = $resolved['apart_id'];
         }
     }
 
@@ -385,7 +388,7 @@ class CollectLandlordFinance
      * @param  list<string>  $titles
      * @return list<array{sheet: string, year: int}>
      */
-    private function resolveTabs(LandlordFinanceSheet $entry, array $titles): array
+    private function resolveTabs(LandlordFinanceSheet $entry, array $titles, GoogleSheetsApi $sheetsApi): array
     {
         $sheetName = trim((string) ($entry->sheet_name ?? ''));
         $yearFilter = $this->resolveYearFilter();
@@ -394,10 +397,15 @@ class CollectLandlordFinance
             if (! in_array($sheetName, $titles, true)) {
                 throw new RuntimeException('Sheet "'.$sheetName.'" not found in spreadsheet.');
             }
-            if (preg_match('/^(\d{4})(?:\s+|$)/', $sheetName, $m) !== 1) {
-                throw new RuntimeException('Sheet "'.$sheetName.'" must start with year YYYY.');
+            $year = null;
+            if (preg_match('/^(\d{4})(?:\s+|$)/', $sheetName, $m) === 1) {
+                $year = (int) $m[1];
+            } else {
+                $year = $this->yearFromSheetBody($sheetsApi, $entry->spreadsheet_id, $sheetName);
             }
-            $year = (int) $m[1];
+            if ($year === null) {
+                throw new RuntimeException('Sheet "'.$sheetName.'" has no year in title or body.');
+            }
             if ($yearFilter !== null && ! in_array($year, $yearFilter, true)) {
                 return [];
             }
@@ -426,6 +434,33 @@ class CollectLandlordFinance
         }
 
         return $targets;
+    }
+
+    /**
+     * Read finance year marker from sheet body (e.g. A6 = 2026).
+     */
+    private function yearFromSheetBody(GoogleSheetsApi $sheetsApi, string $spreadsheetId, string $sheetName): ?int
+    {
+        $rows = $sheetsApi->values($spreadsheetId, $this->quoteSheet($sheetName).'!A1:A30');
+        foreach ($rows as $row) {
+            $raw = $row[0] ?? null;
+            if (is_numeric($raw)) {
+                $year = (int) $raw;
+                if ($year >= 2000 && $year <= 2100) {
+                    return $year;
+                }
+            }
+            if (is_string($raw) && preg_match('/^\s*(\d{4})\s*$/', $raw, $m) === 1) {
+                return (int) $m[1];
+            }
+        }
+
+        $yearFilter = $this->resolveYearFilter();
+        if ($yearFilter !== null && count($yearFilter) === 1) {
+            return $yearFilter[0];
+        }
+
+        return null;
     }
 
     /**
@@ -464,9 +499,9 @@ class CollectLandlordFinance
             return array_values(array_unique(array_map('intval', $this->years)));
         }
 
-        $configured = trim((string) config('services.landlord_finance.years', ''));
+        $configured = trim((string) config('services.landlord_finance.years', '2026'));
         if ($configured === '') {
-            return null;
+            return [2026];
         }
 
         $years = [];
@@ -477,6 +512,6 @@ class CollectLandlordFinance
             }
         }
 
-        return array_values(array_unique($years));
+        return $years === [] ? [2026] : array_values(array_unique($years));
     }
 }

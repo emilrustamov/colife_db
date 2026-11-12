@@ -131,8 +131,8 @@ return [
         'api_key' => env('LANDLORD_FINANCE_API_KEY', env('ALMA_API_KEY')),
         'timeout' => (int) env('LANDLORD_FINANCE_TIMEOUT', 60),
         'request_delay_ms' => (int) env('LANDLORD_FINANCE_REQUEST_DELAY_MS', 200),
-        'years' => env('LANDLORD_FINANCE_YEARS', ''),
-        'unit_id_cell' => env('LANDLORD_FINANCE_UNIT_ID_CELL', 'E2'),
+        'years' => env('LANDLORD_FINANCE_YEARS', '2026'),
+        'apart_id_cell' => env('LANDLORD_FINANCE_APART_ID_CELL', env('LANDLORD_FINANCE_UNIT_ID_CELL', 'E2')),
         'landlord_id_cell' => env('LANDLORD_FINANCE_LANDLORD_ID_CELL', 'E3'),
         'bitrix_ownership_entity_type_id' => (int) env('LANDLORD_FINANCE_BITRIX_OWNERSHIP_TYPE', 148),
         'rows' => [

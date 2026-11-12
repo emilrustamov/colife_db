@@ -14,7 +14,7 @@ class GoogleSheetsApi
 
     private const SHEETS_BASE = 'https://sheets.googleapis.com/v4/spreadsheets';
 
-    public const SCOPE = 'https://www.googleapis.com/auth/spreadsheets.readonly';
+    public const SCOPE = 'https://www.googleapis.com/auth/spreadsheets.readonly https://www.googleapis.com/auth/drive.readonly https://www.googleapis.com/auth/script.projects.readonly';
 
     /**
      * List worksheet titles for a spreadsheet.
@@ -23,28 +23,47 @@ class GoogleSheetsApi
      */
     public function sheetTitles(string $spreadsheetId): array
     {
-        $response = Http::withToken($this->accessToken())
-            ->acceptJson()
-            ->timeout((int) config('services.landlord_finance.timeout', 60))
-            ->get(self::SHEETS_BASE.'/'.$spreadsheetId, [
-                'fields' => 'sheets.properties.title',
-            ]);
+        return array_values(array_map(
+            static fn (array $sheet): string => $sheet['title'],
+            $this->spreadsheetMeta($spreadsheetId)['sheets']
+        ));
+    }
 
-        if ($response->failed()) {
-            throw new RuntimeException(
-                'Google Sheets metadata failed ('.$response->status().'): '.$response->body()
-            );
-        }
+    /**
+     * Spreadsheet title and worksheet id/title pairs.
+     *
+     * @return array{title: string, sheets: list<array{id: int|string, title: string}>}
+     */
+    public function spreadsheetMeta(string $spreadsheetId): array
+    {
+        $response = $this->sheetsGet(self::SHEETS_BASE.'/'.$spreadsheetId, [
+            'fields' => 'properties.title,sheets.properties(sheetId,title)',
+        ], 'metadata');
 
-        $titles = [];
+        $sheets = [];
         foreach ($response->json('sheets') ?? [] as $sheet) {
             $title = trim((string) data_get($sheet, 'properties.title', ''));
-            if ($title !== '') {
-                $titles[] = $title;
+            if ($title === '') {
+                continue;
             }
+            $sheets[] = [
+                'id' => $sheet['properties']['sheetId'] ?? '',
+                'title' => $title,
+            ];
         }
 
-        return $titles;
+        return [
+            'title' => trim((string) ($response->json('properties.title') ?? '')),
+            'sheets' => $sheets,
+        ];
+    }
+
+    /**
+     * Current Google access token (OAuth or SA).
+     */
+    public function accessTokenValue(): string
+    {
+        return $this->accessToken();
     }
 
     /**
@@ -55,19 +74,14 @@ class GoogleSheetsApi
     public function values(string $spreadsheetId, string $range): array
     {
         $encodedRange = rawurlencode($range);
-        $response = Http::withToken($this->accessToken())
-            ->acceptJson()
-            ->timeout((int) config('services.landlord_finance.timeout', 60))
-            ->get(self::SHEETS_BASE.'/'.$spreadsheetId.'/values/'.$encodedRange, [
+        $response = $this->sheetsGet(
+            self::SHEETS_BASE.'/'.$spreadsheetId.'/values/'.$encodedRange,
+            [
                 'valueRenderOption' => 'UNFORMATTED_VALUE',
                 'dateTimeRenderOption' => 'FORMATTED_STRING',
-            ]);
-
-        if ($response->failed()) {
-            throw new RuntimeException(
-                'Google Sheets values failed ('.$response->status().'): '.$response->body()
-            );
-        }
+            ],
+            'values'
+        );
 
         $values = $response->json('values');
         if (! is_array($values)) {
@@ -78,6 +92,299 @@ class GoogleSheetsApi
             static fn ($row) => is_array($row) ? array_values($row) : [],
             $values
         ));
+    }
+
+    /**
+     * Drive file metadata for external/org checks.
+     *
+     * @return array{
+     *     id: string,
+     *     name: string,
+     *     can_edit: bool|null,
+     *     owned_by_me: bool|null,
+     *     owners: list<string>,
+     *     drive_id: string|null
+     * }
+     */
+    public function driveFileMeta(string $fileId): array
+    {
+        $response = $this->googleGet(
+            'https://www.googleapis.com/drive/v3/files/'.$fileId,
+            [
+                'fields' => 'id,name,ownedByMe,owners(emailAddress),capabilities(canEdit),driveId',
+                'supportsAllDrives' => 'true',
+            ],
+            'Drive file meta'
+        );
+
+        $owners = [];
+        foreach ($response->json('owners') ?? [] as $owner) {
+            $email = trim((string) ($owner['emailAddress'] ?? ''));
+            if ($email !== '') {
+                $owners[] = $email;
+            }
+        }
+
+        $canEdit = $response->json('capabilities.canEdit');
+
+        return [
+            'id' => (string) ($response->json('id') ?? $fileId),
+            'name' => trim((string) ($response->json('name') ?? '')),
+            'can_edit' => is_bool($canEdit) ? $canEdit : null,
+            'owned_by_me' => is_bool($response->json('ownedByMe')) ? (bool) $response->json('ownedByMe') : null,
+            'owners' => $owners,
+            'drive_id' => ($response->json('driveId') !== null && $response->json('driveId') !== '')
+                ? (string) $response->json('driveId')
+                : null,
+        ];
+    }
+
+    /**
+     * Bound Apps Script project id for a spreadsheet, if present.
+     */
+    public function boundScriptId(string $spreadsheetId): ?string
+    {
+        $response = $this->googleGet(
+            'https://www.googleapis.com/drive/v3/files',
+            [
+                'q' => "mimeType='application/vnd.google-apps.script' and '{$spreadsheetId}' in parents",
+                'fields' => 'files(id,name)',
+                'supportsAllDrives' => 'true',
+                'includeItemsFromAllDrives' => 'true',
+                'pageSize' => 10,
+            ],
+            'Drive bound scripts'
+        );
+
+        $files = $response->json('files');
+        if (! is_array($files) || $files === []) {
+            return null;
+        }
+
+        $id = trim((string) ($files[0]['id'] ?? ''));
+
+        return $id !== '' ? $id : null;
+    }
+
+    /**
+     * Apps Script project source files.
+     *
+     * @return list<array{name: string, source: string}>
+     */
+    public function scriptProjectFiles(string $scriptId): array
+    {
+        $response = $this->googleGet(
+            'https://script.googleapis.com/v1/projects/'.$scriptId.'/content',
+            [],
+            'Apps Script content'
+        );
+
+        $files = [];
+        foreach ($response->json('files') ?? [] as $file) {
+            if (! is_array($file)) {
+                continue;
+            }
+            $files[] = [
+                'name' => trim((string) ($file['name'] ?? '')),
+                'source' => (string) ($file['source'] ?? ''),
+            ];
+        }
+
+        return $files;
+    }
+
+    /**
+     * Parse landlord/apart ids from Apps Script source text.
+     *
+     * @param  list<array{name: string, source: string}>  $files
+     * @return array{landlord_id: string, apart_id: string, landlord_id_2: string}
+     */
+    public function parseFinanceIdsFromScriptFiles(array $files): array
+    {
+        $blob = '';
+        foreach ($files as $file) {
+            $blob .= "\n".($file['source'] ?? '');
+        }
+
+        $fromSetProperties = $this->matchSetPropertiesMap($blob);
+
+        $landlord = $fromSetProperties['LANDLORD_ID']
+            ?? $fromSetProperties['landlord_id']
+            ?? $this->matchScriptId($blob, [
+                'LANDLORD_ID',
+                'LANDLORDID',
+                'landlord_id',
+                'landlordId',
+            ]);
+        $apart = $fromSetProperties['APART_ID']
+            ?? $fromSetProperties['apart_id']
+            ?? $fromSetProperties['UNIT_ID']
+            ?? $fromSetProperties['unit_id']
+            ?? $this->matchScriptId($blob, [
+                'APART_ID',
+                'APARTID',
+                'apart_id',
+                'apartId',
+                'UNIT_ID',
+                'UNITID',
+                'unit_id',
+                'unitId',
+                'APARTMENT_ID',
+                'apartment_id',
+            ]);
+        $landlord2 = $fromSetProperties['LANDLORD_ID_2']
+            ?? $fromSetProperties['landlord_id_2']
+            ?? $this->matchScriptId($blob, [
+                'LANDLORD_ID_2',
+                'LANDLORD2_ID',
+                'SECOND_LANDLORD_ID',
+                'landlord_id_2',
+                'landlordId2',
+            ]);
+
+        return [
+            'landlord_id' => is_string($landlord) ? $landlord : '',
+            'apart_id' => is_string($apart) ? $apart : '',
+            'landlord_id_2' => is_string($landlord2) ? $landlord2 : '',
+        ];
+    }
+
+    /**
+     * Resolve bound script project for a spreadsheet via known script id or Drive child.
+     */
+    public function scriptIdForSpreadsheet(string $spreadsheetId, ?string $knownScriptId = null): ?string
+    {
+        if ($knownScriptId !== null && $knownScriptId !== '') {
+            $project = $this->googleGet(
+                'https://script.googleapis.com/v1/projects/'.$knownScriptId,
+                [],
+                'Apps Script project'
+            );
+            $parentId = trim((string) ($project->json('parentId') ?? ''));
+            if ($parentId === '' || $parentId === $spreadsheetId) {
+                return $knownScriptId;
+            }
+        }
+
+        return $this->boundScriptId($spreadsheetId);
+    }
+
+    /**
+     * @return array<string, string>
+     */
+    private function matchSetPropertiesMap(string $source): array
+    {
+        $result = [];
+        if (preg_match_all(
+            '/setProperties\(\s*\{(.*?)\}\s*\)/s',
+            $source,
+            $blocks
+        ) === 0) {
+            return $result;
+        }
+
+        foreach ($blocks[1] as $block) {
+            if (preg_match_all(
+                '/[\'"]([A-Za-z0-9_]+)[\'"]\s*:\s*[\'"]([^\'"]*)[\'"]/',
+                $block,
+                $pairs,
+                PREG_SET_ORDER
+            ) === 0) {
+                continue;
+            }
+            foreach ($pairs as $pair) {
+                $key = trim((string) ($pair[1] ?? ''));
+                $value = trim((string) ($pair[2] ?? ''));
+                if ($key !== '' && $value !== '') {
+                    $result[$key] = $value;
+                }
+            }
+        }
+
+        return $result;
+    }
+
+    /**
+     * @param  list<string>  $keys
+     */
+    private function matchScriptId(string $source, array $keys): string
+    {
+        foreach ($keys as $key) {
+            $patterns = [
+                '/(?:const|let|var)\s+'.preg_quote($key, '/').'\s*=\s*[\'"]([^\'"]+)[\'"]/i',
+                '/'.preg_quote($key, '/').'\s*[:=]\s*[\'"]([^\'"]+)[\'"]/i',
+                '/setProperty\(\s*[\'"]'.preg_quote($key, '/').'[\'"]\s*,\s*[\'"]([^\'"]+)[\'"]\s*\)/i',
+            ];
+            foreach ($patterns as $pattern) {
+                if (preg_match($pattern, $source, $m) === 1 && trim($m[1]) !== '') {
+                    return trim($m[1]);
+                }
+            }
+        }
+
+        return '';
+    }
+
+    /**
+     * Authenticated Google GET with 429 retries.
+     *
+     * @param  array<string, scalar>  $query
+     */
+    private function googleGet(string $url, array $query, string $label): \Illuminate\Http\Client\Response
+    {
+        $attempts = 5;
+        $response = null;
+        for ($attempt = 1; $attempt <= $attempts; $attempt++) {
+            $response = Http::withToken($this->accessToken())
+                ->acceptJson()
+                ->timeout((int) config('services.landlord_finance.timeout', 60))
+                ->get($url, $query);
+
+            if ($response->status() !== 429) {
+                break;
+            }
+
+            usleep((int) (min(30, 2 ** $attempt) * 1_000_000));
+        }
+
+        if ($response === null || $response->failed()) {
+            throw new RuntimeException(
+                $label.' failed ('.($response?->status() ?? 0).'): '.($response?->body() ?? '')
+            );
+        }
+
+        return $response;
+    }
+
+    /**
+     * GET Sheets API with retries on HTTP 429.
+     *
+     * @param  array<string, scalar>  $query
+     */
+    private function sheetsGet(string $url, array $query, string $label): \Illuminate\Http\Client\Response
+    {
+        $attempts = 5;
+        $response = null;
+        for ($attempt = 1; $attempt <= $attempts; $attempt++) {
+            $response = Http::withToken($this->accessToken())
+                ->acceptJson()
+                ->timeout((int) config('services.landlord_finance.timeout', 60))
+                ->get($url, $query);
+
+            if ($response->status() !== 429) {
+                break;
+            }
+
+            usleep((int) (min(30, 2 ** $attempt) * 1_000_000));
+        }
+
+        if ($response === null || $response->failed()) {
+            throw new RuntimeException(
+                'Google Sheets '.$label.' failed ('.($response?->status() ?? 0).'): '.($response?->body() ?? '')
+            );
+        }
+
+        return $response;
     }
 
     /**

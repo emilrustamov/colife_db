@@ -28,9 +28,9 @@ class LandlordFinanceBitrixReconcile
         $query = LandlordFinanceSheet::query()
             ->active()
             ->whereNotNull('landlord_id')
-            ->whereNotNull('unit_id')
+            ->whereNotNull('apart_id')
             ->where('landlord_id', '!=', '')
-            ->where('unit_id', '!=', '')
+            ->where('apart_id', '!=', '')
             ->orderBy('id');
 
         if ($registryIds !== null && $registryIds !== []) {
@@ -54,7 +54,7 @@ class LandlordFinanceBitrixReconcile
                     'spreadsheet_id' => $entry->spreadsheet_id,
                     'sheet_name' => $entry->sheet_name,
                     'alma_landlord_external_id' => (string) $entry->landlord_id,
-                    'alma_unit_external_id' => (string) $entry->unit_id,
+                    'alma_apart_external_id' => (string) $entry->apart_id,
                     'status' => 'error',
                     'message' => $e->getMessage(),
                 ];
@@ -109,14 +109,14 @@ class LandlordFinanceBitrixReconcile
     private function checkEntry(LandlordFinanceSheet $entry): array
     {
         $almaLandlord = trim((string) $entry->landlord_id);
-        $almaUnit = trim((string) $entry->unit_id);
+        $almaUnit = trim((string) $entry->apart_id);
         $base = [
             'registry_id' => $entry->id,
             'spreadsheet_id' => $entry->spreadsheet_id,
             'sheet_name' => $entry->sheet_name,
             'title' => $entry->title,
             'alma_landlord_external_id' => $almaLandlord,
-            'alma_unit_external_id' => $almaUnit,
+            'alma_apart_external_id' => $almaUnit,
         ];
 
         $ownerships = $this->bitrixOwnershipsForApartment($almaUnit);
@@ -237,7 +237,7 @@ class LandlordFinanceBitrixReconcile
         $lines = [];
         foreach (array_slice($issues, 0, 15) as $issue) {
             $lines[] = '#'.($issue['registry_id'] ?? '?')
-                .' unit='.($issue['alma_unit_external_id'] ?? '')
+                .' unit='.($issue['alma_apart_external_id'] ?? '')
                 .' '.($issue['message'] ?? ($issue['status'] ?? ''));
         }
         if (count($issues) > 15) {

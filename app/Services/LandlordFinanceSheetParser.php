@@ -14,7 +14,7 @@ class LandlordFinanceSheetParser
      */
     public function buildPayload(
         string $landlordId,
-        string $unitId,
+        string $apartId,
         int $year,
         array $rows,
     ): array {
@@ -62,12 +62,12 @@ class LandlordFinanceSheetParser
 
             $payload[] = [
                 'landlord_id' => $landlordId,
-                'unit_id' => $unitId,
+                'unit_id' => $apartId,
                 'month' => sprintf('%02d-%d', $index + 1, $year),
-                'rent_services' => $rentServices,
+                'rent_services' => $rentServices === [] ? new \stdClass() : $rentServices,
                 'received_from_landlord' => $receivedAmount,
                 'transferred_to_landlord' => $transferredAmount,
-                'expenses' => $expenses,
+                'expenses' => $expenses === [] ? new \stdClass() : $expenses,
             ];
         }
 

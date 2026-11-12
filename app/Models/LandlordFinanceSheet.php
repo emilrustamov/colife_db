@@ -11,11 +11,15 @@ class LandlordFinanceSheet extends Model
         'spreadsheet_id',
         'sheet_name',
         'landlord_id',
-        'unit_id',
+        'landlord_id_2',
+        'apart_id',
         'bitrix_ownership_id',
         'title',
+        'source_url',
         'layout',
         'is_active',
+        'is_external',
+        'id_source',
         'last_synced_at',
         'last_error',
     ];
@@ -27,6 +31,7 @@ class LandlordFinanceSheet extends Model
     {
         return [
             'is_active' => 'boolean',
+            'is_external' => 'boolean',
             'bitrix_ownership_id' => 'integer',
             'last_synced_at' => 'datetime',
         ];

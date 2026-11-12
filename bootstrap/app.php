@@ -41,14 +41,19 @@ return Application::configure(basePath: dirname(__DIR__))
             }
 
             try {
+                $msg = $e->getMessage();
+                if (str_starts_with($msg, 'Scheduled command ')) {
+                    return;
+                }
+
                 $text = app(App\Services\TelegramAlertText::class)->message(
                     '🧨',
                     'Exception',
                     null,
-                    class_basename($e).': '.mb_substr($e->getMessage(), 0, 300),
+                    class_basename($e).': '.mb_substr($msg, 0, 300),
                 );
                 app(App\Services\TelegramAlert::class)->notifyOnce(
-                    'exception:'.class_basename($e).':'.md5($e->getMessage()),
+                    'exception:'.class_basename($e).':'.md5($msg),
                     $text,
                     (int) config('services.telegram.instant_dedupe_ttl', 3600)
                 );
