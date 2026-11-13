@@ -305,6 +305,8 @@ class LandlordFinanceReportImporter
             throw new RuntimeException('Alma unit missing for external_id '.$apartId.'.');
         }
 
+        $bitrixFail = $this->bitrixApartmentIsFail($apartId);
+
         $entry = LandlordFinanceSheet::query()->updateOrCreate(
             [
                 'spreadsheet_id' => $spreadsheetId,
@@ -316,10 +318,14 @@ class LandlordFinanceReportImporter
                 'landlord_id' => $landlordId,
                 'apart_id' => $apartId,
                 'bitrix_ownership_id' => $ownershipId,
-                'is_active' => true,
-                'last_error' => null,
+                'is_active' => ! $bitrixFail,
+                'last_error' => $bitrixFail ? 'Bitrix FAIL / Ex-apartment' : null,
             ]
         );
+
+        if ($bitrixFail) {
+            throw new RuntimeException('Bitrix FAIL / Ex-apartment for apart_id '.$apartId.'; skipped.');
+        }
 
         if ($dryRun) {
             return ['registry_id' => (int) $entry->id];
@@ -460,6 +466,35 @@ class LandlordFinanceReportImporter
         }
 
         return $items[0];
+    }
+
+    /**
+     * Whether Bitrix SPA 144 apartment is on FAIL / Ex-apartment stage.
+     */
+    private function bitrixApartmentIsFail(string $apartExternalId): bool
+    {
+        $apartExternalId = trim($apartExternalId);
+        if ($apartExternalId === '' || ! ctype_digit($apartExternalId)) {
+            return false;
+        }
+
+        $domain = rtrim(trim((string) config('services.bitrix.portal_domain', '')), '/');
+        if ($domain === '') {
+            return false;
+        }
+
+        $response = $this->bitrixRest->postJson('crm.item.list.json', [
+            'entityTypeId' => 144,
+            'filter' => ['id' => (int) $apartExternalId],
+            'select' => ['id', 'title', 'stageId'],
+        ], $domain);
+
+        $item = $response['result']['items'][0] ?? null;
+        if (! is_array($item)) {
+            return false;
+        }
+
+        return str_contains(strtoupper((string) ($item['stageId'] ?? '')), 'FAIL');
     }
 
     private function parseAptNumber(string $text): ?string

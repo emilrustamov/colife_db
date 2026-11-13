@@ -131,6 +131,8 @@ return [
         'api_key' => env('LANDLORD_FINANCE_API_KEY', env('ALMA_API_KEY')),
         'timeout' => (int) env('LANDLORD_FINANCE_TIMEOUT', 60),
         'request_delay_ms' => (int) env('LANDLORD_FINANCE_REQUEST_DELAY_MS', 200),
+        'quota_retry_passes' => (int) env('LANDLORD_FINANCE_QUOTA_RETRY_PASSES', 2),
+        'quota_retry_sleep_sec' => (int) env('LANDLORD_FINANCE_QUOTA_RETRY_SLEEP_SEC', 65),
         'years' => env('LANDLORD_FINANCE_YEARS', '2026'),
         'apart_id_cell' => env('LANDLORD_FINANCE_APART_ID_CELL', env('LANDLORD_FINANCE_UNIT_ID_CELL', 'E2')),
         'landlord_id_cell' => env('LANDLORD_FINANCE_LANDLORD_ID_CELL', 'E3'),

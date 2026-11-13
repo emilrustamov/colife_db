@@ -47,4 +47,17 @@ class LandlordFinanceSheet extends Model
     {
         return $query->where('is_active', true);
     }
+
+    /**
+     * Disable sync for Bitrix FAIL / Ex-apartment.
+     */
+    public function markBitrixFail(?string $reason = null): void
+    {
+        $this->forceFill([
+            'is_active' => false,
+            'last_error' => $reason !== null && $reason !== ''
+                ? mb_substr($reason, 0, 2000)
+                : 'Bitrix FAIL / Ex-apartment',
+        ])->save();
+    }
 }

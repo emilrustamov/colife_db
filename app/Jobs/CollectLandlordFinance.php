@@ -83,11 +83,54 @@ class CollectLandlordFinance
         $failed = 0;
         $processedItems = 0;
         $skippedItems = 0;
+        /** @var list<LandlordFinanceSheet> $quotaRetry */
+        $quotaRetry = [];
 
         try {
             foreach ($expanded as $entry) {
-                try {
-                    $result = $this->syncEntry(
+                $outcome = $this->runSyncAttempt(
+                    $entry,
+                    $sheetsApi,
+                    $parser,
+                    $almaApi,
+                    $idResolver,
+                    $startRow,
+                    $endRow,
+                    $delayMs,
+                    $logger,
+                );
+                if ($outcome['ok']) {
+                    $ok++;
+                    $processedItems += $outcome['processed'];
+                    $skippedItems += $outcome['skipped'];
+                } else {
+                    $failed++;
+                    if ($outcome['quota']) {
+                        $quotaRetry[] = $entry;
+                    }
+                }
+
+                if ($delayMs > 0) {
+                    usleep($delayMs * 1000);
+                }
+            }
+
+            $quotaPasses = max(0, (int) config('services.landlord_finance.quota_retry_passes', 2));
+            $quotaSleepSec = max(0, (int) config('services.landlord_finance.quota_retry_sleep_sec', 65));
+            for ($pass = 1; $pass <= $quotaPasses && $quotaRetry !== []; $pass++) {
+                if ($quotaSleepSec > 0) {
+                    $logger->info('Landlord finance waiting before Google quota retry', [
+                        'pass' => $pass,
+                        'sleep_sec' => $quotaSleepSec,
+                        'pending' => count($quotaRetry),
+                    ]);
+                    sleep($quotaSleepSec);
+                }
+
+                $stillQuota = [];
+                foreach ($quotaRetry as $entry) {
+                    $entry->refresh();
+                    $outcome = $this->runSyncAttempt(
                         $entry,
                         $sheetsApi,
                         $parser,
@@ -98,40 +141,31 @@ class CollectLandlordFinance
                         $delayMs,
                         $logger,
                     );
-                    $ok++;
-                    $processedItems += $result['processed'];
-                    $skippedItems += $result['skipped'];
-                    if (! $this->dryRun) {
-                        $entry->forceFill([
-                            'last_synced_at' => now(),
-                            'last_error' => null,
-                        ])->save();
+                    if ($outcome['ok']) {
+                        $ok++;
+                        $failed = max(0, $failed - 1);
+                        $processedItems += $outcome['processed'];
+                        $skippedItems += $outcome['skipped'];
+                        $logger->info('Landlord finance quota retry recovered', [
+                            'id' => $entry->id,
+                            'pass' => $pass,
+                        ]);
+                    } elseif ($outcome['quota']) {
+                        $stillQuota[] = $entry;
                     }
-                } catch (Throwable $e) {
-                    $failed++;
-                    $entry->forceFill([
-                        'last_error' => mb_substr($e->getMessage(), 0, 2000),
-                    ])->save();
-                    $logger->error('Landlord finance sheet failed', [
-                        'id' => $entry->id,
-                        'spreadsheet_id' => $entry->spreadsheet_id,
-                        'sheet_name' => $entry->sheet_name,
-                        'landlord_id' => $entry->landlord_id,
-                        'apart_id' => $entry->apart_id,
-                        'bitrix_ownership_id' => $entry->bitrix_ownership_id,
-                        'error' => $e->getMessage(),
-                    ]);
-                }
 
-                if ($delayMs > 0) {
-                    usleep($delayMs * 1000);
+                    if ($delayMs > 0) {
+                        usleep($delayMs * 1000);
+                    }
                 }
+                $quotaRetry = $stillQuota;
             }
 
             $logger->info('Landlord finance collect finished', [
                 'entries' => $expanded->count(),
                 'ok' => $ok,
                 'failed' => $failed,
+                'quota_unresolved' => count($quotaRetry),
                 'processed_items' => $processedItems,
                 'skipped_items' => $skippedItems,
                 'dry_run' => $this->dryRun,
@@ -157,6 +191,83 @@ class CollectLandlordFinance
 
             throw $e;
         }
+    }
+
+    /**
+     * Run one sheet sync attempt and persist success/error.
+     *
+     * @return array{ok: bool, quota: bool, processed: int, skipped: int}
+     */
+    private function runSyncAttempt(
+        LandlordFinanceSheet $entry,
+        GoogleSheetsApi $sheetsApi,
+        LandlordFinanceSheetParser $parser,
+        AlmaApi $almaApi,
+        LandlordFinanceIdResolver $idResolver,
+        int $startRow,
+        int $endRow,
+        int $delayMs,
+        LoggerInterface $logger,
+    ): array {
+        try {
+            $result = $this->syncEntry(
+                $entry,
+                $sheetsApi,
+                $parser,
+                $almaApi,
+                $idResolver,
+                $startRow,
+                $endRow,
+                $delayMs,
+                $logger,
+            );
+            if (! $this->dryRun) {
+                $entry->forceFill([
+                    'last_synced_at' => now(),
+                    'last_error' => null,
+                ])->save();
+            }
+
+            return [
+                'ok' => true,
+                'quota' => false,
+                'processed' => $result['processed'],
+                'skipped' => $result['skipped'],
+            ];
+        } catch (Throwable $e) {
+            $entry->forceFill([
+                'last_error' => mb_substr($e->getMessage(), 0, 2000),
+            ])->save();
+            $logger->error('Landlord finance sheet failed', [
+                'id' => $entry->id,
+                'spreadsheet_id' => $entry->spreadsheet_id,
+                'sheet_name' => $entry->sheet_name,
+                'landlord_id' => $entry->landlord_id,
+                'apart_id' => $entry->apart_id,
+                'bitrix_ownership_id' => $entry->bitrix_ownership_id,
+                'error' => $e->getMessage(),
+            ]);
+
+            return [
+                'ok' => false,
+                'quota' => $this->isGoogleQuotaError($e),
+                'processed' => 0,
+                'skipped' => 0,
+            ];
+        }
+    }
+
+    /**
+     * Whether the failure is a Google Sheets/Drive rate limit.
+     */
+    private function isGoogleQuotaError(Throwable $e): bool
+    {
+        $message = $e->getMessage();
+
+        return str_contains($message, '(429)')
+            || str_contains($message, 'Quota exceeded')
+            || str_contains($message, 'RATE_LIMIT_EXCEEDED')
+            || str_contains($message, 'RESOURCE_EXHAUSTED');
     }
 
     /**
