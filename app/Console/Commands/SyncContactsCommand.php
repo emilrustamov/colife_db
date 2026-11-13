@@ -146,6 +146,7 @@ class SyncContactsCommand extends Command
             }
 
             $start = (int) $next;
+            usleep(200_000);
         }
 
         $markedDeleted = 0;

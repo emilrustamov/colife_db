@@ -3,6 +3,7 @@
 namespace App\Jobs;
 
 use App\Exceptions\OlDealNotReadyException;
+use App\Exceptions\OlDialogAccessException;
 use App\Services\OlDealSource;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
@@ -48,6 +49,12 @@ class OpenLineMessageJob implements ShouldQueue
     {
         try {
             $service->handle($this->domain, $this->packet);
+        } catch (OlDialogAccessException $e) {
+            Log::channel('bitrix_open_lines')->warning('OL_SOURCE_DIALOG_ACCESS_DENIED', [
+                'chat_id' => (int) data_get($this->packet, 'chat.id', 0),
+                'message_id' => (int) data_get($this->packet, 'message.id', 0),
+                'error' => $e->getMessage(),
+            ]);
         } catch (OlDealNotReadyException $e) {
             if ($this->attempts() < $this->tries) {
                 Log::channel('bitrix_open_lines')->info('OL_SOURCE_NO_DEAL_RETRY', [

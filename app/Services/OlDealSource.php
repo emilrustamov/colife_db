@@ -3,6 +3,7 @@
 namespace App\Services;
 
 use App\Exceptions\OlDealNotReadyException;
+use App\Exceptions\OlDialogAccessException;
 use Illuminate\Support\Facades\Log;
 use Throwable;
 
@@ -320,6 +321,7 @@ class OlDealSource
 
         return null;
     }
+
     /**
      * @param  array<string, mixed>  $packet
      */
@@ -337,6 +339,8 @@ class OlDealSource
             $payloads[] = ['DIALOG_ID' => 'chat'.$chatId];
         }
 
+        $accessDenied = false;
+
         foreach ($payloads as $payload) {
             try {
                 $dialog = $this->bitrixRest->postJson('imopenlines.dialog.get', $payload, $domain);
@@ -345,6 +349,11 @@ class OlDealSource
                     'payload' => $payload,
                     'error' => $e->getMessage(),
                 ]);
+
+                if ($this->isDialogAccessDenied($e)) {
+                    $accessDenied = true;
+                    break;
+                }
 
                 continue;
             }
@@ -361,7 +370,24 @@ class OlDealSource
             }
         }
 
+        if ($accessDenied) {
+            throw new OlDialogAccessException(
+                'Open Lines dialog access denied for chat '.(int) data_get($packet, 'chat.id', 0)
+            );
+        }
+
         return 0;
+    }
+
+    /**
+     * Whether Bitrix denied access to the Open Lines dialog permanently.
+     */
+    private function isDialogAccessDenied(Throwable $e): bool
+    {
+        $message = $e->getMessage();
+
+        return str_contains($message, 'ACCESS_ERROR')
+            || str_contains($message, 'You do not have access to the specified dialog');
     }
 
     /**
