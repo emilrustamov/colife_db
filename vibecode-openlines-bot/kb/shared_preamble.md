@@ -37,7 +37,7 @@ No client text. Once `set_wikibot_in_chat_status(disconnected)`, once `leave_cha
 ## Runtime adapter (vibecode)
 - `make_answer` → send message to the dialog.
 - `redirect_to_operator` / successful terminal leave → hand off Open Line session to operator.
-- `set_wikibot_in_chat_status`, `qualify_lead`, `leave_chat` snapshot, `set_move_in_date` → local dialog state (+ CRM stub until UF mapping exists).
-- Load only: shared preamble + main (or active scenario body) + relevant catalog tool results. Do not invent catalog facts.
-- Calendar config: postponed routing uses `POSTPONED_FROM_DATE` (default 2026-12-10). Dates before that follow ordinary rental routing.
+- `set_wikibot_in_chat_status`, `qualify_lead`, `leave_chat` snapshot, `set_move_in_date` → local dialog state + Bitrix deal UF writes when CRM is enabled.
+- Load only: shared preamble + main (or active scenario body). Apartments come from tools, not KB dump. Do not invent catalog facts.
+- Calendar: postponed routing uses injected `POSTPONED_FROM_DATE` (from `config/ol-bot.js`). Dates before that follow ordinary rental routing.
 - After terminal A/B, produce `operator_summary` for the operator (not the client) from known state.

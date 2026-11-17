@@ -1,66 +1,24 @@
+import olBotConfig from '../config/ol-bot.js';
+import { loadCrmHandbook } from './handbook.js';
 import { enrichStateForLeave } from './scenarios.js';
 
-const CATEGORY_LABEL = {
-  non_target: 'Non-target',
-  out_of_budget: 'Out of budget',
-  supertarget: 'Supertarget',
-  target: 'Target',
-  postponed: 'Postponed',
-  student: 'Student',
-  sharing: 'Sharing',
-  short_term: 'Short-term',
-  ejari: 'Ejari',
-  no_information: 'No information',
-};
-
-const STATUS_LABEL = {
-  not_connected: 'Not connected',
-  connected: 'Connected',
-  disconnected: 'Disconnected',
-};
-
-const APARTMENT_LABEL = {
-  bedspace: 'Bedspace',
-  room: 'Room',
-  studio: 'Studio',
-  '1_bedroom': '1 bedroom',
-  '2_bedroom': '2 bedroom',
-  '3_bedroom': '3 bedroom',
-};
-
-const RESIDENTS_LABEL = {
-  alone: 'Alone',
-  couple: 'Couple',
-  family: 'Family',
-  friends: 'Friends',
-};
-
-const STAY_LABEL = {
-  '1-14_days': '1-14 days',
-  '15-29_days': '15-29 days',
-  '1_month': '1 month',
-  '2-3_months': '2-3 month',
-  '4-6_months': '4-6 month',
-  '7-8_months': '7-8 month',
-  '9-12_months': '9-12 month',
-};
-
-const PLANNING_LABEL = {
-  urgent: 'Urgent',
-  within_two_weeks: 'Within two weeks',
-  during_this_month: 'During this month',
-  in_a_month_or_more: 'In a month or more',
-};
+const crmBook = loadCrmHandbook();
+const CATEGORY_LABEL = crmBook.category;
+const STATUS_LABEL = crmBook.chatStatus;
+const APARTMENT_LABEL = crmBook.apartmentType;
+const RESIDENTS_LABEL = crmBook.residents;
+const STAY_LABEL = crmBook.stayDuration;
+const PLANNING_LABEL = crmBook.planningToMove;
 
 const FIELD = {
-  category: process.env.CRM_FIELD_CATEGORY || 'UF_CRM_1763647077',
-  chatStatus: process.env.CRM_FIELD_CHAT_STATUS || 'UF_CRM_OL_BOT_CHAT_STATUS',
-  apartmentType: process.env.CRM_FIELD_APARTMENT_TYPE || 'UF_CRM_1692861855',
-  residents: process.env.CRM_FIELD_RESIDENTS || 'UF_CRM_1692862136',
-  stayDuration: process.env.CRM_FIELD_STAY_DURATION || 'UF_CRM_1769420060313',
-  planningToMove: process.env.CRM_FIELD_PLANNING_TO_MOVE || 'UF_CRM_1692862111',
-  budget: process.env.CRM_FIELD_BUDGET || 'UF_CRM_1692861971',
-  moveInDate: process.env.CRM_FIELD_MOVE_IN_DATE || 'UF_CRM_OL_BOT_MOVE_IN_DATE',
+  category: 'UF_CRM_1763647077',
+  chatStatus: 'UF_CRM_OL_BOT_CHAT_STATUS',
+  apartmentType: 'UF_CRM_1692861855',
+  residents: 'UF_CRM_1692862136',
+  stayDuration: 'UF_CRM_1769420060313',
+  planningToMove: 'UF_CRM_1692862111',
+  budget: 'UF_CRM_1692861971',
+  moveInDate: 'UF_CRM_OL_BOT_MOVE_IN_DATE',
 };
 
 /** @type {Map<string, Map<string, string>>|null} */
@@ -139,23 +97,13 @@ async function enumId(fieldName, label) {
  */
 export function budgetToLabel(budget) {
   const n = Number(budget);
-  if (!Number.isFinite(n) || n <= 0) return 'No information';
-  if (n >= 99999) return '20000+';
-  const ranges = [
-    [0, 2000, '0-2000'],
-    [2001, 4000, '2001-4000'],
-    [4001, 6000, '4001-6000'],
-    [6001, 8000, '6001-8000'],
-    [8001, 10000, '8001-10000'],
-    [10001, 12000, '10001-12000'],
-    [12001, 14000, '12001-14000'],
-    [14000, 16000, '14000-16000'],
-    [16000, 20000, '16000-20000'],
-  ];
-  for (const [from, to, label] of ranges) {
+  const book = loadCrmHandbook();
+  if (!Number.isFinite(n) || n <= 0) return book.budgetUnknownLabel;
+  if (n >= olBotConfig.classify.unlimitedBudget) return book.budgetUnlimitedLabel;
+  for (const [from, to, label] of book.budgetRanges) {
     if (n >= from && n <= to) return label;
   }
-  return '20000+';
+  return book.budgetUnlimitedLabel;
 }
 
 /**
@@ -368,4 +316,3 @@ export async function readDealOlFields(deal) {
   return out;
 }
 
-export const CRM_FIELDS = FIELD;

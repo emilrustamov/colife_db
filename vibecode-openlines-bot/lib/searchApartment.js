@@ -1,9 +1,15 @@
+import olBotConfig from '../config/ol-bot.js';
 import { loadApartments } from './catalog.js';
+import { matchAreasInText } from './handbook.js';
+import { typeToLabel } from './types.js';
 
-const MAX_RESULT_SIZE = 3;
-const SUPER_TARGET_DAYS = 30;
-const CLASSIFY_MAX_DAYS = 60;
-const UNLIMITED_BUDGET = 99999;
+const MAX_RESULT_SIZE = olBotConfig.search.maxResults;
+const SUPER_TARGET_DAYS = olBotConfig.classify.superTargetDays;
+const CLASSIFY_MAX_DAYS = olBotConfig.classify.maxDays;
+const UNLIMITED_BUDGET = olBotConfig.classify.unlimitedBudget;
+const PRICE_FLEX = olBotConfig.search.priceFlex;
+const PREFER_RENT_TYPE = olBotConfig.search.preferRentType;
+const PREFER_CATEGORY = olBotConfig.search.preferCategory;
 
 /**
  * @typedef {object} SearchApartmentsArgs
@@ -17,23 +23,6 @@ const UNLIMITED_BUDGET = 99999;
  * @property {boolean} [areaFlexible]
  * @property {number} [guests]
  */
-
-/**
- * @param {number} type
- * @returns {string}
- */
-function typeToLabel(type) {
-  switch (type) {
-    case 0:
-      return 'Studio';
-    case 1:
-      return '1br Apartment';
-    case 2:
-      return '2br Apartment';
-    default:
-      return '';
-  }
-}
 
 const MONTH_ALIASES = [
   ['январ', 'jan'],
@@ -123,19 +112,18 @@ export function unitFitsMoveIn(availableFrom, moveInDdMmYyyy) {
 }
 
 /**
- * Soft availability: keep item if availableFrom is empty/unparsed or <= move-in date.
+ * Keep listing only when availableFrom is known and <= move-in.
  *
  * @param {string|null|undefined} availableFrom
  * @param {Date} moveIn
  * @returns {boolean}
  */
 function availableByMoveIn(availableFrom, moveIn) {
-  const raw = String(availableFrom || '').trim();
-  if (!raw) return true;
-  const iso = parseIsoDate(raw);
-  // Unknown catalog date formats → keep listing (catalog uses ISO / dd-mm-yyyy).
-  if (!iso) return true;
-  return iso.getTime() <= moveIn.getTime();
+  const yyyy = moveIn.getFullYear();
+  const mm = String(moveIn.getMonth() + 1).padStart(2, '0');
+  const dd = String(moveIn.getDate()).padStart(2, '0');
+  const fit = unitFitsMoveIn(availableFrom, `${yyyy}-${mm}-${dd}`);
+  return fit.known && fit.fits === true;
 }
 
 // RU stems need [а-яё]* endings; EN forms must not match inside "month"/"months".
@@ -259,7 +247,6 @@ export function extractDaysToCheckin(text) {
  */
 export function extractSearchArgs(text) {
   const t = String(text || '');
-  const lower = t.toLowerCase();
 
   /** @type {number[]} */
   const types = [];
@@ -333,50 +320,7 @@ export function extractSearchArgs(text) {
     );
 
   const daysToCheckin = extractDaysToCheckin(t);
-
-  const knownAreas = [
-    'Business Bay',
-    'Downtown',
-    'Dubai Marina',
-    'Marina',
-    'JLT',
-    'JVC',
-    'JBR',
-    'Sobha Hartland',
-    'Al Jadaf',
-    'Al Jaddaf',
-    'Damac Hills',
-    'Palm Deira',
-    'Dubai Creek Harbour',
-    'Creek Harbour',
-    'Jumeirah 1',
-    'DIFC',
-    'Discovery Gardens',
-    'Dubai Hills',
-    'The Greens',
-    'Palm Jumeirah',
-    'Dubai South',
-    'Dubai Production City',
-    'Madinat Jumeirah Living',
-    'Meydan',
-    'Al Furjan',
-  ];
-  /** @type {string[]} */
-  const area = [];
-  for (const name of knownAreas) {
-    if (!lower.includes(name.toLowerCase())) continue;
-    const normalized =
-      name === 'Marina'
-        ? 'Dubai Marina'
-        : name === 'Al Jaddaf'
-          ? 'Al Jadaf'
-          : name === 'Creek Harbour'
-            ? 'Dubai Creek Harbour'
-            : name;
-    if (!area.some((a) => a.toLowerCase() === normalized.toLowerCase())) {
-      area.push(normalized);
-    }
-  }
+  const area = matchAreasInText(t);
 
   return {
     area,
@@ -521,14 +465,14 @@ function findMatchingApartments(args, sourceApartments) {
    */
   const findPerPriceAndTypes = (maxPrice, typeLabels, comment) => {
     find(
-      apartments.filter((v) => v.rentType === 'R2R' && v.category === 'A'),
+      apartments.filter((v) => v.rentType === PREFER_RENT_TYPE && v.category === PREFER_CATEGORY),
       maxPrice,
       typeLabels,
       comment,
     );
     if (result.length < MAX_RESULT_SIZE) {
       find(
-        apartments.filter((v) => v.rentType === 'R2R' || v.category === 'A'),
+        apartments.filter((v) => v.rentType === PREFER_RENT_TYPE || v.category === PREFER_CATEGORY),
         maxPrice,
         typeLabels,
         comment,
@@ -541,7 +485,7 @@ function findMatchingApartments(args, sourceApartments) {
 
   findPerPriceAndTypes(price, types);
   if (!result.length) {
-    const increasedPrice = price * 1.3;
+    const increasedPrice = price * PRICE_FLEX;
     if (increasedPrice) {
       findPerPriceAndTypes(
         increasedPrice,

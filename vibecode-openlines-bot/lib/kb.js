@@ -4,14 +4,6 @@ import { fileURLToPath } from 'node:url';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const MEMORY_PATH = path.join(__dirname, '..', 'kb', 'memory.txt');
-const CATALOG_SEED = path.join(__dirname, '..', 'kb', 'catalog.seed.txt');
-
-/**
- * @returns {string}
- */
-function catalogPath() {
-  return process.env.CATALOG_PATH || '/opt/data/state/catalog.txt';
-}
 
 /**
  * @param {string} filePath
@@ -26,14 +18,15 @@ function readFileSafe(filePath) {
 }
 
 /**
+ * Company memory only. Live apartments come from search tools, not prompt dump.
+ *
  * @returns {string}
  */
 export function loadKnowledgeBase() {
-  const memory =
-    readFileSafe(process.env.KB_MEMORY_PATH || MEMORY_PATH) ||
-    'Colife AE — long-term rental of rooms and apartments in Dubai. Website: https://colife.ae/catalog';
-  const catalog = readFileSafe(catalogPath()) || readFileSafe(CATALOG_SEED);
-  return [memory.trim(), catalog.trim()].filter(Boolean).join('\n\n');
+  return (
+    readFileSafe(MEMORY_PATH).trim()
+    || 'Colife AE — long-term rental of rooms and apartments in Dubai. Website: https://colife.ae/catalog'
+  );
 }
 
 /**

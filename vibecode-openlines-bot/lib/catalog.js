@@ -1,6 +1,9 @@
 import fs from 'node:fs';
 import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { getPool, query } from './db.js';
+
+const ROOT = path.join(path.dirname(fileURLToPath(import.meta.url)), '..');
 
 const DEFAULT_SOURCES = [
   {
@@ -178,18 +181,93 @@ async function fetchStorepart(source) {
   return items;
 }
 
+/** @type {object[]|null} */
+let apartmentsCache = null;
+
 /**
+ * Optional JSON backup path (debug / cold fallback only).
+ *
  * @returns {string}
  */
 export function catalogJsonPath() {
-  return process.env.CATALOG_JSON_PATH || '/opt/data/state/catalog.json';
+  return process.env.CATALOG_JSON_PATH || path.join(ROOT, 'data', 'state', 'catalog.json');
 }
 
 /**
- * @returns {string}
+ * @param {object} row
+ * @returns {object}
  */
-export function catalogTextPath() {
-  return process.env.CATALOG_PATH || '/opt/data/state/catalog.txt';
+function rowToApartment(row) {
+  let priceVariants = [];
+  try {
+    const raw = row.price_variants_json;
+    priceVariants = typeof raw === 'string' ? JSON.parse(raw || '[]') : raw || [];
+  } catch {
+    priceVariants = [];
+  }
+  if (!Array.isArray(priceVariants)) priceVariants = [];
+  const price = row.price != null ? Number(row.price) : null;
+  return {
+    uid: String(row.uid),
+    apartmentId: Number(row.uid) || row.uid,
+    title: String(row.title || ''),
+    sku: String(row.sku || ''),
+    unitNumber: String(row.unit_number || ''),
+    link: String(row.link || ''),
+    area: String(row.area || ''),
+    type: String(row.type || ''),
+    capacity: String(row.capacity || ''),
+    availableFrom: String(row.available_from || ''),
+    rentType: String(row.rent_type || ''),
+    category: String(row.category || ''),
+    source: String(row.source || ''),
+    priceUnit: String(row.price_unit || ''),
+    price: Number.isFinite(price) ? price : null,
+    priceVariants,
+    text: String(row.text_body || ''),
+  };
+}
+
+/**
+ * Replace in-memory catalog cache.
+ *
+ * @param {object[]} apartments
+ */
+export function setApartmentsCache(apartments) {
+  apartmentsCache = Array.isArray(apartments) ? apartments : [];
+}
+
+/**
+ * Load apartments from DB into memory. Falls back to JSON backup if DB empty/unavailable.
+ *
+ * @returns {Promise<object[]>}
+ */
+export async function warmApartmentsCache() {
+  try {
+    if (getPool()) {
+      const rows = await query(
+        `SELECT uid, source, title, sku, unit_number, link, area, type, capacity, available_from,
+                rent_type, category, price_unit, price, price_variants_json, text_body
+         FROM ol_bot_apartments`,
+      );
+      if (Array.isArray(rows) && rows.length) {
+        setApartmentsCache(rows.map(rowToApartment));
+        return apartmentsCache;
+      }
+    }
+  } catch {
+    // fall through to JSON
+  }
+  try {
+    const raw = fs.readFileSync(catalogJsonPath(), 'utf8');
+    const data = JSON.parse(raw);
+    const list = Array.isArray(data.apartments) ? data.apartments : [];
+    setApartmentsCache(list);
+    return apartmentsCache;
+  } catch {
+    setApartmentsCache([]);
+    return apartmentsCache;
+  }
 }
 
 /**
@@ -198,7 +276,6 @@ export function catalogTextPath() {
 export async function refreshCatalogFromApi() {
   const updatedAt = new Date().toISOString();
   const jsonPath = catalogJsonPath();
-  const textPath = catalogTextPath();
   try {
     const sources = DEFAULT_SOURCES;
     const all = [];
@@ -206,9 +283,6 @@ export async function refreshCatalogFromApi() {
     let filters = null;
     for (const source of sources) {
       const items = await fetchStorepart(source);
-      if (source.name === 'catalog' && items.length) {
-        // keep filter labels from first page via lightweight re-fetch
-      }
       for (const item of items) {
         const key = `${item.source}:${item.uid}`;
         if (seen.has(key)) continue;
@@ -217,7 +291,6 @@ export async function refreshCatalogFromApi() {
       }
     }
 
-    // fetch filters metadata from main catalog
     const filterRes = await fetch(
       `https://store.tildaapi.com/api/getproductslist/?storepartuid=159370973241&recid=605208928&slice=1&getparts=true&getoptions=true`,
       {
@@ -232,47 +305,32 @@ export async function refreshCatalogFromApi() {
       filters = filterData.filters || null;
     }
 
-    const payload = {
-      updatedAt,
-      count: all.length,
-      filters,
-      apartments: all,
-    };
-    fs.mkdirSync(path.dirname(jsonPath), { recursive: true });
-    fs.writeFileSync(jsonPath, JSON.stringify(payload), 'utf8');
-
-    const lines = [
-      `# Catalog API snapshot ${updatedAt}`,
-      `Objects: ${all.length}`,
-      'Use search_apartment filters: area, type (Studio/1br/2br), max price, period months.',
-      '',
-    ];
-    for (const item of all.slice(0, 40)) {
-      lines.push(
-        [
-          `### ${item.title}`,
-          `link: ${item.link}`,
-          `area: ${item.area}; type: ${item.type}; price: ${item.price} AED/${item.priceUnit}`,
-          `available: ${item.availableFrom}; rentType: ${item.rentType}`,
-          item.text.slice(0, 400),
-        ].join('\n'),
-      );
-    }
-    fs.writeFileSync(textPath, `${lines.join('\n\n')}\n`, 'utf8');
     await syncApartmentsToDb(all, updatedAt);
+    setApartmentsCache(all);
+
+    try {
+      fs.mkdirSync(path.dirname(jsonPath), { recursive: true });
+      fs.writeFileSync(
+        jsonPath,
+        JSON.stringify({ updatedAt, count: all.length, filters, apartments: all }),
+        'utf8',
+      );
+    } catch {
+      // JSON backup optional
+    }
 
     return {
       ok: true,
       count: all.length,
-      path: jsonPath,
+      path: 'ol_bot_apartments',
       updatedAt,
       filters: summarizeFilters(filters),
     };
   } catch (err) {
     return {
       ok: false,
-      count: 0,
-      path: jsonPath,
+      count: apartmentsCache?.length || 0,
+      path: 'ol_bot_apartments',
       updatedAt,
       error: err.message,
     };
@@ -332,14 +390,10 @@ function summarizeFilters(filters) {
 }
 
 /**
+ * In-memory catalog (warmed from DB on boot / refresh).
+ *
  * @returns {object[]}
  */
 export function loadApartments() {
-  try {
-    const raw = fs.readFileSync(catalogJsonPath(), 'utf8');
-    const data = JSON.parse(raw);
-    return Array.isArray(data.apartments) ? data.apartments : [];
-  } catch {
-    return [];
-  }
+  return apartmentsCache || [];
 }

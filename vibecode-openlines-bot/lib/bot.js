@@ -1,4 +1,5 @@
 import { pickRelevantContext, loadKnowledgeBase } from './kb.js';
+import { warmApartmentsCache } from './catalog.js';
 import { refreshCatalogKb } from './refresh.js';
 import { DialogStore } from './state.js';
 import { buildSystemInstruction, loadToolSchemas, loadTemplate } from './templates.js';
@@ -13,20 +14,16 @@ import {
   wantsOperator,
 } from './reply.js';
 import {
-  clarifyFallback,
   enrichStateForLeave,
   extractUnitNumber,
   hydrateStateFromText,
   hydrateStateFromTranscript,
   isRobotOnlyMessage,
   languageSourceText,
-  looksLikeReasoningLeak,
   looksLikeRobotTemplate,
-  replyLanguageMismatch,
-  sanitizeClientText,
-  stripReIntro,
+  prepareClientAnswer,
 } from './scenarios.js';
-import { findByUnitNumber } from './tools.js';
+import { applyCatalogUnitToState, findByUnitNumber } from './tools.js';
 import { getAiModel } from './settings.js';
 import {
   chatCompletions,
@@ -115,7 +112,7 @@ function pushAnalysis(analysis, type, title, durationSec, content) {
 export function createBotWorker(config) {
   const apiKey = config.apiKey;
   const botId = config.botId;
-  const defaultModel = config.model || process.env.AI_MODEL || 'bitrix/bitrixgpt-5.5-thinking';
+  const defaultModel = config.model || 'bitrix/bitrixgpt-5.5-thinking';
   let currentModel = defaultModel;
   let knowledgeBase = config.knowledgeBase || loadKnowledgeBase();
   const pollMs = config.pollMs || 3000;
@@ -367,9 +364,8 @@ export function createBotWorker(config) {
       let lookup = null;
       if (unit) {
         state.unitNumber = unit;
-        const found = findByUnitNumber(unit);
+        const found = applyCatalogUnitToState(state, findByUnitNumber(unit));
         if (found) {
-          state.unitLookupStatus = 'found';
           lookup = {
             title: found.title,
             link: found.link,
@@ -378,16 +374,6 @@ export function createBotWorker(config) {
             price: found.price,
             availableFrom: found.availableFrom,
           };
-          if (found.link && !state.shownLinks.includes(found.link)) state.shownLinks.push(found.link);
-          const type = String(found.type || '').toLowerCase();
-          if (!state.types.length) {
-            if (type.includes('studio')) state.types = [0];
-            else if (/\b1\b|1br|1-bedroom/i.test(type)) state.types = [1];
-            else if (/\b2\b|2br|2-bedroom/i.test(type)) state.types = [2];
-          }
-          if (found.area && !state.area.length) state.area = [String(found.area)];
-        } else {
-          state.unitLookupStatus = 'not_found';
         }
       } else {
         state.unitLookupStatus = 'not_found';
@@ -545,15 +531,12 @@ export function createBotWorker(config) {
     }
     instructionParts.push([
       `Reply language for this turn: ${state.language === 'ru' ? 'Russian' : 'English'} only.`,
-      'When quoting a catalog unit, use availableFrom and priceVariants from the tool result for the requested period — never invent prices.',
-      'Catalog has apartments only. Never invent or quote room/sharing prices or “rooms from N AED” (apartment min_price is not a room rate). For room/sharing: activate_scenario sharing, collect missing params, qualify_lead(sharing), terminal A — no search_apartments/get_min_price.',
-      'Continue this same dialog. Do not re-introduce yourself if Dialog history already has a Bot line.',
-      'Use known filters from history/state; ask only for missing ones. Never re-ask move-in date or rental period if Dialog state JSON already has routingMoveInDate/savedMoveInDate/period/days_to_checkin.',
-      'Never output chain-of-thought, skill names, tool plans, or analysis to the client. Client text only via make_answer (or a short plain final answer).',
-      'If budget and period are known and this is NOT a sharing/room lead, call search_apartments before saying there are no options or before handoff (unless terminal A/B already required by scenario).',
-      'If move-in is today/tomorrow or days_to_checkin<=1, activate_scenario urgent_move_in before search.',
-      'If client asks weekly / less than a month / short-term stay, activate_scenario short_term and follow that scenario (handoff after required params; do not keep probing type/budget endlessly).',
-      'If client asks for room/shared accommodation, activate_scenario sharing immediately and treat apartment type as room.',
+      'Routing is applied in code into Dialog state (activeScenario/category). Follow the active scenario template; do not re-route against state.',
+      'When quoting a catalog unit, use availableFrom and priceVariants from the tool result — never invent prices.',
+      'Catalog = apartments only. Sharing/room: no search/get_min_price; qualify_lead(sharing) → terminal A.',
+      'Do not re-introduce if Dialog history already has a Bot line. Never re-ask fields already set in Dialog state.',
+      'Client text only via make_answer (or short plain final). No chain-of-thought.',
+      'If budget+period known and not sharing: search_apartments before “no options” / handoff (unless terminal A/B).',
     ].join(' '));
     const system = instructionParts.filter(Boolean).join('\n\n');
 
@@ -651,23 +634,12 @@ export function createBotWorker(config) {
     }
 
     runtime.pendingAnswers = runtime.pendingAnswers
-      .map((a) => stripReIntro(sanitizeClientText(a), state.introduced))
-      .filter((a) => a && !looksLikeReasoningLeak(a))
-      .filter((a) => !replyLanguageMismatch(a, state.language));
-    finalText = sanitizeClientText(finalText);
-    if (looksLikeReasoningLeak(finalText)) finalText = '';
-    if (replyLanguageMismatch(finalText, state.language)) finalText = '';
-    if (
-      !runtime.pendingAnswers.length
-      && !finalText
-      && !runtime.pendingHandoff
-      && !state.handedOff
-      && !state.terminalAPendingLeave
-    ) {
-      hydrateStateFromTranscript(state);
-      finalText = clarifyFallback(state);
-    }
+      .map((a) => prepareClientAnswer(a))
+      .filter(Boolean);
+    const rawFinal = String(finalText || '').trim();
 
+    /** @type {string[]} */
+    const sentAnswers = [];
     for (const answer of runtime.pendingAnswers) {
       await sendMessage(apiKey, botId, dialogId, {
         message: answer,
@@ -675,11 +647,11 @@ export function createBotWorker(config) {
       });
       state.transcript.push(`Bot: ${answer}`);
       state.introduced = true;
+      sentAnswers.push(answer);
     }
 
-    if (finalText && !runtime.pendingAnswers.length) {
-      const parsed = parseModelReply(finalText);
-      let answer = stripReIntro(sanitizeClientText(parsed.answer), state.introduced);
+    if (rawFinal && !sentAnswers.length) {
+      const parsed = parseModelReply(rawFinal);
       if (parsed.handoff) {
         runtime.pendingHandoff = runtime.pendingHandoff || {
           mode: 'A',
@@ -687,12 +659,7 @@ export function createBotWorker(config) {
         };
       }
       if (parsed.scenario) state.activeScenario = parsed.scenario;
-      if (looksLikeReasoningLeak(answer)) answer = '';
-      if (replyLanguageMismatch(answer, state.language)) answer = '';
-      answer = sanitizeClientText(answer);
-      if (!answer && !runtime.pendingHandoff && !state.handedOff && !state.terminalAPendingLeave) {
-        answer = clarifyFallback(state);
-      }
+      const answer = prepareClientAnswer(parsed.answer);
       if (answer) {
         await sendMessage(apiKey, botId, dialogId, {
           message: answer,
@@ -700,13 +667,33 @@ export function createBotWorker(config) {
         });
         state.transcript.push(`Bot: ${answer}`);
         state.introduced = true;
+        sentAnswers.push(answer);
       }
+    }
+
+    // Empty client reply is a hard failure → handoff, not invented clarify questions.
+    if (
+      !sentAnswers.length
+      && !runtime.pendingHandoff
+      && !state.handedOff
+      && !state.terminalAPendingLeave
+    ) {
+      const lang = state.language || detectLang(text);
+      runtime.pendingHandoff = { mode: 'A', reason: 'empty_reply' };
+      const notice = FALLBACK_TEXT[lang] || FALLBACK_TEXT.en;
+      await sendMessage(apiKey, botId, dialogId, {
+        message: notice,
+        keyboard: OPERATOR_KEYBOARD,
+      });
+      state.transcript.push(`Bot: ${notice}`);
+      state.introduced = true;
+      sentAnswers.push(notice);
     }
 
     const elapsedMs = Date.now() - started;
     const elapsed = Math.round(elapsedMs / 1000);
     m.responses.push(elapsed);
-    const clientAnswer = runtime.pendingAnswers.join('\n') || finalText || '';
+    const clientAnswer = sentAnswers.join('\n');
     if (clientAnswer) {
       // Dialog content only — total wall time is response_sec / Analysis header.
       pushAnalysis(runtime.analysis, 'dialog', 'Dialog', null, clientAnswer.slice(0, 2000));
@@ -841,6 +828,11 @@ export function createBotWorker(config) {
   }
 
   function start() {
+    warmApartmentsCache()
+      .then(() => {
+        knowledgeBase = loadKnowledgeBase();
+      })
+      .catch(() => {});
     refreshCatalog();
     const pollTimer = setInterval(() => {
       pollOnce().catch((err) => pushLog({ question: '', answer: '', handedOff: false, error: err.message }));

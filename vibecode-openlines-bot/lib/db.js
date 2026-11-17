@@ -22,8 +22,22 @@ export function getPool() {
     waitForConnections: true,
     connectionLimit: 5,
     namedPlaceholders: true,
+    idleTimeout: 10000,
+    maxIdle: 2,
   });
   return pool;
+}
+
+/**
+ * Close DB pool (CLI / tests). No-op if unused.
+ *
+ * @returns {Promise<void>}
+ */
+export async function closePool() {
+  if (!pool) return;
+  const current = pool;
+  pool = null;
+  await current.end();
 }
 
 /**

@@ -1,0 +1,61 @@
+{
+  "category": {
+    "non_target": "Non-target",
+    "out_of_budget": "Out of budget",
+    "supertarget": "Supertarget",
+    "target": "Target",
+    "postponed": "Postponed",
+    "student": "Student",
+    "sharing": "Sharing",
+    "short_term": "Short-term",
+    "ejari": "Ejari",
+    "no_information": "No information"
+  },
+  "chatStatus": {
+    "not_connected": "Not connected",
+    "connected": "Connected",
+    "disconnected": "Disconnected"
+  },
+  "apartmentType": {
+    "bedspace": "Bedspace",
+    "room": "Room",
+    "studio": "Studio",
+    "1_bedroom": "1 bedroom",
+    "2_bedroom": "2 bedroom",
+    "3_bedroom": "3 bedroom"
+  },
+  "residents": {
+    "alone": "Alone",
+    "couple": "Couple",
+    "family": "Family",
+    "friends": "Friends"
+  },
+  "stayDuration": {
+    "1-14_days": "1-14 days",
+    "15-29_days": "15-29 days",
+    "1_month": "1 month",
+    "2-3_months": "2-3 month",
+    "4-6_months": "4-6 month",
+    "7-8_months": "7-8 month",
+    "9-12_months": "9-12 month"
+  },
+  "planningToMove": {
+    "urgent": "Urgent",
+    "within_two_weeks": "Within two weeks",
+    "during_this_month": "During this month",
+    "in_a_month_or_more": "In a month or more"
+  },
+  "budgetRanges": [
+    [0, 2000, "0-2000"],
+    [2001, 4000, "2001-4000"],
+    [4001, 6000, "4001-6000"],
+    [6001, 8000, "6001-8000"],
+    [8001, 10000, "8001-10000"],
+    [10001, 12000, "10001-12000"],
+    [12001, 14000, "12001-14000"],
+    [14000, 16000, "14000-16000"],
+    [16000, 20000, "16000-20000"]
+  ],
+  "budgetUnlimitedLabel": "20000+",
+  "budgetUnknownLabel": "No information"
+}

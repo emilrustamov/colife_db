@@ -4,13 +4,13 @@ import { query } from './db.js';
 let modelCache = { model: null, at: 0 };
 
 /**
- * Active AI model from ol_bot_settings (falls back to env / default).
+ * Active AI model from ol_bot_settings.
+ * Env `AI_MODEL` is last resort only (boot / missing settings row).
  *
  * @param {string} [fallback]
  * @returns {Promise<string>}
  */
 export async function getAiModel(fallback = 'bitrix/bitrixgpt-5.5-thinking') {
-  const envFallback = String(process.env.AI_MODEL || fallback || '').trim() || fallback;
   if (modelCache.model && Date.now() - modelCache.at < 5000) {
     return modelCache.model;
   }
@@ -27,6 +27,7 @@ export async function getAiModel(fallback = 'bitrix/bitrixgpt-5.5-thinking') {
   } catch {
     // DB optional at boot
   }
-  modelCache = { model: envFallback, at: Date.now() };
-  return envFallback;
+  const lastResort = String(process.env.AI_MODEL || fallback || '').trim() || fallback;
+  modelCache = { model: lastResort, at: Date.now() };
+  return lastResort;
 }

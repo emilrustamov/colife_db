@@ -8,7 +8,9 @@ import {
 import { bucketEscalateReason } from './analytics.js';
 import {
   activateScenario,
+  blockApartmentCatalogTools,
   resolveApartmentType,
+  roomsFromCatalogType,
   scenarioForCategory,
 } from './scenarios.js';
 import {
@@ -48,19 +50,33 @@ export function getMinPrice(types) {
   let pool = apartments;
   if (Array.isArray(types) && types.length) {
     const wanted = new Set(types.map(Number));
-    pool = apartments.filter((item) => {
-      const t = String(item.type || '').toLowerCase();
-      let n = -1;
-      if (/\bstudio\b/.test(t)) n = 0;
-      else if (/\b3\s*br\b|\b3\b.*bed|\b3\s*bedroom/.test(t)) n = 3;
-      else if (/\b2\s*br\b|\b2\b.*bed|\b2\s*bedroom/.test(t)) n = 2;
-      else if (/\b1\s*br\b|\b1\b.*bed|\b1\s*bedroom/.test(t)) n = 1;
-      return wanted.has(n);
-    });
+    pool = apartments.filter((item) => wanted.has(roomsFromCatalogType(item.type)));
   }
   const prices = pool.map((i) => Number(i.price)).filter((n) => Number.isFinite(n) && n > 0);
   if (!prices.length) return { error: 'not_found' };
   return { min_price: Math.min(...prices), count: pool.length };
+}
+
+/**
+ * Apply a catalog unit hit onto dialog state (robot path + get_apartment tool).
+ *
+ * @param {import('./state.js').DialogState} state
+ * @param {object|null} found
+ * @returns {object|null}
+ */
+export function applyCatalogUnitToState(state, found) {
+  if (!found) {
+    state.unitLookupStatus = 'not_found';
+    return null;
+  }
+  state.unitLookupStatus = 'found';
+  if (found.link && !state.shownLinks.includes(found.link)) {
+    state.shownLinks.push(found.link);
+  }
+  const rooms = roomsFromCatalogType(found.type);
+  if (rooms != null && !state.types.length) state.types = [rooms];
+  if (found.area && !state.area.length) state.area = [String(found.area)];
+  return found;
 }
 
 /**
@@ -70,31 +86,12 @@ export function getMinPrice(types) {
  * @param {{ pendingAnswers?: string[], pendingHandoff?: object|null }} runtime
  * @returns {Promise<object>}
  */
-/**
- * Catalog is apartments only — no room/sharing inventory or prices.
- *
- * @param {import('./state.js').DialogState} state
- * @returns {boolean}
- */
-function isSharingLead(state) {
-  return (
-    state.activeScenario === 'sharing'
-    || state.category === 'sharing'
-    || state.apartmentType === 'room'
-  );
-}
-
-const SHARING_NO_CATALOG = {
-  error: 'sharing_no_catalog',
-  agentInstruction:
-    'Sharing/room lead: catalog has apartments only. Do not quote room prices or min rates. Collect move-in/period/budget/area if missing, qualify_lead(sharing), then terminal A — no search_apartments / get_min_price.',
-};
-
 export async function executeTool(state, name, args, runtime) {
   const a = args && typeof args === 'object' ? args : {};
 
   if (name === 'search_apartments') {
-    if (isSharingLead(state)) return { ...SHARING_NO_CATALOG };
+    const blocked = blockApartmentCatalogTools(state);
+    if (blocked) return { ...blocked };
     if (Array.isArray(a.types) && a.types.length) state.types = a.types.map(Number);
     if (a.period != null && Number(a.period) > 0) state.period = Number(a.period);
     if (a.price != null && Number(a.price) > 0) state.budget = Number(a.price);
@@ -122,37 +119,25 @@ export async function executeTool(state, name, args, runtime) {
   }
 
   if (name === 'get_min_price') {
-    if (isSharingLead(state)) return { ...SHARING_NO_CATALOG };
+    const blocked = blockApartmentCatalogTools(state);
+    if (blocked) return { ...blocked };
     return getMinPrice(a.types);
   }
 
   if (name === 'get_apartment_by_unit_number') {
     const unit = String(a.unitNumber || '').trim();
     state.unitNumber = unit || state.unitNumber;
-    const found = findByUnitNumber(unit);
-    if (!found) {
-      state.unitLookupStatus = 'not_found';
-      return { error: 'not_found' };
-    }
-    state.unitLookupStatus = 'found';
-    if (found.link && !state.shownLinks.includes(found.link)) state.shownLinks.push(found.link);
+    const found = applyCatalogUnitToState(state, findByUnitNumber(unit));
+    if (!found) return { error: 'not_found' };
     const fit = unitFitsMoveIn(
       found.availableFrom,
       state.routingMoveInDate || state.savedMoveInDate,
     );
-    /** @type {string} */
-    let agentInstruction =
-      'When quoting this unit, always state availableFrom and pick price from priceVariants for the requested period.';
-    if (!fit.known) {
-      agentInstruction =
-        'availableFrom is unknown — say availability must be confirmed; do not claim the unit is free now.';
-    } else if (fit.fits === false) {
-      agentInstruction =
-        `Unit availableFrom ${fit.availableFrom} is AFTER client move-in ${fit.moveIn}. Tell the client that date; offer to wait until availableFrom or search alternatives — do not treat as free on move-in.`;
-    } else if (fit.fits === true) {
-      agentInstruction =
-        `Unit is available from ${fit.availableFrom} (fits client move-in ${fit.moveIn}). State availableFrom; use priceVariants for the period. Do not route to postponed only because of this unit.`;
-    }
+    const agentInstruction = !fit.known
+      ? 'availableFrom unknown — confirm availability; do not claim the unit is free now. Use priceVariants for period.'
+      : fit.fits === false
+        ? `availableFrom ${fit.availableFrom} is AFTER move-in ${fit.moveIn}. Tell that date; offer wait or alternatives — not free on move-in.`
+        : `availableFrom ${fit.availableFrom || 'n/a'}; use priceVariants for period. State availableFrom when quoting.`;
     return {
       apartment: {
         apartmentId: Number(found.uid) || found.uid,
@@ -286,27 +271,13 @@ export async function executeTool(state, name, args, runtime) {
   }
 
   if (name === 'leave_chat') {
+    // CRM enums come from enrichStateForLeave — do not take stay/type/planning from model args.
     if (a.budget != null) state.budget = Number(a.budget);
     if (a.residents && !state.residents) state.residents = String(a.residents);
-    // Do not let leave args overwrite fields we can derive from dialog state.
-    if (a.stay_duration && state.period == null && !state.stayDuration) {
-      state.stayDuration = String(a.stay_duration);
-    }
-    if (
-      a.apartment_type
-      && !state.apartmentType
-      && !(Array.isArray(state.types) && state.types.length)
-    ) {
-      state.apartmentType = String(a.apartment_type);
-    }
-    if (a.planning_to_move && state.extras?.days_to_checkin == null && !state.planningToMove) {
-      state.planningToMove = String(a.planning_to_move);
-    }
     if (a.dealId) state.dealId = String(a.dealId);
     if (a.contactId) state.contactId = String(a.contactId);
     let crm = { ok: true, stub: !crmEnabled() };
     try {
-      // writeLeaveSnapshot → enrichStateForLeave (single place for leave fields)
       crm = await writeLeaveSnapshot(state);
     } catch (err) {
       crm = { ok: false, stub: false, error: err.message };

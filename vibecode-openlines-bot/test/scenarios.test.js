@@ -8,9 +8,7 @@ import {
   isPostponedMoveIn,
   languageSourceText,
   looksLikeRoomRequest,
-  replyLanguageMismatch,
   stayDurationFromPeriod,
-  stripReIntro,
 } from '../lib/scenarios.js';
 import { executeTool } from '../lib/tools.js';
 import { unitFitsMoveIn } from '../lib/searchApartment.js';
@@ -95,16 +93,4 @@ test('postponed threshold and unit availability fit', () => {
   assert.equal(unitFitsMoveIn('2026-11-30', '23-11-2026').fits, false);
   assert.equal(unitFitsMoveIn('2026-11-20', '23-11-2026').fits, true);
   assert.equal(unitFitsMoveIn('', '23-11-2026').known, false);
-});
-
-test('reply language mismatch and re-intro strip', () => {
-  assert.equal(
-    replyLanguageMismatch('Здравствуйте! Это менеджер Colife, подскажите дату заезда пожалуйста.', 'en'),
-    true,
-  );
-  assert.equal(replyLanguageMismatch('Could you share your move-in date?', 'en'), false);
-  assert.match(
-    stripReIntro('Hello! This is Colife manager.\nWhat is your budget?', true),
-    /budget/i,
-  );
 });

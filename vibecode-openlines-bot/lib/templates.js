@@ -1,6 +1,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import olBotConfig from '../config/ol-bot.js';
 import { query, getPool } from './db.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -131,7 +132,7 @@ export async function loadToolSchemas(scopeKey = 'main') {
  * @returns {Promise<string>}
  */
 export async function buildSystemInstruction(activeScenario = null) {
-  const postponedFrom = process.env.POSTPONED_FROM_DATE || '2026-12-10';
+  const postponedFrom = olBotConfig.postponedFromDate;
   const parts = [
     await loadTemplate('shared_preamble'),
     `POSTPONED_FROM_DATE=${postponedFrom}`,

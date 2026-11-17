@@ -1,6 +1,8 @@
 import express from 'express';
 import { createBotWorker } from './lib/bot.js';
+import { warmApartmentsCache } from './lib/catalog.js';
 import { loadKnowledgeBase } from './lib/kb.js';
+import { getAiModel } from './lib/settings.js';
 
 const port = Number(process.env.PORT || 3000);
 const apiKey = process.env.VIBE_API_KEY || '';
@@ -11,6 +13,9 @@ if (!apiKey || !botId) {
   process.exit(1);
 }
 
+await warmApartmentsCache();
+const bootModel = await getAiModel('bitrix/bitrixgpt-5.5-thinking');
+
 const app = express();
 const worker = createBotWorker({
   apiKey,
@@ -18,7 +23,7 @@ const worker = createBotWorker({
   knowledgeBase: loadKnowledgeBase(),
   pollMs: Number(process.env.POLL_MS || 3000),
   catalogRefreshMs: Number(process.env.CATALOG_REFRESH_MS || 60 * 60 * 1000),
-  model: process.env.AI_MODEL || 'bitrix/bitrixgpt-5.5-thinking',
+  model: bootModel,
 });
 const runtime = worker.start();
 

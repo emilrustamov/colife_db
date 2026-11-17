@@ -6,8 +6,8 @@
 
 - Supervisor: `colife-ol-bot` → `node --env-file=…/vibecode-openlines-bot/.env server.js`
 - Портал: `colifepacific` · `BOT_ID=43591` · линия `OPENLINE_ID=35`
-- Модель: runtime из `ol_bot_settings.ai_model` (UI Main → picker Alaio `/ai/models`); fallback `AI_MODEL` / `OL_BOT_AI_MODEL`
-- Каталог: hourly Tilda AE → JSON + таблица `ol_bot_apartments`; поиск только локальный; `unitNumber`/`sku` из `editions[].sku` (не только characteristics)
+- Модель: runtime из `ol_bot_settings.ai_model` (UI Main → picker Alaio `/ai/models`); last resort `AI_MODEL`
+- Каталог: hourly Tilda AE → `ol_bot_apartments` (+ in-memory cache в боте); optional JSON backup `CATALOG_JSON_PATH`; поиск только локальный; `unitNumber`/`sku` из `editions[].sku`
 - CRM writes: Bitrix deal UF на ГК (`CRM_WEBHOOK`, `CRM_ENABLED=1`)
   - `qualify_lead` → `UF_CRM_1763647077`
   - `set_wikibot_in_chat_status` → `UF_CRM_OL_BOT_CHAT_STATUS`
@@ -41,4 +41,7 @@
 ## KB
 
 - `kb/shared_preamble.md`, `kb/main.md`, `kb/scenarios/*`, `kb/skills/*`, `kb/tools/*.json`, `kb/scope_tools.json`
-- `POSTPONED_FROM_DATE` (default `2026-12-10`) — календарный порог postponed
+- `config/ol-bot.js` — product knobs (`postponedFromDate`, search/classify); injected as `POSTPONED_FROM_DATE`
+- Routing: code (`hydrateStateFromText`) owns sharing/short_term/urgent/postponed; KB/bot point at Dialog state
+- `handbook/areas.json` — aliases only (+ catalog DISTINCT at runtime); `handbook/crm.json` — CRM enum labels / budget buckets
+- KB prompt: `memory.txt` only; apartments via search tools

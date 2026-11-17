@@ -1,5 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import { setApartmentsCache } from '../lib/catalog.js';
 import {
   classifyBudgetTarget,
   extractDaysToCheckin,
@@ -51,6 +52,8 @@ const sample = [
     text: 'Hamilton',
   },
 ];
+
+setApartmentsCache(sample);
 
 test('extracts area/type/price', () => {
   const args = extractSearchArgs('Looking for studio in JVC under 7000 AED');

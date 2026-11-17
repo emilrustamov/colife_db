@@ -1,23 +1,23 @@
-import { extractDaysToCheckin, extractSearchArgs } from './searchApartment.js';
+import olBotConfig from '../config/ol-bot.js';
+import { apartmentTypeFromRooms, roomsFromCatalogType } from './types.js';
+import { extractDaysToCheckin, extractSearchArgs, parseIsoDate } from './searchApartment.js';
 
-export const SCENARIO_NAMES = [
-  'ejari',
-  'non_target',
-  'out_of_budget',
-  'postponed',
-  'sharing',
-  'short_term',
-  'urgent_move_in',
-];
-
-const CATEGORY_TO_SCENARIO = {
-  ejari: 'ejari',
-  non_target: 'non_target',
-  out_of_budget: 'out_of_budget',
-  postponed: 'postponed',
-  sharing: 'sharing',
-  short_term: 'short_term',
+/**
+ * One route table: scenario ↔ CRM category (null = scenario-only, e.g. urgent).
+ *
+ * @type {Record<string, { scenario: string, category: string|null }>}
+ */
+export const ROUTES = {
+  ejari: { scenario: 'ejari', category: 'ejari' },
+  non_target: { scenario: 'non_target', category: 'non_target' },
+  out_of_budget: { scenario: 'out_of_budget', category: 'out_of_budget' },
+  postponed: { scenario: 'postponed', category: 'postponed' },
+  sharing: { scenario: 'sharing', category: 'sharing' },
+  short_term: { scenario: 'short_term', category: 'short_term' },
+  urgent_move_in: { scenario: 'urgent_move_in', category: null },
 };
+
+export const SCENARIO_NAMES = Object.keys(ROUTES);
 
 /**
  * @param {string|null|undefined} name
@@ -33,7 +33,17 @@ export function isScenarioName(name) {
  */
 export function scenarioForCategory(category) {
   const key = String(category || '');
-  return CATEGORY_TO_SCENARIO[key] || null;
+  const hit = Object.values(ROUTES).find((r) => r.category === key);
+  return hit ? hit.scenario : null;
+}
+
+/**
+ * @param {string|null|undefined} scenario
+ * @returns {string|null}
+ */
+export function categoryForScenario(scenario) {
+  const hit = ROUTES[String(scenario || '')];
+  return hit?.category || null;
 }
 
 /**
@@ -62,23 +72,41 @@ export function activateScenario(state, scenario) {
   return { ok: true, activeScenario: scenario };
 }
 
+export { apartmentTypeFromRooms, roomsFromCatalogType };
+
 /**
- * @param {number|null|undefined} type
- * @returns {string|null}
+ * Active sharing scenario/category (not merely apartmentType=room).
+ *
+ * @param {import('./state.js').DialogState} state
+ * @returns {boolean}
  */
-export function apartmentTypeFromRooms(type) {
-  switch (Number(type)) {
-    case 0:
-      return 'studio';
-    case 1:
-      return '1_bedroom';
-    case 2:
-      return '2_bedroom';
-    case 3:
-      return '3_bedroom';
-    default:
-      return null;
-  }
+export function isSharingRoute(state) {
+  return state.category === 'sharing' || state.activeScenario === 'sharing';
+}
+
+/**
+ * Sharing lead for catalog guards (route or explicit room).
+ *
+ * @param {import('./state.js').DialogState} state
+ * @returns {boolean}
+ */
+export function isSharingLead(state) {
+  return isSharingRoute(state) || state.apartmentType === 'room';
+}
+
+/**
+ * Block apartment catalog tools for sharing/room leads.
+ *
+ * @param {import('./state.js').DialogState} state
+ * @returns {false|{ error: string, agentInstruction: string }}
+ */
+export function blockApartmentCatalogTools(state) {
+  if (!isSharingLead(state)) return false;
+  return {
+    error: 'sharing_no_catalog',
+    agentInstruction:
+      'Sharing/room lead: catalog has apartments only. Do not quote room prices. Collect missing params, qualify_lead(sharing), terminal A — no search/get_min_price.',
+  };
 }
 
 /**
@@ -86,45 +114,27 @@ export function apartmentTypeFromRooms(type) {
  * @returns {string|null}
  */
 export function resolveApartmentType(state) {
-  const sharing = state.category === 'sharing' || state.activeScenario === 'sharing';
-  // Room only wins while we are still on a sharing route.
-  if (state.apartmentType === 'room' && sharing) return 'room';
+  // Room wins only on an active sharing route (stale types must not override).
+  if (isSharingRoute(state) && state.apartmentType === 'room') return 'room';
   if (Array.isArray(state.types) && state.types.length) {
-    const fromTypes = apartmentTypeFromRooms(state.types[0]);
-    if (fromTypes) return fromTypes;
+    return apartmentTypeFromRooms(state.types[0]);
   }
-  if (state.apartmentType === 'room') return 'room';
   if (state.apartmentType) return String(state.apartmentType);
-  if (sharing) return 'room';
+  if (isSharingRoute(state)) return 'room';
   return null;
 }
 
 /**
- * @param {string|null|undefined} ddMmYyyy
- * @returns {Date|null}
- */
-export function parseDdMmYyyy(ddMmYyyy) {
-  const m = String(ddMmYyyy || '').trim().match(/^(\d{2})-(\d{2})-(\d{4})$/);
-  if (!m) return null;
-  const d = new Date(Number(m[3]), Number(m[2]) - 1, Number(m[1]));
-  return Number.isNaN(d.getTime()) ? null : d;
-}
-
-/**
- * Move-in on/after POSTPONED_FROM_DATE (env, default 2026-12-10).
+ * Move-in on/after config.ol-bot postponedFromDate.
  *
  * @param {string|null|undefined} ddMmYyyy
  * @returns {boolean}
  */
 export function isPostponedMoveIn(ddMmYyyy) {
-  const move = parseDdMmYyyy(ddMmYyyy);
+  const move = parseIsoDate(ddMmYyyy);
   if (!move) return false;
-  const raw = String(process.env.POSTPONED_FROM_DATE || '2026-12-10').trim();
-  let from = null;
-  const iso = raw.match(/^(\d{4})-(\d{2})-(\d{2})$/);
-  if (iso) from = new Date(Number(iso[1]), Number(iso[2]) - 1, Number(iso[3]));
-  else from = parseDdMmYyyy(raw);
-  if (!from || Number.isNaN(from.getTime())) return false;
+  const from = parseIsoDate(olBotConfig.postponedFromDate);
+  if (!from) return false;
   return move.getTime() >= from.getTime();
 }
 
@@ -207,29 +217,18 @@ export function planningFromDays(days) {
 export function enrichStateForLeave(state) {
   const resolvedType = resolveApartmentType(state);
   if (resolvedType) state.apartmentType = resolvedType;
-  // Prefer period → stay enum over a wrong leave_chat override.
   if (state.period != null) {
     const derived = stayDurationFromPeriod(state.period);
     if (derived) state.stayDuration = derived;
-  } else if (!state.stayDuration) {
-    state.stayDuration = stayDurationFromPeriod(state.period);
   }
   if (state.extras?.days_to_checkin != null) {
     state.planningToMove = planningFromDays(state.extras.days_to_checkin);
-  } else if (!state.planningToMove) {
-    state.planningToMove = planningFromDays(state.extras?.days_to_checkin);
   }
   if (!state.savedMoveInDate && state.routingMoveInDate && /^\d{2}-\d{2}-\d{4}$/.test(state.routingMoveInDate)) {
     state.savedMoveInDate = state.routingMoveInDate;
   }
   if (!state.category) {
-    if (state.activeScenario === 'non_target') state.category = 'non_target';
-    else if (state.activeScenario === 'short_term') state.category = 'short_term';
-    else if (state.activeScenario === 'postponed') state.category = 'postponed';
-    else if (state.activeScenario === 'sharing') state.category = 'sharing';
-    else if (state.activeScenario === 'out_of_budget') state.category = 'out_of_budget';
-    else if (state.activeScenario === 'ejari') state.category = 'ejari';
-    else state.category = 'no_information';
+    state.category = categoryForScenario(state.activeScenario) || 'no_information';
   }
   state.extras.leaveSnapshot = {
     budget: state.budget,
@@ -243,7 +242,7 @@ export function enrichStateForLeave(state) {
 }
 
 /**
- * Re-scan transcript user lines into state (before leave / empty fallback).
+ * Re-scan transcript user lines into state (before leave).
  *
  * @param {import('./state.js').DialogState} state
  * @returns {void}
@@ -329,54 +328,6 @@ export function hydrateStateFromText(state, text) {
 }
 
 /**
- * Client clarify text when the model returns nothing useful.
- *
- * @param {import('./state.js').DialogState} state
- * @returns {string}
- */
-export function clarifyFallback(state) {
-  const ru = state.language === 'ru';
-  const hasMove = Boolean(
-    state.routingMoveInDate
-    || state.savedMoveInDate
-    || state.extras?.days_to_checkin != null,
-  );
-  const hasPeriod = state.period != null && Number(state.period) > 0;
-  const hasType = Boolean(state.apartmentType || (state.types && state.types.length));
-  const hasBudget = state.budget != null && Number(state.budget) > 0;
-  const hasArea = Array.isArray(state.area) && state.area.length > 0;
-
-  if (!hasMove) {
-    return ru
-      ? 'Уточните, пожалуйста, дату заезда — так я подберу варианты точнее.'
-      : 'Could you clarify your move-in date so I can find the right options?';
-  }
-  if (!hasPeriod) {
-    return ru
-      ? 'На какой срок аренды ориентируетесь?'
-      : 'How long are you planning to stay?';
-  }
-  if (!hasType) {
-    return ru
-      ? 'Какой тип жилья нужен — студия, 1 bedroom или комната?'
-      : 'What apartment type are you looking for — studio, 1-bedroom, or a room?';
-  }
-  if (!hasBudget) {
-    return ru
-      ? 'Какой у вас максимальный бюджет в месяц (AED)?'
-      : 'What is your maximum monthly budget in AED?';
-  }
-  if (!hasArea) {
-    return ru
-      ? 'Уточните, пожалуйста, район — продолжу подбор по уже известным условиям.'
-      : 'Which area should I prioritize? I can continue with the details you already shared.';
-  }
-  return ru
-    ? 'Продолжаю подбор по уже известным условиям. Уточните, если нужно что-то изменить.'
-    : 'I can continue with the details you already shared. Tell me if anything should change.';
-}
-
-/**
  * @param {string} text
  * @returns {boolean}
  */
@@ -459,15 +410,17 @@ export function languageSourceText(text) {
 export function looksLikeReasoningLeak(text) {
   const t = String(text || '').trim();
   if (!t) return false;
+  // Hard markers — any length.
   if (/^\[?\s*end of turn\s*\]?$/i.test(t)) return true;
+  if (/dialog state json|tool_call|function call|unified decision cycle/i.test(t)) return true;
+  if (/exact next step\s*:/i.test(t)) return true;
+  // Soft heuristics only on long dumps (avoid eating short client replies).
+  if (t.length < 120) return false;
   return (
     /according to the|following the `|robot_message`|step\s*[123]\s*:/i.test(t) ||
     /identify (?:boundaries|template)|extract unit number|verify unit|handle free text/i.test(t) ||
     /as per the (?:skill|protocol|algorithm)/i.test(t) ||
-    /dialog state json|tool_call|function call/i.test(t) ||
     /^the input is (?:a |recognized as )/i.test(t) ||
-    /exact next step\s*:/i.test(t) ||
-    /unified decision cycle/i.test(t) ||
     /original (?:late )?move-in date\s*:/i.test(t) ||
     /^summary\s*:\s*-\s*original/i.test(t)
   );
@@ -500,36 +453,13 @@ export function sanitizeClientText(text) {
 }
 
 /**
- * True when client-facing text is clearly the wrong language.
+ * Format outbound text; drop reasoning leaks. No soft substitutes.
  *
  * @param {string} text
- * @param {'en'|'ru'|string|null|undefined} language
- * @returns {boolean}
- */
-export function replyLanguageMismatch(text, language) {
-  const t = String(text || '');
-  if (!t || !language) return false;
-  const cyr = (t.match(/[а-яё]/gi) || []).length;
-  const lat = (t.match(/[a-z]/gi) || []).length;
-  if (cyr + lat < 12) return false;
-  if (language === 'en') return cyr > lat * 2;
-  if (language === 'ru') return lat > cyr * 2;
-  return false;
-}
-
-/**
- * Drop re-intro fluff after the bot already greeted.
- *
- * @param {string} text
- * @param {boolean} introduced
  * @returns {string}
  */
-export function stripReIntro(text, introduced) {
-  if (!introduced) return String(text || '');
-  return String(text || '')
-    .replace(
-      /^(?:hello|hi|hey|здравствуйте|добрый\s+день)[!.]?\s*(?:this is|i'?m|i am|это(?:\s+менеджер)?)[\s\S]{0,120}?(?:\n+|$)/i,
-      '',
-    )
-    .trim();
+export function prepareClientAnswer(text) {
+  const out = sanitizeClientText(text);
+  if (!out || looksLikeReasoningLeak(out)) return '';
+  return out;
 }
