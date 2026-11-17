@@ -6,7 +6,6 @@ use App\Models\DiskSyncedFile;
 use App\Services\BitrixWebhook;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\Storage;
-use Throwable;
 
 class CleanupRentFolders extends Command
 {

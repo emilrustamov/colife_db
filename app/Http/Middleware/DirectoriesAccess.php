@@ -10,7 +10,7 @@ use Symfony\Component\HttpFoundation\Response;
 class DirectoriesAccess
 {
     /**
-     * Allow access when the user has directories.view or any directory.{key} permission.
+     * Allow access when the user has any directory.{key} permission.
      */
     public function handle(Request $request, Closure $next): Response
     {

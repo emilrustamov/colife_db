@@ -32,11 +32,11 @@ export function shouldHandleMessageEvent(event) {
 
 /**
  * @param {string} content
- * @returns {{ answer: string, handoff: boolean }}
+ * @returns {{ answer: string, handoff: boolean, scenario: string|null }}
  */
 export function parseModelReply(content) {
   const raw = String(content || '').trim();
-  if (!raw) return { answer: '', handoff: true };
+  if (!raw) return { answer: '', handoff: true, scenario: null };
   try {
     const start = raw.indexOf('{');
     const end = raw.lastIndexOf('}');
@@ -44,15 +44,16 @@ export function parseModelReply(content) {
       const parsed = JSON.parse(raw.slice(start, end + 1));
       const answer = String(parsed.answer || parsed.message || '').trim();
       const handoff = Boolean(parsed.handoff ?? parsed.escalate ?? parsed.needOperator);
-      if (answer || handoff) return { answer, handoff };
+      const scenario = parsed.scenario != null ? String(parsed.scenario) : null;
+      if (answer || handoff || scenario) return { answer, handoff, scenario };
     }
   } catch {
-    // plain text fallback
+    // plain text
   }
   if (/^HANDOFF\b/i.test(raw) || raw === 'HANDOFF') {
-    return { answer: '', handoff: true };
+    return { answer: '', handoff: true, scenario: null };
   }
-  return { answer: raw, handoff: false };
+  return { answer: raw, handoff: false, scenario: null };
 }
 
 export const OPERATOR_KEYBOARD = [

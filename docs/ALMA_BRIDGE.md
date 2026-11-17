@@ -9,7 +9,7 @@
 | Этап | Статус |
 |------|--------|
 | A. Архитектура + аудит | сделано |
-| B. Код в Laravel, `ALMA_BRIDGE_ENABLED=false` | **сделано** — пишет в Alma только после включения флага |
+| B. Код в Laravel, `ALMA_BRIDGE_ENABLED=false` | **сделано** — parity с `/var/www/alma` на 2026-11-16 (коммиты `5abd3f4`, `37df3dc`) |
 | C. Cutover + удаление `/var/www/alma` | ждать команду «запускаем» |
 
 Прод по-прежнему на `alma.colifeb24apps.com` → `/var/www/alma`, пока флаг выключен и Bitrix handlers не переключены.
@@ -44,7 +44,7 @@ artisan alma-bridge:upsert {type} {id} [--project=] [--create] [--update]
 
 - `ALMA_BRIDGE_ENABLED` (по умолчанию `false`)
 - `ALMA_API_URL` / `ALMA_API_KEY` / `ALMA_API_TIMEOUT` (уже были)
-- `ALMA_WEB_URL`
+- `ALMA_WEB_URL` — ссылки в timeline-комментариях Bitrix
 - `PROJECT_DEFAULT_NAME`
 - `PROJECT_DUBAI_*` / `PROJECT_HONGKONG_*` — domain, webhook URLs, **отдельный** `PROJECT_*_WEBHOOK_TOKEN` на каждый проект (токены не общие)
 
@@ -63,12 +63,38 @@ artisan alma-bridge:upsert {type} {id} [--project=] [--create] [--update]
 | `app/Console/Commands/AlmaBridgeUpsertCmd.php` | artisan |
 | `storage/logs/alma_bridge-*.log` | канал `alma_bridge` |
 
-## Cutover (этап C)
+## Parity checklist (до cutover)
+
+Сверка с `/var/www/alma` от 2026-11-16. Отмечать при ручном смоуке.
+
+### Перенесено в код
+
+- [x] HK mappings: `apartment_number`, `unit.number`, passport/id_scan, `email=null`, property/contract types, `archive_stage_ids=['1025']`
+- [x] Apartment full payload (parking/baths/bedrooms/pool/keybox/lock/subway/`additional_external_id`)
+- [x] Unarchive unit on update (`is_archived → false`)
+- [x] Unarchive building / `archiveBuildingIfEmpty` при archive apt
+- [x] Webhook `skip_if_integration_update` для apt + tenant + LL
+- [x] Timeline: apt created + sync error comments (пересечение дат / invalid period)
+- [x] Room name-conflict recovery (`already exists` → patch)
+- [x] Dubai unit webhook ignore; HK unit webhook + rent_type=`rooms` check
+- [x] `TerminationService::applyForApartment` после sync apt (`date_of_refused`)
+
+### Перед включением флага
+
+- [ ] `ALMA_WEB_URL` / `PROJECT_*_WEBHOOK_*` / `PROJECT_*_WEBHOOK_TOKEN` в `.env` Laravel
+- [ ] `config:clear` после правок env
+- [ ] Смоук Dubai: apartment upsert (create + update archived) / rooms cascade / tenant contract / LL / blocking
+- [ ] Смоук HongKong: apartment / unit webhook / tenant contract types `1277`/`1279`
+- [ ] Проверить, что error-comment в timeline не зацикливает webhook (echo-skip)
+- [ ] Ownership `external_id`: Bridge не патчит clients из contacts-модуля одновременно
+
+### Cutover (этап C)
 
 1. `ALMA_BRIDGE_ENABLED=true`, `config:clear`
 2. Переключить Bitrix handlers на `https://db.colifeb24apps.com/api/webhooks/bitrix/alma` (или nginx `alma.*` → Laravel)
 3. Смоук: apartment / contract / LL / blocking
 4. Остановить cron `/var/www/alma`, архивировать каталог
+5. После стабилизации — не править логику параллельно в `/var/www/alma`
 
 ## Ownership Alma client `external_id`
 
@@ -81,7 +107,7 @@ Bridge **не** патчит `external_id` клиентов из contacts-кэш
 
 ## Auth webhook
 
-`POST /api/webhooks/bitrix/alma`: сначала `auth.domain` → проект (`Dubai` / `HongKong`), затем токен **только этого** проекта (`PROJECT_DUBAI_WEBHOOK_TOKEN` / `PROJECT_HONGKONG_WEBHOOK_TOKEN`) либо application_token портала из `BitrixToken` / `B24_*_APPLICATION_TOKEN`. Общего токена на оба портала нет. Deal-события без handler → `422`. REST `project` — только `Dubai` \| `HongKong`.
+`POST /api/webhooks/bitrix/alma`: сначала `auth.domain` → проект (`Dubai` / `HongKong`), затем **обязательный** токен только этого проекта (`PROJECT_DUBAI_WEBHOOK_TOKEN` / `PROJECT_HONGKONG_WEBHOOK_TOKEN`) — из body/`auth.application_token` или заголовка `X-Alma-Bridge-Token`. Пустой project token → reject (fail closed). Общего токена на оба портала нет. Deal-события без handler → `422`. REST `project` — только `Dubai` \| `HongKong`.
 
 ## Безопасность (legacy)
 

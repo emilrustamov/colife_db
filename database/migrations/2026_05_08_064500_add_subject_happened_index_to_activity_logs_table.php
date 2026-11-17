@@ -43,9 +43,19 @@ return new class extends Migration
      */
     private function indexExists(): bool
     {
+        $index = 'activity_logs_subject_type_subject_id_happened_at_idx';
+
+        if (Schema::hasIndex('activity_logs', $index)) {
+            return true;
+        }
+
+        if (Schema::getConnection()->getDriverName() !== 'mysql') {
+            return false;
+        }
+
         $rows = DB::select(
             'SHOW INDEX FROM activity_logs WHERE Key_name = ?',
-            ['activity_logs_subject_type_subject_id_happened_at_idx']
+            [$index]
         );
 
         return $rows !== [];

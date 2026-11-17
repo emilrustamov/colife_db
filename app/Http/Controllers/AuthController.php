@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Support\AdminMenu;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -40,7 +41,7 @@ class AuthController extends Controller
 
         $request->session()->regenerate();
 
-        return redirect()->intended(route('directories.index'));
+        return redirect()->intended(AdminMenu::homeUrl($request->user()));
     }
 
     /**

@@ -1,6 +1,6 @@
 <script setup>
-import { useForm } from '@inertiajs/vue3';
-import { watch } from 'vue';
+import { useForm, usePage } from '@inertiajs/vue3';
+import { computed, watch } from 'vue';
 import { useOlBotI18n } from '../../composables/useOlBotI18n';
 
 const props = defineProps({
@@ -9,6 +9,8 @@ const props = defineProps({
     selected: { type: Array, default: () => [] },
 });
 
+const page = usePage();
+const canEdit = computed(() => page.props.auth?.user?.can?.editOlBotTemplates === true);
 const { t, toolLabel } = useOlBotI18n();
 
 const form = useForm({
@@ -30,6 +32,10 @@ watch(
  * @returns {void}
  */
 const toggleTool = (tool) => {
+    if (!canEdit.value) {
+        return;
+    }
+
     const list = [...form.tool_keys];
     const idx = list.indexOf(tool);
     if (idx >= 0) {
@@ -44,6 +50,10 @@ const toggleTool = (tool) => {
  * @returns {void}
  */
 const save = () => {
+    if (!canEdit.value) {
+        return;
+    }
+
     form.post('/ol-bot/templates/scope-tools');
 };
 </script>
@@ -56,6 +66,7 @@ const save = () => {
                 <p class="ui-muted text-xs">{{ t('functionsHint') }}</p>
             </div>
             <button
+                v-if="canEdit"
                 type="button"
                 class="ui-btn ui-btn-primary !px-3 !py-1.5 !text-sm"
                 :disabled="form.processing"
@@ -68,15 +79,19 @@ const save = () => {
             <label
                 v-for="tool in toolCatalog"
                 :key="tool"
-                class="inline-flex cursor-pointer items-center gap-2 rounded-xl border px-3 py-1.5 text-xs font-medium transition"
-                :class="form.tool_keys.includes(tool)
-                    ? 'border-brand bg-brand-soft text-brand'
-                    : 'border-ink-muted/20 text-ink-muted hover:border-ink-muted/40'"
+                class="inline-flex items-center gap-2 rounded-xl border px-3 py-1.5 text-xs font-medium transition"
+                :class="[
+                    form.tool_keys.includes(tool)
+                        ? 'border-brand bg-brand-soft text-brand'
+                        : 'border-ink-muted/20 text-ink-muted hover:border-ink-muted/40',
+                    canEdit ? 'cursor-pointer' : 'cursor-default opacity-80',
+                ]"
             >
                 <input
                     type="checkbox"
                     class="sr-only"
                     :checked="form.tool_keys.includes(tool)"
+                    :disabled="!canEdit"
                     @change="toggleTool(tool)"
                 >
                 <span

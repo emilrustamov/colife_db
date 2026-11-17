@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
+use App\Services\CleaningAlert;
 use App\Services\CleaningSubmitService;
 use App\Services\TokenVerifier;
 use Illuminate\Http\JsonResponse;
@@ -16,6 +17,7 @@ class CleaningSubmitController extends Controller
     public function __construct(
         private readonly CleaningSubmitService $submitService,
         private readonly TokenVerifier $tokenVerifier,
+        private readonly CleaningAlert $alerts,
     ) {}
 
     /**
@@ -36,10 +38,12 @@ class CleaningSubmitController extends Controller
         }
 
         if (! $this->tokenVerifier->authorizeCleaningForm($request)) {
+            $domain = $this->tokenVerifier->requestDomain($request);
             Log::channel('bitrix_cleaning')->warning('CLEANING_SUBMIT_REJECTED', [
-                'domain' => $this->tokenVerifier->requestDomain($request),
+                'domain' => $domain,
                 'content_length' => $contentLength,
             ]);
+            $this->alerts->submitRejected($domain);
 
             return response()->json(['status' => 'error', 'message' => 'Forbidden'], 403);
         }
@@ -116,6 +120,11 @@ class CleaningSubmitController extends Controller
                 'apartment_id' => $payload['apartment_id'],
                 'unit_id' => $payload['unit_id'],
             ]);
+            $this->alerts->submitFailed(
+                (string) config('services.b24_tr.portal_domain', ''),
+                $e->getMessage(),
+                $payload['apartment_id'],
+            );
 
             return response()->json([
                 'status' => 'error',

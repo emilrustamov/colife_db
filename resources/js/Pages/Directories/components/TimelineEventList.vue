@@ -1,6 +1,13 @@
 <script setup>
 import { computed } from 'vue';
 import { useAppPreferences } from '../../../composables/useAppPreferences';
+import {
+    formatDate as formatDateValue,
+    formatDateTime as formatDateTimeValue,
+    isDateOnlyString,
+    isDateTimeString,
+    toDateObject,
+} from '../../../utils/datetime';
 
 const props = defineProps({
     timeline: { type: Array, default: () => [] },
@@ -29,8 +36,6 @@ const alwaysHiddenFields = new Set([
     'changed_by_bitrix_user_name',
 ]);
 
-const dateLocale = computed(() => (locale.value === 'en' ? 'en-GB' : 'ru-RU'));
-
 /**
  * @param {string} key
  * @returns {string}
@@ -49,98 +54,13 @@ const eventLabel = (key) => {
     return pack.events?.[key] ?? props.messages?.ru?.events?.[key] ?? key;
 };
 
-const isIsoDateLike = (value) => {
-    if (typeof value !== 'string') {
-        return false;
-    }
-
-    return /^\d{4}-\d{2}-\d{2}(T|\s)\d{2}:\d{2}:\d{2}/.test(value) || /^\d{4}-\d{2}-\d{2}$/.test(value);
-};
-
-const isDateOnly = (value) => typeof value === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(value);
+const isIsoDateLike = (value) => isDateOnlyString(value) || isDateTimeString(value);
+const isDateOnly = (value) => isDateOnlyString(value);
 const isDateFieldKey = (key) => typeof key === 'string' && key.endsWith('_date');
 
-const toDateObject = (value) => {
-    if (value === null || value === undefined || value === '') {
-        return null;
-    }
-
-    const raw = String(value).trim();
-    if (raw === '') {
-        return null;
-    }
-
-    if (/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$/.test(raw)) {
-        const date = new Date(`${raw.replace(' ', 'T')}Z`);
-        return Number.isNaN(date.getTime()) ? null : date;
-    }
-
-    if (/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}$/.test(raw)) {
-        const date = new Date(`${raw}Z`);
-        return Number.isNaN(date.getTime()) ? null : date;
-    }
-
-    const date = new Date(raw);
-    return Number.isNaN(date.getTime()) ? null : date;
-};
-
-const formatDate = (value) => {
-    if (value === null || value === undefined || value === '') {
-        return '';
-    }
-
-    const date = new Date(`${String(value)}T00:00:00`);
-    if (Number.isNaN(date.getTime())) {
-        return String(value);
-    }
-
-    return new Intl.DateTimeFormat(dateLocale.value, {
-        day: '2-digit',
-        month: '2-digit',
-        year: 'numeric',
-    }).format(date);
-};
-
-const formatDateForField = (value) => {
-    if (value === null || value === undefined || value === '') {
-        return '';
-    }
-
-    if (isDateOnly(value)) {
-        return formatDate(value);
-    }
-
-    const date = toDateObject(value);
-    if (date === null) {
-        return String(value);
-    }
-
-    return new Intl.DateTimeFormat(dateLocale.value, {
-        day: '2-digit',
-        month: '2-digit',
-        year: 'numeric',
-    }).format(date);
-};
-
-const formatDateTime = (value) => {
-    if (value === null || value === undefined || value === '') {
-        return '';
-    }
-
-    const date = toDateObject(value);
-    if (date === null) {
-        return String(value);
-    }
-
-    return new Intl.DateTimeFormat(dateLocale.value, {
-        day: '2-digit',
-        month: '2-digit',
-        year: 'numeric',
-        hour: '2-digit',
-        minute: '2-digit',
-        second: '2-digit',
-    }).format(date);
-};
+const formatDate = (value) => formatDateValue(value, locale.value);
+const formatDateForField = (value) => formatDateValue(value, locale.value);
+const formatDateTime = (value) => formatDateTimeValue(value, locale.value);
 
 const formatTime = (value) => {
     if (value === null || value === undefined || value === '') {
@@ -152,11 +72,8 @@ const formatTime = (value) => {
         return String(value);
     }
 
-    return new Intl.DateTimeFormat(dateLocale.value, {
-        hour: '2-digit',
-        minute: '2-digit',
-        second: '2-digit',
-    }).format(date);
+    const pad2 = (n) => String(n).padStart(2, '0');
+    return `${pad2(date.getHours())}:${pad2(date.getMinutes())}:${pad2(date.getSeconds())}`;
 };
 
 const getDayKey = (value) => {
@@ -193,11 +110,7 @@ const getDayLabel = (value) => {
         return props.t(props.messages, 'yesterday');
     }
 
-    return new Intl.DateTimeFormat(dateLocale.value, {
-        day: '2-digit',
-        month: '2-digit',
-        year: 'numeric',
-    }).format(date);
+    return formatDateValue(date, locale.value);
 };
 
 const parseValues = (value) => {

@@ -33,14 +33,45 @@ class AdminMenu
         }
 
         foreach (self::olBotItems() as $item) {
-            $items[] = $item;
+            if (! $user->can($item['permission'])) {
+                continue;
+            }
+
+            $items[] = [
+                'key' => $item['key'],
+                'title' => $item['title'],
+                'icon' => $item['icon'] ?? null,
+                'href' => $item['href'],
+            ];
         }
 
         return $items;
     }
 
     /**
-     * @return list<array<string, mixed>>
+     * First reachable admin URL for the user (directories or OL Bot).
+     */
+    public static function homeUrl(?Authenticatable $user): string
+    {
+        $menu = self::forUser($user);
+
+        if ($menu === []) {
+            return route('login');
+        }
+
+        $first = $menu[0];
+
+        if (! empty($first['href']) && is_string($first['href'])) {
+            return $first['href'];
+        }
+
+        return route('directories.page', ['directory' => $first['key']]);
+    }
+
+    /**
+     * OL Bot menu definitions with required permissions.
+     *
+     * @return list<array{key: string, title: string, icon: string, href: string, permission: string}>
      */
     public static function olBotItems(): array
     {
@@ -50,20 +81,37 @@ class AdminMenu
                 'title' => 'OL Analytics',
                 'icon' => '📊',
                 'href' => '/ol-bot/analytics',
+                'permission' => 'ol-bot.analytics',
             ],
             [
                 'key' => 'ol-bot-catalog',
                 'title' => 'OL Catalog',
                 'icon' => '🏠',
                 'href' => '/ol-bot/analytics?tab=catalog',
+                'permission' => 'ol-bot.catalog',
             ],
             [
                 'key' => 'ol-bot-templates',
                 'title' => 'OL Templates',
                 'icon' => '🤖',
                 'href' => '/ol-bot/templates',
+                'permission' => 'ol-bot.templates',
             ],
         ];
+    }
+
+    /**
+     * @return list<string>
+     */
+    public static function olBotPermissionNames(): array
+    {
+        $names = array_map(
+            static fn (array $item): string => $item['permission'],
+            self::olBotItems(),
+        );
+        $names[] = 'ol-bot.templates.edit';
+
+        return array_values(array_unique($names));
     }
 
     /**
@@ -71,10 +119,6 @@ class AdminMenu
      */
     private static function mayViewDirectory(Authenticatable $user, string $directoryKey): bool
     {
-        if ($user->can('directories.view')) {
-            return true;
-        }
-
         return $user->can('directory.'.$directoryKey);
     }
 }

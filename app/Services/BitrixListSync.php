@@ -9,8 +9,8 @@ use Illuminate\Database\Eloquent\Model;
 class BitrixListSync
 {
     public function __construct(
-        private readonly BitrixRest $bitrixRestClient,
-        private readonly EntitySync $syncService
+        private readonly BitrixRest $bitrix,
+        private readonly EntitySync $sync
     ) {}
 
     /**
@@ -30,6 +30,42 @@ class BitrixListSync
         ?callable $onBatch = null,
         ?int $portalId = null
     ): array {
+        return $this->syncList(
+            method: 'crm.item.list.json',
+            payload: [
+                'entityTypeId' => $entityTypeId,
+                'select' => $select,
+            ],
+            itemsPath: 'result.items',
+            idKey: 'id',
+            entityKey: $entityKey,
+            modelClass: $modelClass,
+            now: $now,
+            onBatch: $onBatch,
+            portalId: $portalId,
+        );
+    }
+
+    /**
+     * Paginate a Bitrix list endpoint, sync batches, reconcile soft-deletes.
+     *
+     * @param  array<string, mixed>  $payload
+     * @param  class-string<Model>  $modelClass
+     * @param  callable(int $total, int $successful, int $failedCount): void|null  $onBatch
+     * @return array{total:int,created:int,updated:int,successful:int,skipped:int,failed:int,failed_ids:list<int|string>,marked_deleted:int}
+     */
+    public function syncList(
+        string $method,
+        array $payload,
+        string $itemsPath,
+        string $idKey,
+        string $entityKey,
+        string $modelClass,
+        Carbon $now,
+        ?callable $onBatch = null,
+        ?int $portalId = null,
+        int $pauseUs = 0,
+    ): array {
         $start = 0;
         $total = 0;
         $created = 0;
@@ -37,16 +73,14 @@ class BitrixListSync
         $successful = 0;
         $skipped = 0;
         $failedIds = [];
-        $seenBitrixIds = [];
+        $seenIds = [];
 
         while (true) {
-            $response = $this->bitrixRestClient->postJson('crm.item.list.json', [
-                'entityTypeId' => $entityTypeId,
-                'select' => $select,
+            $response = $this->bitrix->postJson($method, array_merge($payload, [
                 'start' => $start,
-            ]);
+            ]));
 
-            $items = data_get($response, 'result.items', []);
+            $items = data_get($response, $itemsPath, []);
             if (! is_array($items) || $items === []) {
                 break;
             }
@@ -57,14 +91,14 @@ class BitrixListSync
                     continue;
                 }
 
-                $bitrixId = (int) ($item['id'] ?? 0);
+                $bitrixId = (int) ($item[$idKey] ?? $item['ID'] ?? $item['id'] ?? 0);
                 if ($bitrixId > 0) {
-                    $seenBitrixIds[] = $bitrixId;
+                    $seenIds[] = $bitrixId;
                 }
                 $batchItems[] = $item;
             }
 
-            $batch = $this->syncService->syncBatch($batchItems, $entityKey);
+            $batch = $this->sync->syncBatch($batchItems, $entityKey);
             $total += $batch['processed'];
             $created += $batch['created'];
             $updated += $batch['updated'];
@@ -82,13 +116,16 @@ class BitrixListSync
             }
 
             $start = (int) $next;
+            if ($pauseUs > 0) {
+                usleep($pauseUs);
+            }
         }
 
         $markedDeleted = 0;
         if ($total > 0) {
             $markedDeleted = BitrixSoftDelete::markMissing(
                 $modelClass,
-                array_values(array_unique($seenBitrixIds)),
+                array_values(array_unique($seenIds)),
                 $now,
                 $portalId
             );

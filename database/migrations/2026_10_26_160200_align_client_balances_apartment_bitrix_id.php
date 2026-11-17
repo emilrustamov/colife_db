@@ -26,7 +26,9 @@ return new class extends Migration
             });
         }
 
-        DB::statement('ALTER TABLE client_balances MODIFY apartment_id CHAR(36) NOT NULL');
+        if (Schema::getConnection()->getDriverName() === 'mysql') {
+            DB::statement('ALTER TABLE client_balances MODIFY apartment_id CHAR(36) NOT NULL');
+        }
 
         if (Schema::hasColumn('client_balances', 'apartment_id') && ! Schema::hasColumn('client_balances', 'apartment_bitrix_id')) {
             Schema::table('client_balances', function (Blueprint $table): void {

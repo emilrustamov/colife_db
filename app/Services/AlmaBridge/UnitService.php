@@ -3,6 +3,7 @@
 namespace App\Services\AlmaBridge;
 
 use App\Services\AlmaApi;
+use InvalidArgumentException;
 use RuntimeException;
 use Throwable;
 
@@ -97,15 +98,53 @@ class UnitService
         }
 
         $aptLinkField = ProjectMapping::unitApartmentField($projectName);
-        $apartmentBitrixId = $knownApartmentId
-            ?? (string) (ProjectMapping::itemValue($unit, $aptLinkField) ?? '');
+        if ($knownApartmentId !== null && $knownApartmentId !== '') {
+            $apartmentBitrixId = $knownApartmentId;
+        } else {
+            $rawApt = ProjectMapping::itemValue($unit, $aptLinkField);
+            if (is_array($rawApt)) {
+                $rawApt = $rawApt[0] ?? null;
+            }
+            $apartmentBitrixId = (string) ($rawApt ?? '');
+        }
         if ($apartmentBitrixId === '') {
             throw new RuntimeException('Unit is not linked to apartment');
         }
 
-        $parent = $this->almaApi->unitByExternalId($apartmentBitrixId);
-        if ($parent === null || empty($parent['id'])) {
-            throw new RuntimeException('Parent apartment not found in Alma external_id='.$apartmentBitrixId);
+        $aptTypeIds = ProjectMapping::apartmentTypeIds($projectName);
+        $aptTypeId = $aptTypeIds[0] ?? null;
+        if ($aptTypeId === null) {
+            throw new RuntimeException('Apartment entity type id is not configured for project '.$projectName);
+        }
+        $aptRes = $bitrix->call('crm.item.get', [
+            'entityTypeId' => $aptTypeId,
+            'id' => $apartmentBitrixId,
+        ]);
+        $apartment = $aptRes['result']['item'] ?? null;
+        if (! is_array($apartment)) {
+            throw new RuntimeException('Failed to get apartment data from Bitrix24 for room sync');
+        }
+        $rentType = ProjectMapping::resolveRentType($apartment, $projectName);
+        if ($rentType !== 'rooms') {
+            throw new InvalidArgumentException(
+                'Room synchronization is allowed only for apartments with rent type "rooms". Current rent type: '.$rentType
+            );
+        }
+
+        $existingRoom = $this->almaApi->roomByExternalId($bitrixId);
+        if ($existingRoom !== null && ! empty($existingRoom['id'])) {
+            $parent = $existingRoom['parent_unit'] ?? null;
+            $parentUnitId = is_array($parent) ? ($parent['id'] ?? null) : $parent;
+        } else {
+            $parentUnitId = null;
+        }
+
+        if ($parentUnitId === null) {
+            $parent = $this->almaApi->unitByExternalId($apartmentBitrixId);
+            if ($parent === null || empty($parent['id'])) {
+                throw new RuntimeException('Parent apartment not found in Alma external_id='.$apartmentBitrixId);
+            }
+            $parentUnitId = $parent['id'];
         }
 
         $numberField = ProjectMapping::getUnitField('number', $projectName);
@@ -114,21 +153,27 @@ class UnitService
             $numberRaw = $numberRaw[0] ?? '';
         }
         $numberMap = ProjectMapping::unitNumbers($projectName);
-        $number = $numberMap[(string) $numberRaw] ?? (string) $numberRaw;
+        $number = ($numberRaw !== null && $numberRaw !== '')
+            ? ($numberMap[(string) $numberRaw] ?? (string) $numberRaw)
+            : '';
 
+        $goal = ProjectMapping::itemValue($unit, ProjectMapping::getUnitField('goal_rent_cost', $projectName));
+        if ($goal === null || $goal === '') {
+            $goal = ProjectMapping::itemValue($unit, ProjectMapping::getUnitField('goal_rent_cost_alt', $projectName));
+        }
+
+        $name = trim((string) ($unit['title'] ?? ('Room '.$bitrixId)));
         $payload = [
-            'parent_unit' => $parent['id'],
+            'parent_unit' => $parentUnitId,
             'property_type' => 'room',
             'number' => $number,
-            'name' => (string) ($unit['title'] ?? ''),
+            'name' => $name,
+            'header' => $name,
             'internal_area' => ProjectMapping::itemValue(
                 $unit,
                 ProjectMapping::getUnitField('internal_area', $projectName)
             ),
-            'goal_rent_cost' => ProjectMapping::itemValue(
-                $unit,
-                ProjectMapping::getUnitField('goal_rent_cost', $projectName)
-            ),
+            'goal_rent_cost' => $goal,
         ];
 
         $result = $this->almaApi->upsertRoom($bitrixId, array_filter(

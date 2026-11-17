@@ -30,7 +30,7 @@ class NotifyTelegramOnLongWait
             $this->alerts->notifyOnce(
                 'horizon_long_wait:'.$event->queue,
                 $message,
-                (int) config('services.telegram.instant_dedupe_ttl', 3600)
+                $this->alerts->instantTtl(),
             );
         } catch (Throwable) {
         }

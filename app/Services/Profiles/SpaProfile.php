@@ -6,7 +6,9 @@ use App\Models\Portal;
 use App\Services\BitrixRest;
 use App\Services\Contracts\EntityProfile;
 use App\Support\BitrixDiff;
+use App\Support\BitrixEnums;
 use App\Support\BitrixSync;
+use App\Support\BitrixValue;
 use Carbon\Carbon;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Arr;
@@ -16,8 +18,13 @@ use Illuminate\Support\Str;
 
 abstract class SpaProfile implements EntityProfile
 {
+    /**
+     * @var array<string, array<string, string>>|null
+     */
+    private ?array $enumCache = null;
+
     public function __construct(
-        protected readonly BitrixRest $bitrixRestClient,
+        protected readonly BitrixRest $bitrix,
         protected readonly BitrixSync $syncContext
     ) {}
 
@@ -26,29 +33,26 @@ abstract class SpaProfile implements EntityProfile
     /**
      * @return class-string<Model>
      */
-    abstract protected function modelClass(): string;
+    abstract protected function model(): string;
 
     abstract protected function typeId(): int;
 
     /**
      * Event prefix without suffix, e.g. bitrix.unit.
      */
-    abstract protected function eventBase(): string;
+    abstract protected function event(): string;
 
     /**
      * Local pipelines/stages entity_type value.
      */
-    abstract protected function stageType(): string;
+    abstract protected function stageEntity(): string;
 
     /**
+     * Business columns upserted from Bitrix (without sync meta).
+     *
      * @return list<string>
      */
-    abstract protected function updateCols(): array;
-
-    /**
-     * @return list<string>
-     */
-    abstract protected function logKeys(): array;
+    abstract protected function fields(): array;
 
     /**
      * Maps and caches prepared once per batch.
@@ -73,6 +77,28 @@ abstract class SpaProfile implements EntityProfile
     }
 
     /**
+     * @return list<string>
+     */
+    protected function upsertCols(): array
+    {
+        return array_merge($this->fields(), [
+            'is_deleted',
+            'bitrix_created_at',
+            'bitrix_updated_at',
+            'last_synced_at',
+            'updated_at',
+        ]);
+    }
+
+    /**
+     * @return list<string>
+     */
+    protected function logKeys(): array
+    {
+        return array_merge(['bitrix_id'], $this->fields(), ['is_deleted']);
+    }
+
+    /**
      * @param  list<array<string, mixed>>  $items
      * @return array{processed:int, created:int, updated:int, successful:int, skipped:int, failed:int, failed_ids:list<int|string>}
      */
@@ -85,25 +111,25 @@ abstract class SpaProfile implements EntityProfile
         $skipped = 0;
         $failedIds = [];
         $now = now();
-        $modelClass = $this->modelClass();
+        $modelClass = $this->model();
         $portalId = $this->portalId();
-        $updatedEvent = $this->eventBase().'.updated';
-        $createdEvent = $this->eventBase().'.created';
-        $syncedEvent = $this->eventBase().'.synced';
+        $updatedEvent = $this->event().'.updated';
+        $createdEvent = $this->event().'.created';
+        $syncedEvent = $this->event().'.synced';
 
-        $incomingBitrixIds = [];
+        $incomingIds = [];
         foreach ($items as $item) {
             $bitrixId = (int) ($item['id'] ?? 0);
             if ($bitrixId > 0) {
-                $incomingBitrixIds[] = $bitrixId;
+                $incomingIds[] = $bitrixId;
             }
         }
 
         $existing = $modelClass::query()
             ->where('portal_id', $portalId)
-            ->whereIn('bitrix_id', $incomingBitrixIds)
+            ->whereIn('bitrix_id', $incomingIds)
             ->get(['id', 'bitrix_id', 'bitrix_updated_at']);
-        $existingByBitrixId = $existing->keyBy(static fn (Model $row): int => (int) $row->getAttribute('bitrix_id'));
+        $existingById = $existing->keyBy(static fn (Model $row): int => (int) $row->getAttribute('bitrix_id'));
 
         $context = $this->context();
 
@@ -120,7 +146,7 @@ abstract class SpaProfile implements EntityProfile
                     throw new \RuntimeException('Invalid Bitrix item ID');
                 }
 
-                $existingRow = $existingByBitrixId->get($bitrixId);
+                $existingRow = $existingById->get($bitrixId);
                 $normalized = $this->normalizeItem($item, $existingRow?->getAttribute('id'), $context, $now);
 
                 $incomingUpdatedAt = $normalized['bitrix_updated_at'] instanceof Carbon
@@ -142,7 +168,7 @@ abstract class SpaProfile implements EntityProfile
                 if ($existingRow !== null) {
                     $updated++;
                     $events[$bitrixId] = $updatedEvent;
-                    $oldValues[$bitrixId] = $this->logPayload($existingRow);
+                    $oldValues[$bitrixId] = $this->snapshot($existingRow);
                 } else {
                     $created++;
                     $events[$bitrixId] = $createdEvent;
@@ -163,7 +189,7 @@ abstract class SpaProfile implements EntityProfile
 
         if ($rows !== []) {
             DB::transaction(function () use ($rows, $events, $oldValues, $now, $modelClass, $portalId, $updatedEvent, $syncedEvent): void {
-                $modelClass::query()->upsert($rows, ['portal_id', 'bitrix_id'], $this->updateCols());
+                $modelClass::query()->upsert($rows, ['portal_id', 'bitrix_id'], $this->upsertCols());
 
                 $models = $modelClass::query()
                     ->where('portal_id', $portalId)
@@ -179,7 +205,7 @@ abstract class SpaProfile implements EntityProfile
                         continue;
                     }
 
-                    $newPayload = $this->logPayload($model);
+                    $newPayload = $this->snapshot($model);
                     $event = $events[$bitrixId] ?? $syncedEvent;
                     $oldPayload = $event === $updatedEvent ? ($oldValues[$bitrixId] ?? null) : null;
                     if ($event === $updatedEvent && ! BitrixDiff::changed($oldPayload, $newPayload)) {
@@ -222,7 +248,7 @@ abstract class SpaProfile implements EntityProfile
      */
     public function syncOne(int $bitrixId): bool
     {
-        $response = $this->bitrixRestClient->postJson('crm.item.get.json', [
+        $response = $this->bitrix->postJson('crm.item.get.json', [
             'entityTypeId' => $this->typeId(),
             'id' => $bitrixId,
         ]);
@@ -241,7 +267,7 @@ abstract class SpaProfile implements EntityProfile
      */
     public function markDeleted(int $bitrixId): int
     {
-        return $this->modelClass()::query()
+        return $this->model()::query()
             ->where('portal_id', $this->portalId())
             ->where('bitrix_id', $bitrixId)
             ->update([
@@ -254,19 +280,88 @@ abstract class SpaProfile implements EntityProfile
     /**
      * @return array<string, int>
      */
-    protected function loadStageIdMap(): array
+    protected function stageMap(): array
     {
         return DB::table('stages')
-            ->where('entity_type', $this->stageType())
+            ->where('entity_type', $this->stageEntity())
             ->pluck('id', 'bitrix_stage_id')
             ->mapWithKeys(static fn ($id, $bitrixStageId): array => [(string) $bitrixStageId => (int) $id])
             ->all();
     }
 
     /**
+     * @return array<int, string>
+     */
+    protected function idMap(string $table, bool $scopedPortal = false): array
+    {
+        $query = DB::table($table);
+        if ($scopedPortal) {
+            $query->where('portal_id', $this->portalId());
+        }
+
+        return $query
+            ->pluck('id', 'bitrix_id')
+            ->mapWithKeys(static fn ($id, $bitrixId): array => [(int) $bitrixId => (string) $id])
+            ->all();
+    }
+
+    /**
+     * @param  array<int, string>  $map
+     */
+    protected function requireMappedId(array $map, ?int $bitrixId, string $emptyMsg, string $missingMsg): string
+    {
+        if ($bitrixId === null) {
+            throw new \RuntimeException($emptyMsg);
+        }
+
+        $id = $map[$bitrixId] ?? null;
+        if (! is_string($id) || $id === '') {
+            throw new \RuntimeException($missingMsg);
+        }
+
+        return $id;
+    }
+
+    /**
+     * Shared sync meta columns for normalizeItem.
+     *
+     * @param  array<string, mixed>  $item
      * @return array<string, mixed>
      */
-    protected function logPayload(Model $model): array
+    protected function stamps(array $item, Carbon $now): array
+    {
+        return [
+            'is_deleted' => false,
+            'bitrix_created_at' => BitrixValue::dt($item['createdTime'] ?? null),
+            'bitrix_updated_at' => BitrixValue::dt($item['updatedTime'] ?? null),
+            'last_synced_at' => $now,
+            'updated_at' => $now,
+            'created_at' => $now,
+        ];
+    }
+
+    /**
+     * @return array<string, array<string, string>>
+     */
+    protected function loadEnums(bool $enumerationOnly = true, ?int $entityTypeId = null): array
+    {
+        if ($this->enumCache !== null) {
+            return $this->enumCache;
+        }
+
+        $this->enumCache = BitrixEnums::load(
+            $this->bitrix,
+            $entityTypeId ?? $this->typeId(),
+            $enumerationOnly
+        );
+
+        return $this->enumCache;
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    protected function snapshot(Model $model): array
     {
         return Arr::only($model->toArray(), $this->logKeys());
     }

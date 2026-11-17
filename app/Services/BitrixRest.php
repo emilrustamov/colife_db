@@ -10,7 +10,10 @@ use RuntimeException;
 
 class BitrixRest
 {
-    public function __construct(private readonly BitrixAuth $authService) {}
+    public function __construct(
+        private readonly BitrixAuth $authService,
+        private readonly BitrixOAuthHealth $oauthHealth,
+    ) {}
 
     /**
      * @param  array<string, mixed>  $payload
@@ -172,28 +175,21 @@ class BitrixRest
 
             $refreshToken = (string) ($fresh->refresh_token ?: $fresh->refresh_id);
             if ($refreshToken === '') {
+                $this->oauthHealth->alertDead($domain);
+
                 throw new RuntimeException('Bitrix refresh token is not configured.');
             }
 
             $response = $this->authService->refresh($refreshToken, $fresh->domain);
-            $accessToken = (string) ($response['access_token'] ?? '');
+            $accessToken = trim((string) ($response['access_token'] ?? ''));
             if ($accessToken === '') {
-                throw new RuntimeException('Bitrix OAuth refresh failed.');
+                $this->oauthHealth->alertDead($domain);
+                $error = trim((string) ($response['error'] ?? 'refresh failed'));
+
+                throw new RuntimeException('Bitrix OAuth refresh failed: '.$error);
             }
 
-            $expiresIn = (int) ($response['expires_in'] ?? 0);
-            $newRefreshToken = (string) ($response['refresh_token'] ?? $refreshToken);
-
-            $fresh->forceFill([
-                'access_token' => $accessToken,
-                'auth_id' => $accessToken,
-                'refresh_token' => $newRefreshToken,
-                'refresh_id' => $newRefreshToken,
-                'expires_in' => $expiresIn > 0 ? $expiresIn : null,
-                'expires_at' => $expiresIn > 0 ? now()->addSeconds($expiresIn) : null,
-            ])->save();
-
-            return $fresh->fresh() ?? $fresh;
+            return $this->authService->saveTokens($fresh, $response, $refreshToken);
         });
     }
 }

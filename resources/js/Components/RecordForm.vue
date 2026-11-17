@@ -1,5 +1,7 @@
 <script setup>
 import { computed } from 'vue';
+import { useAppPreferences } from '../composables/useAppPreferences';
+import { formatIfDate } from '../utils/datetime';
 
 const props = defineProps({
     record: {
@@ -15,6 +17,8 @@ const props = defineProps({
         default: null,
     },
 });
+
+const { locale } = useAppPreferences();
 
 const visibleFields = computed(() => {
     return Object.keys(props.record).filter((key) => !key.endsWith('_href'));
@@ -36,6 +40,11 @@ const formatValue = (value, key, record) => {
 
     if (typeof value === 'object') {
         return JSON.stringify(value, null, 0);
+    }
+
+    const formatted = formatIfDate(value, locale.value);
+    if (formatted !== null) {
+        return formatted;
     }
 
     return String(value);

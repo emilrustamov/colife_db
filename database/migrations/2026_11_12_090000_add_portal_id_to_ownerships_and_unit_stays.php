@@ -35,8 +35,10 @@ return new class extends Migration
             $table->dropUnique(['bitrix_id']);
         });
 
-        DB::statement('ALTER TABLE apartment_ownerships MODIFY portal_id BIGINT UNSIGNED NOT NULL');
-        DB::statement('ALTER TABLE unit_stays MODIFY portal_id BIGINT UNSIGNED NOT NULL');
+        if (Schema::getConnection()->getDriverName() === 'mysql') {
+            DB::statement('ALTER TABLE apartment_ownerships MODIFY portal_id BIGINT UNSIGNED NOT NULL');
+            DB::statement('ALTER TABLE unit_stays MODIFY portal_id BIGINT UNSIGNED NOT NULL');
+        }
 
         Schema::table('apartment_ownerships', function (Blueprint $table): void {
             $table->unique(['portal_id', 'bitrix_id']);

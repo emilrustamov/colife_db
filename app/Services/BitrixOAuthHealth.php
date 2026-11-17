@@ -33,23 +33,35 @@ class BitrixOAuthHealth
                 continue;
             }
 
-            $appUrl = rtrim((string) config('app.url'), '/');
-            $install = $this->oauth->portalCode($domain) === 'TR'
-                ? "{$appUrl}/api/cleaning/install"
-                : "{$appUrl}/api/bp/install";
+            $messages[] = $this->alertDead($domain);
+        }
 
-            $message = $this->text->message(
-                '🔐',
-                'OAuth отвалился',
-                $domain,
-                "Переустанови приложение: {$install}",
-            );
+        return array_values(array_filter($messages));
+    }
 
-            $messages[] = $message;
+    /**
+     * Immediate Telegram alert when OAuth refresh fails during live API use.
+     */
+    public function alertDead(string $domain): string
+    {
+        $domain = $this->oauth->normalizeDomain($domain);
+        $appUrl = rtrim((string) config('app.url'), '/');
+        $install = $this->oauth->portalCode($domain) === 'TR'
+            ? "{$appUrl}/api/cleaning/install"
+            : "{$appUrl}/api/bp/install";
+
+        $message = $this->text->message(
+            '🔐',
+            'OAuth отвалился',
+            $domain !== '' ? $domain : null,
+            "Переустанови приложение: {$install}",
+        );
+
+        if ($domain !== '') {
             $this->alerts->notifyOnce('oauth:'.$domain, $message);
         }
 
-        return $messages;
+        return $message;
     }
 
     /**
@@ -69,18 +81,8 @@ class BitrixOAuthHealth
         }
 
         $response = $this->auth->refresh($refreshToken, $domain);
-        $access = trim((string) ($response['access_token'] ?? ''));
-        if ($access !== '') {
-            $expiresIn = (int) ($response['expires_in'] ?? 0);
-            $newRefresh = (string) ($response['refresh_token'] ?? $refreshToken);
-            $token->forceFill([
-                'access_token' => $access,
-                'auth_id' => $access,
-                'refresh_token' => $newRefresh,
-                'refresh_id' => $newRefresh,
-                'expires_in' => $expiresIn > 0 ? $expiresIn : null,
-                'expires_at' => $expiresIn > 0 ? now()->addSeconds($expiresIn) : null,
-            ])->save();
+        if (trim((string) ($response['access_token'] ?? '')) !== '') {
+            $this->auth->saveTokens($token, $response, $refreshToken);
 
             return null;
         }

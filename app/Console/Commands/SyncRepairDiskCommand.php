@@ -12,7 +12,7 @@ class SyncRepairDiskCommand extends Command
     protected $signature = 'bitrix:sync-repair-disk
                             {--id= : Sync a single apartment SPA item ID}';
 
-    protected $description = 'Sync files from apartment Repair/Photo, Estimate, Invoices folders. Scheduled daily 23:00 Europe/Moscow.';
+    protected $description = 'Sync files from apartment Repair/Photo, Estimate, Invoices folders. Ops-only; not scheduled.';
 
     /**
      * Execute the console command.

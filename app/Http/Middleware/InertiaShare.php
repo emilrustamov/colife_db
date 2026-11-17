@@ -42,7 +42,10 @@ class InertiaShare extends Middleware
                     'email' => $user->email,
                     'can' => [
                         'manageUsers' => $user->can('users.manage'),
+                        'editUsers' => $user->can('users.edit'),
+                        'deleteUsers' => $user->can('users.delete'),
                         'manageRoles' => $user->can('roles.manage'),
+                        'editOlBotTemplates' => $user->can('ol-bot.templates.edit'),
                     ],
                 ],
             ],

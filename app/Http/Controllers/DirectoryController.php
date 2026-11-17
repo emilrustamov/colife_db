@@ -179,16 +179,12 @@ class DirectoryController extends Controller
     }
 
     /**
-     * Whether the user may open the directories module (any menu or legacy directories.view).
+     * Whether the user may open the directories module (any directory.{key} permission).
      */
     public static function canAccessDirs(?Authenticatable $user): bool
     {
         if ($user === null) {
             return false;
-        }
-
-        if ($user->can('directories.view')) {
-            return true;
         }
 
         foreach (array_keys(self::definitions()) as $key) {
@@ -410,10 +406,6 @@ class DirectoryController extends Controller
 
     private function mayView(Authenticatable $user, string $directoryKey): bool
     {
-        if ($user->can('directories.view')) {
-            return true;
-        }
-
         return $user->can('directory.'.$directoryKey);
     }
 

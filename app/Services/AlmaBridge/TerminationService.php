@@ -22,6 +22,86 @@ class TerminationService
     ) {}
 
     /**
+     * Sync termination synthetic contract from apartment date_of_refused field.
+     *
+     * @param  array<string, mixed>  $apartmentData
+     */
+    public function applyForApartment(string $projectName, string $apartmentBitrixId, array $apartmentData): void
+    {
+        $dateField = ProjectMapping::getApartmentField('date_of_refused', $projectName);
+        if ($dateField === null) {
+            return;
+        }
+
+        $externalId = 'termination_'.$apartmentBitrixId;
+        $raw = ProjectMapping::itemValue($apartmentData, $dateField);
+        if ($raw === null || trim((string) $raw) === '') {
+            $existing = $this->almaApi->tenantByExternalId($externalId);
+            if ($existing !== null) {
+                $this->almaApi->archiveTenant($externalId, true);
+                BridgeSupport::log()->info('Termination contract archived (no date)', [
+                    'apartment_id' => $apartmentBitrixId,
+                ]);
+            }
+
+            return;
+        }
+
+        $startDate = $this->normalizeDate((string) $raw);
+        if ($startDate === null) {
+            return;
+        }
+        $endDate = (new \DateTime($startDate))->modify('+5 days')->format('Y-m-d');
+        $clientId = ProjectMapping::terminationClientId($projectName);
+        if ($clientId === null) {
+            BridgeSupport::log()->warning('Termination sync skipped: termination_alma_client_id not set', [
+                'apartment_id' => $apartmentBitrixId,
+            ]);
+
+            return;
+        }
+
+        $unit = $this->almaApi->unitByExternalId($apartmentBitrixId);
+        if ($unit === null || empty($unit['id'])) {
+            BridgeSupport::log()->warning('Termination sync skipped: apartment not in Alma', [
+                'apartment_id' => $apartmentBitrixId,
+            ]);
+
+            return;
+        }
+
+        $typeId = ProjectMapping::terminationTypeId($projectName);
+        $typeName = $typeId ? ProjectMapping::mapContractType($typeId, $projectName) : 'Termination';
+        $payload = [
+            'external_id' => $externalId,
+            'unit_id' => $unit['id'],
+            'client_id' => $clientId,
+            'name' => 'Termination '.$apartmentBitrixId,
+            'start_date' => BridgeSupport::formatDateForAlma($startDate),
+            'end_date' => BridgeSupport::formatDateForAlma($endDate),
+            'price' => '0.00',
+            'type_contract' => $typeName ?? 'Termination',
+            'rent_type' => 'short_term',
+        ];
+
+        $existing = $this->almaApi->tenantByExternalId($externalId);
+        if ($existing !== null) {
+            unset($payload['client_id']);
+            $this->almaApi->updateTenantContract($existing['id'], $payload);
+            BridgeSupport::log()->info('Termination contract updated from apartment', [
+                'apartment_id' => $apartmentBitrixId,
+            ]);
+
+            return;
+        }
+
+        $this->almaApi->createTenantContract($payload);
+        BridgeSupport::log()->info('Termination contract created from apartment', [
+            'apartment_id' => $apartmentBitrixId,
+        ]);
+    }
+
+    /**
      * Apply termination list element as Alma synthetic tenant contract.
      *
      * @return array<string, mixed>

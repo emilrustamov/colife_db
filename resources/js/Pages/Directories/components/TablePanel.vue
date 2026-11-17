@@ -15,6 +15,7 @@ const props = defineProps({
     isUsersDirectory: { type: Boolean, default: false },
     isRolesDirectory: { type: Boolean, default: false },
     canManageUsers: { type: Boolean, default: false },
+    canAccessUsersAdmin: { type: Boolean, default: false },
     canManageRoles: { type: Boolean, default: false },
     query: { type: String, default: '' },
     showTableScrollLeft: { type: Boolean, default: false },
@@ -109,7 +110,7 @@ const rowClass = (row) => {
                             {{ t(messages, 'goRoles') }}
                         </button>
                         <button
-                            v-if="isRolesDirectory && canManageUsers"
+                            v-if="isRolesDirectory && canAccessUsersAdmin"
                             type="button"
                             class="ui-btn ui-btn-secondary"
                             @click="goUsers"

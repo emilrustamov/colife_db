@@ -3,7 +3,9 @@
 namespace App\Services;
 
 use App\Enums\WebhookContext;
+use App\Models\BitrixToken;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
 
 class TokenVerifier
@@ -16,11 +18,9 @@ class TokenVerifier
     public function verify(Request $request, WebhookContext $context): array
     {
         if ($context === WebhookContext::Bizproc || $context === WebhookContext::Cleaning) {
-            $incoming = $this->requestToken($request);
-            $domain = $this->requestDomain($request);
             $channel = $context === WebhookContext::Cleaning ? 'bitrix_cleaning' : 'bitrix_pauses';
 
-            return [$incoming !== '' && $this->oauth->isAllowedPortal($domain), $channel];
+            return [$this->verifyPortalApplication($request), $channel];
         }
 
         if ($context === WebhookContext::OpenLines) {
@@ -61,16 +61,64 @@ class TokenVerifier
             return [false, $channel];
         }
 
-        $dedicated = (string) config('services.bitrix.open_lines_application_token', '');
-        if ($dedicated !== '') {
-            return [hash_equals($dedicated, $incoming), $channel];
+        $dedicated = trim((string) config('services.bitrix.open_lines_application_token', ''));
+        if ($dedicated === '') {
+            Log::channel($channel)->error('Open Lines application token config is empty');
+
+            return [false, $channel];
         }
 
-        return [true, $channel];
+        return [hash_equals($dedicated, $incoming), $channel];
     }
 
     /**
-     * Portal auth: non-empty application_token + allowlisted domain (legacy Pause/Cleaning behavior).
+     * Pause/Cleaning: allowlisted domain + Bitrix application_token.
+     * When a known secret exists (DB or env), require an exact match.
+     */
+    private function verifyPortalApplication(Request $request): bool
+    {
+        $incoming = $this->requestToken($request);
+        $domain = $this->requestDomain($request);
+        if ($incoming === '' || ! $this->oauth->isAllowedPortal($domain)) {
+            return false;
+        }
+
+        $expected = $this->expectedPortalApplicationToken($domain);
+        if ($expected !== '') {
+            return hash_equals($expected, $incoming);
+        }
+
+        return true;
+    }
+
+    /**
+     * Known application_token for a portal: stored install token, else optional env secret.
+     */
+    private function expectedPortalApplicationToken(string $domain): string
+    {
+        foreach (BitrixToken::query()->get(['domain', 'application_token']) as $row) {
+            if ($this->oauth->normalizeDomain((string) $row->domain) !== $domain) {
+                continue;
+            }
+            $stored = trim((string) ($row->application_token ?? ''));
+            if ($stored !== '') {
+                return $stored;
+            }
+        }
+
+        return match ($this->oauth->portalCode($domain)) {
+            'HK' => trim((string) config('services.b24_hk.application_token', '')),
+            'TR' => trim((string) (
+                config('services.cleaning.application_token')
+                ?: config('services.b24_tr.application_token', '')
+            )),
+            'AE' => trim((string) config('services.bitrix.application_token', '')),
+            default => '',
+        };
+    }
+
+    /**
+     * Portal auth helper used by Alma Bridge fallback paths.
      */
     public function matchesDomainToken(Request $request, WebhookContext $context = WebhookContext::Bizproc): bool
     {
@@ -81,15 +129,21 @@ class TokenVerifier
 
     /**
      * Incoming Bitrix application_token from request payload.
+     * Alma Bridge header is opt-in so Bitrix webhooks cannot be forged with it.
      */
-    public function requestToken(Request $request): string
+    public function requestToken(Request $request, bool $allowAlmaHeader = false): string
     {
-        return (string) (
+        $token = (string) (
             data_get($request->all(), 'auth.application_token')
             ?: $request->input('application_token', '')
             ?: $request->input('token', '')
-            ?: $request->header('X-Alma-Bridge-Token', '')
         );
+
+        if ($token === '' && $allowAlmaHeader) {
+            $token = (string) $request->header('X-Alma-Bridge-Token', '');
+        }
+
+        return $token;
     }
 
     /**
@@ -106,14 +160,36 @@ class TokenVerifier
 
     /**
      * Authorize a cleaning form submit opened inside the TR local app.
-     * BX24.getAuth() has domain and does not include application_token.
+     * Requires a live BX24 access_token that Bitrix accepts for this portal.
      */
     public function authorizeCleaningForm(Request $request): bool
     {
         $domain = $this->requestDomain($request);
         $expected = $this->oauth->normalizeDomain((string) config('services.b24_tr.portal_domain'));
+        if ($domain === '' || $expected === '' || strcasecmp($domain, $expected) !== 0) {
+            return false;
+        }
 
-        return $domain !== '' && $expected !== '' && strcasecmp($domain, $expected) === 0;
+        $accessToken = trim((string) data_get($request->all(), 'auth.access_token', ''));
+        if ($accessToken === '') {
+            return false;
+        }
+
+        try {
+            $response = Http::timeout(8)
+                ->acceptJson()
+                ->get('https://'.$domain.'/rest/user.current.json', [
+                    'auth' => $accessToken,
+                ]);
+
+            if (! $response->successful()) {
+                return false;
+            }
+
+            return (int) data_get($response->json(), 'result.ID', 0) > 0;
+        } catch (\Throwable) {
+            return false;
+        }
     }
 
     private function expectedCrmToken(): string

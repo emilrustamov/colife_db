@@ -1,6 +1,9 @@
 import { computed, ref } from 'vue';
+import { useAppPreferences } from '../../../composables/useAppPreferences';
+import { formatIfDate } from '../../../utils/datetime';
 
 export const useDirectoryData = ({ selectedKey, menu, perPage }) => {
+    const { locale } = useAppPreferences();
     const selectedId = ref(null);
     const loading = ref(false);
     const rowDetailLoading = ref(false);
@@ -254,6 +257,11 @@ export const useDirectoryData = ({ selectedKey, menu, perPage }) => {
 
         if (typeof value === 'object') {
             return JSON.stringify(value, null, 0);
+        }
+
+        const formatted = formatIfDate(value, locale.value);
+        if (formatted !== null) {
+            return formatted;
         }
 
         return String(value);

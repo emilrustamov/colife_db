@@ -3,11 +3,10 @@
 namespace App\Services\Profiles;
 
 use App\Models\ApartmentOwnership;
-use App\Support\EntityMap;
 use App\Support\BitrixEnums;
 use App\Support\BitrixValue;
+use App\Support\EntityMap;
 use Carbon\Carbon;
-use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 
 class OwnershipProfile extends SpaProfile
@@ -15,16 +14,24 @@ class OwnershipProfile extends SpaProfile
     public const ENTITY_TYPE_ID = 148;
 
     /**
-     * @var array<string, array<string, string>>|null
+     * @return list<string>
      */
-    private ?array $enumMap = null;
+    public static function select(): array
+    {
+        return [
+            'id', 'title', 'stageId', 'createdTime', 'updatedTime', 'parentId144',
+            'ufCrm10_1693823301', 'ufCrm10_1693823247516', 'ufCrm10_1693823282826',
+            'ufCrm10_1708956056', 'ufCrm10_1708955996', 'ufCrm10_1714652654',
+            'ufCrm10_1714652687', 'ufCrm10TerminationDate', 'ufCrm10_1727422412',
+        ];
+    }
 
     public function entity(): string
     {
         return 'apartment_ownerships';
     }
 
-    protected function modelClass(): string
+    protected function model(): string
     {
         return ApartmentOwnership::class;
     }
@@ -36,12 +43,12 @@ class OwnershipProfile extends SpaProfile
         return $typeId > 0 ? $typeId : self::ENTITY_TYPE_ID;
     }
 
-    protected function eventBase(): string
+    protected function event(): string
     {
         return 'bitrix.apartment_ownership';
     }
 
-    protected function stageType(): string
+    protected function stageEntity(): string
     {
         return 'apartment_ownership';
     }
@@ -49,7 +56,7 @@ class OwnershipProfile extends SpaProfile
     /**
      * @return list<string>
      */
-    protected function updateCols(): array
+    protected function fields(): array
     {
         return [
             'title',
@@ -63,53 +70,22 @@ class OwnershipProfile extends SpaProfile
             'dtcm_end_date',
             'termination_date',
             'termination_reason',
-            'is_deleted',
-            'bitrix_created_at',
-            'bitrix_updated_at',
-            'last_synced_at',
-            'updated_at',
-        ];
-    }
-
-    /**
-     * @return list<string>
-     */
-    protected function logKeys(): array
-    {
-        return [
-            'bitrix_id',
-            'title',
-            'stage_id',
-            'apartment_id',
-            'contract_start_date',
-            'contract_end_date',
-            'pml_start_date',
-            'pml_end_date',
-            'dtcm_start_date',
-            'dtcm_end_date',
-            'termination_date',
-            'termination_reason',
-            'is_deleted',
         ];
     }
 
     /**
      * @return array{
-     *     stageIdMap: array<string, int>,
-     *     apartmentIdByBitrixId: array<int, string>,
-     *     enumMap: array<string, array<string, string>>
+     *     stages: array<string, int>,
+     *     apartments: array<int, string>,
+     *     enums: array<string, array<string, string>>
      * }
      */
     protected function context(): array
     {
         return [
-            'stageIdMap' => $this->loadStageIdMap(),
-            'apartmentIdByBitrixId' => DB::table('apartments')
-                ->where('portal_id', $this->portalId())
-                ->pluck('id', 'bitrix_id')
-                ->mapWithKeys(static fn ($id, $bitrixId): array => [(int) $bitrixId => (string) $id])
-                ->all(),
-            'enumMap' => $this->loadEnumMap(),
+            'stages' => $this->stageMap(),
+            'apartments' => $this->idMap('apartments', true),
+            'enums' => $this->loadEnums(true, self::ENTITY_TYPE_ID),
         ];
     }
 
@@ -125,23 +101,20 @@ class OwnershipProfile extends SpaProfile
             throw new \RuntimeException('Invalid apartment ownership ID');
         }
 
-        $apartmentBitrixId = BitrixValue::firstInt($item['parentId144'] ?? null)
-            ?? BitrixValue::firstInt($item['ufCrm10_1693823301'] ?? null);
-        if ($apartmentBitrixId === null) {
-            throw new \RuntimeException('Apartment link is empty');
-        }
+        /** @var array<int, string> $apartments */
+        $apartments = $context['apartments'];
+        $apartmentId = $this->requireMappedId(
+            $apartments,
+            BitrixValue::firstInt($item['parentId144'] ?? null)
+                ?? BitrixValue::firstInt($item['ufCrm10_1693823301'] ?? null),
+            'Apartment link is empty',
+            'Apartment not found locally'
+        );
 
-        /** @var array<int, string> $apartmentIdByBitrixId */
-        $apartmentIdByBitrixId = $context['apartmentIdByBitrixId'];
-        $apartmentId = $apartmentIdByBitrixId[$apartmentBitrixId] ?? null;
-        if (! is_string($apartmentId) || $apartmentId === '') {
-            throw new \RuntimeException('Apartment not found locally');
-        }
-
-        /** @var array<string, int> $stageIdMap */
-        $stageIdMap = $context['stageIdMap'];
-        /** @var array<string, array<string, string>> $enumMap */
-        $enumMap = $context['enumMap'];
+        /** @var array<string, int> $stages */
+        $stages = $context['stages'];
+        /** @var array<string, array<string, string>> $enums */
+        $enums = $context['enums'];
         $stageCode = trim((string) ($item['stageId'] ?? ''));
 
         return [
@@ -149,7 +122,7 @@ class OwnershipProfile extends SpaProfile
             'portal_id' => $this->portalId(),
             'bitrix_id' => $bitrixId,
             'title' => BitrixValue::str($item['title'] ?? null),
-            'stage_id' => $stageCode !== '' ? ($stageIdMap[$stageCode] ?? null) : null,
+            'stage_id' => $stageCode !== '' ? ($stages[$stageCode] ?? null) : null,
             'apartment_id' => $apartmentId,
             'contract_start_date' => BitrixValue::date($item['ufCrm10_1693823247516'] ?? null),
             'contract_end_date' => BitrixValue::date($item['ufCrm10_1693823282826'] ?? null),
@@ -158,31 +131,8 @@ class OwnershipProfile extends SpaProfile
             'dtcm_start_date' => BitrixValue::date($item['ufCrm10_1714652654'] ?? null),
             'dtcm_end_date' => BitrixValue::date($item['ufCrm10_1714652687'] ?? null),
             'termination_date' => BitrixValue::date($item['ufCrm10TerminationDate'] ?? null),
-            'termination_reason' => BitrixEnums::resolve($enumMap, 'ufCrm10_1727422412', $item['ufCrm10_1727422412'] ?? null),
-            'is_deleted' => false,
-            'bitrix_created_at' => BitrixValue::dt($item['createdTime'] ?? null),
-            'bitrix_updated_at' => BitrixValue::dt($item['updatedTime'] ?? null),
-            'last_synced_at' => $now,
-            'updated_at' => $now,
-            'created_at' => $now,
+            'termination_reason' => BitrixEnums::resolve($enums, 'ufCrm10_1727422412', $item['ufCrm10_1727422412'] ?? null),
+            ...$this->stamps($item, $now),
         ];
-    }
-
-    /**
-     * @return array<string, array<string, string>>
-     */
-    private function loadEnumMap(): array
-    {
-        if ($this->enumMap !== null) {
-            return $this->enumMap;
-        }
-
-        $this->enumMap = BitrixEnums::load(
-            $this->bitrixRestClient,
-            self::ENTITY_TYPE_ID,
-            true
-        );
-
-        return $this->enumMap;
     }
 }

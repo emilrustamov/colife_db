@@ -6,6 +6,7 @@ use App\Models\Contact;
 use App\Services\BitrixRest;
 use App\Services\Contracts\EntityProfile;
 use App\Support\BitrixDiff;
+use App\Support\BitrixEnums;
 use App\Support\BitrixSync;
 use App\Support\BitrixValue;
 use Carbon\Carbon;
@@ -17,23 +18,78 @@ use Illuminate\Support\Str;
 
 class ContactProfile implements EntityProfile
 {
-    private const BITRIX_FIELD_GENDER = 'UF_CRM_1688664973718';
+    private const UF_GENDER = 'UF_CRM_1688664973718';
 
-    private const BITRIX_FIELD_LANGUAGE = 'UF_CRM_1696438640';
+    private const UF_LANGUAGE = 'UF_CRM_1696438640';
 
-    private const BITRIX_FIELD_NATIONALITY = 'UF_CRM_1755104713';
+    private const UF_NATIONALITY = 'UF_CRM_1755104713';
 
-    private const BITRIX_FIELD_NATIONALITY_LEGACY = 'UF_CRM_1729690794035';
+    private const UF_NATIONALITY_OLD = 'UF_CRM_1729690794035';
+
+    private const UPSERT_COLS = [
+        'first_name',
+        'last_name',
+        'contact_type_id',
+        'nationality',
+        'birth_date',
+        'gender',
+        'language',
+        'is_deleted',
+        'bitrix_created_at',
+        'bitrix_updated_at',
+        'last_synced_at',
+        'updated_at',
+    ];
+
+    private const LOG_KEYS = [
+        'bitrix_id',
+        'first_name',
+        'last_name',
+        'contact_type_id',
+        'nationality',
+        'birth_date',
+        'gender',
+        'language',
+        'is_deleted',
+        'bitrix_created_at',
+        'bitrix_updated_at',
+        'last_synced_at',
+    ];
 
     /**
      * @var array<int, string|null>
      */
-    private array $bitrixUserNameCache = [];
+    private array $userNames = [];
 
     public function __construct(
         private readonly BitrixSync $syncContext,
-        private readonly BitrixRest $bitrixRestClient
+        private readonly BitrixRest $bitrix
     ) {}
+
+    /**
+     * Bitrix crm.contact.list / get select fields.
+     *
+     * @return list<string>
+     */
+    public static function select(): array
+    {
+        return [
+            'ID',
+            'NAME',
+            'LAST_NAME',
+            'MODIFY_BY_ID',
+            self::UF_GENDER,
+            self::UF_LANGUAGE,
+            self::UF_NATIONALITY,
+            self::UF_NATIONALITY_OLD,
+            'TYPE_ID',
+            'BIRTHDATE',
+            'PHONE',
+            'EMAIL',
+            'DATE_CREATE',
+            'DATE_MODIFY',
+        ];
+    }
 
     public function entity(): string
     {
@@ -53,82 +109,87 @@ class ContactProfile implements EntityProfile
         $skipped = 0;
         $failedIds = [];
         $now = now();
-        $typeMap = $this->resolveTypeMap();
+        $typeMap = $this->typeMap();
         $defaultTypeId = $typeMap['not_selected'] ?? null;
-        $enumMap = $this->contactEnums([
-            self::BITRIX_FIELD_GENDER,
-            self::BITRIX_FIELD_LANGUAGE,
-            self::BITRIX_FIELD_NATIONALITY,
-            self::BITRIX_FIELD_NATIONALITY_LEGACY,
+        $enums = BitrixEnums::loadContact($this->bitrix, [
+            self::UF_GENDER,
+            self::UF_LANGUAGE,
+            self::UF_NATIONALITY,
+            self::UF_NATIONALITY_OLD,
         ]);
 
-        $incomingBitrixIds = [];
+        $incomingIds = [];
         foreach ($items as $item) {
-            $incomingBitrixId = (int) ($item['ID'] ?? 0);
-            if ($incomingBitrixId > 0) {
-                $incomingBitrixIds[] = $incomingBitrixId;
+            $id = (int) ($item['ID'] ?? 0);
+            if ($id > 0) {
+                $incomingIds[] = $id;
             }
         }
 
-        $existingBitrixIds = [];
-        $existingContactsByBitrixId = collect();
-        if ($incomingBitrixIds !== []) {
-            $existingContactsByBitrixId = Contact::query()
-                ->whereIn('bitrix_id', $incomingBitrixIds)
+        $existing = collect();
+        $knownIds = [];
+        if ($incomingIds !== []) {
+            $existing = Contact::query()
+                ->whereIn('bitrix_id', $incomingIds)
                 ->get([
                     'id',
                     'bitrix_id',
                     'first_name',
                     'last_name',
                     'contact_type_id',
+                    'nationality',
                     'birth_date',
+                    'gender',
+                    'language',
                     'is_deleted',
                     'bitrix_created_at',
                     'bitrix_updated_at',
                     'last_synced_at',
                 ])
                 ->keyBy(static fn (Contact $contact): int => (int) $contact->bitrix_id);
-            $existingBitrixIds = $existingContactsByBitrixId
-                ->keys()
-                ->map(static fn (mixed $value): int => (int) $value)
-                ->all();
-            $existingBitrixIds = array_fill_keys($existingBitrixIds, true);
+            $knownIds = array_fill_keys(
+                $existing->keys()->map(static fn (mixed $value): int => (int) $value)->all(),
+                true
+            );
         }
 
-        $recordsPayload = [];
-        $phonePayloadByBitrixId = [];
-        $emailPayloadByBitrixId = [];
-        $currentBatchBitrixIds = [];
-        $operationByBitrixId = [];
-        $oldValuesByBitrixId = [];
-        $changedByBitrixUserIdByBitrixId = [];
-        $changedByBitrixUserNameByBitrixId = [];
+        $batch = [
+            'records' => [],
+            'batchIds' => [],
+            'phonesById' => [],
+            'emailsById' => [],
+            'opsById' => [],
+            'oldById' => [],
+            'modifierIds' => [],
+            'modifierNames' => [],
+            'now' => $now,
+        ];
 
         foreach ($items as $item) {
             $processed++;
 
             try {
-                $normalized = $this->normalizeItem($item, $now, $typeMap, $defaultTypeId, $enumMap);
+                $normalized = $this->normalizeItem($item, $now, $typeMap, $defaultTypeId, $enums);
                 $bitrixId = (int) $normalized['bitrix_id'];
-                if (isset($existingBitrixIds[$bitrixId])) {
+                if (isset($knownIds[$bitrixId])) {
                     $updated++;
-                    $operationByBitrixId[$bitrixId] = 'bitrix.contact.updated';
-                    $existingContact = $existingContactsByBitrixId->get($bitrixId);
+                    $batch['opsById'][$bitrixId] = 'bitrix.contact.updated';
+                    $existingContact = $existing->get($bitrixId);
                     if ($existingContact instanceof Contact) {
-                        $oldValuesByBitrixId[$bitrixId] = $this->logPayload($existingContact);
+                        $batch['oldById'][$bitrixId] = $this->snapshot($existingContact);
                     }
                 } else {
                     $created++;
-                    $operationByBitrixId[$bitrixId] = 'bitrix.contact.created';
+                    $batch['opsById'][$bitrixId] = 'bitrix.contact.created';
                 }
 
-                $recordsPayload[] = $normalized;
-                $phonePayloadByBitrixId[$bitrixId] = $this->normPhones($item['PHONE'] ?? []);
-                $emailPayloadByBitrixId[$bitrixId] = $this->normEmails($item['EMAIL'] ?? []);
-                $changedByBitrixUserId = BitrixValue::asInt($item['MODIFY_BY_ID'] ?? null);
-                $changedByBitrixUserIdByBitrixId[$bitrixId] = $changedByBitrixUserId;
-                $changedByBitrixUserNameByBitrixId[$bitrixId] = $this->resolveBitrixUserName($changedByBitrixUserId);
-                $currentBatchBitrixIds[] = $bitrixId;
+                $batch['records'][] = $normalized;
+                $batch['phonesById'][$bitrixId] = $this->normMulti($item['PHONE'] ?? [], 'phone', $this->normalizePhone(...));
+                $batch['emailsById'][$bitrixId] = $this->normMulti($item['EMAIL'] ?? [], 'email', $this->normalizeEmail(...));
+                $modifierId = BitrixValue::asInt($item['MODIFY_BY_ID'] ?? null);
+                $batch['modifierIds'][$bitrixId] = $modifierId;
+                $batch['modifierNames'][$bitrixId] = $this->userName($modifierId);
+                $batch['batchIds'][] = $bitrixId;
                 $successful++;
             } catch (\Throwable $e) {
                 $failedIds[] = $item['ID'] ?? 'unknown';
@@ -140,18 +201,8 @@ class ContactProfile implements EntityProfile
             }
         }
 
-        if ($recordsPayload !== []) {
-            $this->upsertBatchPayload(
-                $recordsPayload,
-                $currentBatchBitrixIds,
-                $phonePayloadByBitrixId,
-                $emailPayloadByBitrixId,
-                $operationByBitrixId,
-                $oldValuesByBitrixId,
-                $changedByBitrixUserIdByBitrixId,
-                $changedByBitrixUserNameByBitrixId,
-                $now
-            );
+        if ($batch['records'] !== []) {
+            $this->upsertBatch($batch);
         }
 
         return [
@@ -167,7 +218,7 @@ class ContactProfile implements EntityProfile
 
     public function syncOne(int $bitrixId): bool
     {
-        $item = $this->fetchItemByBitrixId($bitrixId);
+        $item = $this->fetchOne($bitrixId);
         if ($item === null) {
             return false;
         }
@@ -191,9 +242,9 @@ class ContactProfile implements EntityProfile
     /**
      * @return array<string, mixed>|null
      */
-    private function fetchItemByBitrixId(int $bitrixId): ?array
+    private function fetchOne(int $bitrixId): ?array
     {
-        $response = $this->bitrixRestClient->post('crm.contact.get.json', ['id' => $bitrixId]);
+        $response = $this->bitrix->post('crm.contact.get.json', ['id' => $bitrixId]);
 
         if (! $response->successful()) {
             return null;
@@ -205,118 +256,74 @@ class ContactProfile implements EntityProfile
     }
 
     /**
-     * @param  list<array<string, mixed>>  $recordsPayload
-     * @param  list<int>  $currentBatchBitrixIds
-     * @param  array<int, list<array{phone:string,type:?string,is_primary:bool,sort:int}>>  $phonePayloadByBitrixId
-     * @param  array<int, list<array{email:string,type:?string,is_primary:bool,sort:int}>>  $emailPayloadByBitrixId
-     * @param  array<int, string>  $operationByBitrixId
-     * @param  array<int, array<string, mixed>>  $oldValuesByBitrixId
-     * @param  array<int, int|null>  $changedByBitrixUserIdByBitrixId
-     * @param  array<int, string|null>  $changedByBitrixUserNameByBitrixId
+     * @param  array{
+     *     records: list<array<string, mixed>>,
+     *     batchIds: list<int>,
+     *     phonesById: array<int, list<array{phone?:string,email?:string,type:?string,is_primary:bool,sort:int}>>,
+     *     emailsById: array<int, list<array{phone?:string,email?:string,type:?string,is_primary:bool,sort:int}>>,
+     *     opsById: array<int, string>,
+     *     oldById: array<int, array<string, mixed>>,
+     *     modifierIds: array<int, int|null>,
+     *     modifierNames: array<int, string|null>,
+     *     now: Carbon
+     * }  $batch
      */
-    private function upsertBatchPayload(
-        array $recordsPayload,
-        array $currentBatchBitrixIds,
-        array $phonePayloadByBitrixId,
-        array $emailPayloadByBitrixId,
-        array $operationByBitrixId,
-        array $oldValuesByBitrixId,
-        array $changedByBitrixUserIdByBitrixId,
-        array $changedByBitrixUserNameByBitrixId,
-        Carbon $now
-    ): void {
-        $this->syncContext->withoutPush(function () use ($recordsPayload, $currentBatchBitrixIds, $phonePayloadByBitrixId, $emailPayloadByBitrixId, $operationByBitrixId, $oldValuesByBitrixId, $changedByBitrixUserIdByBitrixId, $changedByBitrixUserNameByBitrixId, $now): void {
-            DB::transaction(function () use ($recordsPayload, $currentBatchBitrixIds, $phonePayloadByBitrixId, $emailPayloadByBitrixId, $operationByBitrixId, $oldValuesByBitrixId, $changedByBitrixUserIdByBitrixId, $changedByBitrixUserNameByBitrixId, $now): void {
+    private function upsertBatch(array $batch): void
+    {
+        $this->syncContext->withoutPush(function () use ($batch): void {
+            DB::transaction(function () use ($batch): void {
                 Contact::query()->upsert(
-                    $recordsPayload,
+                    $batch['records'],
                     ['bitrix_id'],
-                    [
-                        'first_name',
-                        'last_name',
-                        'contact_type_id',
-                        'nationality',
-                        'birth_date',
-                        'gender',
-                        'language',
-                        'is_deleted',
-                        'bitrix_created_at',
-                        'bitrix_updated_at',
-                        'last_synced_at',
-                        'updated_at',
-                    ]
+                    self::UPSERT_COLS
                 );
 
-                $contactIdByBitrixId = Contact::query()
-                    ->whereIn('bitrix_id', $currentBatchBitrixIds)
+                $localIds = Contact::query()
+                    ->whereIn('bitrix_id', $batch['batchIds'])
                     ->pluck('id', 'bitrix_id');
 
-                $contactIds = $contactIdByBitrixId->values()->all();
+                $contactIds = $localIds->values()->all();
                 if ($contactIds !== []) {
                     DB::table('contact_phones')->whereIn('contact_id', $contactIds)->delete();
                     DB::table('contact_emails')->whereIn('contact_id', $contactIds)->delete();
                 }
 
-                $this->insertPhones($contactIdByBitrixId, $phonePayloadByBitrixId, $now);
-                $this->insertEmails($contactIdByBitrixId, $emailPayloadByBitrixId, $now);
-                $this->insertActivityLogs(
-                    $recordsPayload,
-                    $contactIdByBitrixId,
-                    $operationByBitrixId,
-                    $oldValuesByBitrixId,
-                    $changedByBitrixUserIdByBitrixId,
-                    $changedByBitrixUserNameByBitrixId,
-                    $now
-                );
+                $this->insertChildren('contact_phones', 'phone', $localIds, $batch['phonesById'], $batch['now']);
+                $this->insertChildren('contact_emails', 'email', $localIds, $batch['emailsById'], $batch['now']);
+                $this->logBatch($batch, $localIds);
             });
         });
     }
 
     /**
-     * @param  list<array<string, mixed>>  $recordsPayload
-     * @param  Collection<int|string, string>  $contactIdByBitrixId
-     * @param  array<int, string>  $operationByBitrixId
-     * @param  array<int, array<string, mixed>>  $oldValuesByBitrixId
-     * @param  array<int, int|null>  $changedByBitrixUserIdByBitrixId
-     * @param  array<int, string|null>  $changedByBitrixUserNameByBitrixId
+     * @param  array{
+     *     records: list<array<string, mixed>>,
+     *     opsById: array<int, string>,
+     *     oldById: array<int, array<string, mixed>>,
+     *     modifierIds: array<int, int|null>,
+     *     modifierNames: array<int, string|null>,
+     *     now: Carbon
+     * }  $batch
+     * @param  Collection<int|string, string>  $localIds
      */
-    private function insertActivityLogs(
-        array $recordsPayload,
-        Collection $contactIdByBitrixId,
-        array $operationByBitrixId,
-        array $oldValuesByBitrixId,
-        array $changedByBitrixUserIdByBitrixId,
-        array $changedByBitrixUserNameByBitrixId,
-        Carbon $now
-    ): void {
+    private function logBatch(array $batch, Collection $localIds): void
+    {
         $rows = [];
 
-        foreach ($recordsPayload as $record) {
+        foreach ($batch['records'] as $record) {
             $bitrixId = (int) ($record['bitrix_id'] ?? 0);
-            $contactId = $contactIdByBitrixId->get($bitrixId);
+            $contactId = $localIds->get($bitrixId);
 
             if (! is_string($contactId) || $contactId === '') {
                 continue;
             }
 
-            $event = $operationByBitrixId[$bitrixId] ?? 'bitrix.contact.synced';
-            $newValues = Arr::only($record, [
-                'bitrix_id',
-                'first_name',
-                'last_name',
-                'contact_type_id',
-                'nationality',
-                'birth_date',
-                'gender',
-                'language',
-                'is_deleted',
-                'bitrix_created_at',
-                'bitrix_updated_at',
-                'last_synced_at',
-            ]);
-            $newValues['birth_date'] = $this->formatDateOnly($newValues['birth_date'] ?? null);
-            $newValues['changed_by_bitrix_user_id'] = $changedByBitrixUserIdByBitrixId[$bitrixId] ?? null;
-            $newValues['changed_by_bitrix_user_name'] = $changedByBitrixUserNameByBitrixId[$bitrixId] ?? null;
-            $oldValues = $event === 'bitrix.contact.updated' ? ($oldValuesByBitrixId[$bitrixId] ?? null) : null;
+            $event = $batch['opsById'][$bitrixId] ?? 'bitrix.contact.synced';
+            $newValues = Arr::only($record, self::LOG_KEYS);
+            $newValues['birth_date'] = $this->formatDate($newValues['birth_date'] ?? null);
+            $newValues['changed_by_bitrix_user_id'] = $batch['modifierIds'][$bitrixId] ?? null;
+            $newValues['changed_by_bitrix_user_name'] = $batch['modifierNames'][$bitrixId] ?? null;
+            $oldValues = $event === 'bitrix.contact.updated' ? ($batch['oldById'][$bitrixId] ?? null) : null;
             if ($event === 'bitrix.contact.updated' && ! $this->changed($oldValues, $newValues)) {
                 continue;
             }
@@ -329,9 +336,9 @@ class ContactProfile implements EntityProfile
                 'user_id' => null,
                 'old_values' => $oldValues !== null ? json_encode($oldValues, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) : null,
                 'new_values' => json_encode($newValues, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES),
-                'happened_at' => $now,
-                'created_at' => $now,
-                'updated_at' => $now,
+                'happened_at' => $batch['now'],
+                'created_at' => $batch['now'],
+                'updated_at' => $batch['now'],
             ];
         }
 
@@ -343,7 +350,7 @@ class ContactProfile implements EntityProfile
     /**
      * @return array<string, mixed>
      */
-    private function logPayload(Contact $contact): array
+    private function snapshot(Contact $contact): array
     {
         return [
             'bitrix_id' => $contact->bitrix_id !== null ? (int) $contact->bitrix_id : null,
@@ -351,7 +358,7 @@ class ContactProfile implements EntityProfile
             'last_name' => $contact->last_name,
             'contact_type_id' => $contact->contact_type_id,
             'nationality' => $contact->nationality,
-            'birth_date' => $this->formatDateOnly($contact->birth_date),
+            'birth_date' => $this->formatDate($contact->birth_date),
             'gender' => $contact->gender,
             'language' => $contact->language,
             'is_deleted' => (bool) $contact->is_deleted,
@@ -381,13 +388,10 @@ class ContactProfile implements EntityProfile
     /**
      * @return array<string, int>
      */
-    private function resolveTypeMap(): array
+    private function typeMap(): array
     {
-        /** @var Collection<int, object{code:string,id:int}> $rows */
-        $rows = DB::table('contact_types')->get(['id', 'code']);
         $map = [];
-
-        foreach ($rows as $row) {
+        foreach (DB::table('contact_types')->get(['id', 'code']) as $row) {
             $map[$this->normalizeTypeKey($row->code)] = (int) $row->id;
         }
 
@@ -397,10 +401,10 @@ class ContactProfile implements EntityProfile
     /**
      * @param  array<string, mixed>  $item
      * @param  array<string, int>  $typeMap
-     * @param  array<string, array<string, string>>  $enumMap
+     * @param  array<string, array<string, string>>  $enums
      * @return array<string, mixed>
      */
-    private function normalizeItem(array $item, Carbon $syncedAt, array $typeMap, ?int $defaultTypeId, array $enumMap): array
+    private function normalizeItem(array $item, Carbon $now, array $typeMap, ?int $defaultTypeId, array $enums): array
     {
         $bitrixId = (int) ($item['ID'] ?? 0);
         if ($bitrixId <= 0) {
@@ -408,7 +412,7 @@ class ContactProfile implements EntityProfile
         }
 
         $typeKey = $this->normalizeTypeKey((string) ($item['TYPE_ID'] ?? ''));
-        $nationalityRaw = $item[self::BITRIX_FIELD_NATIONALITY] ?? $item[self::BITRIX_FIELD_NATIONALITY_LEGACY] ?? null;
+        $nationalityRaw = $item[self::UF_NATIONALITY] ?? $item[self::UF_NATIONALITY_OLD] ?? null;
 
         return [
             'id' => (string) Str::uuid(),
@@ -416,43 +420,44 @@ class ContactProfile implements EntityProfile
             'first_name' => BitrixValue::str($item['NAME'] ?? null),
             'last_name' => BitrixValue::str($item['LAST_NAME'] ?? null),
             'contact_type_id' => $typeMap[$typeKey] ?? $defaultTypeId,
-            'nationality' => $this->resolveEnumDisplayValue($enumMap, self::BITRIX_FIELD_NATIONALITY, $nationalityRaw)
-                ?? $this->resolveEnumDisplayValue($enumMap, self::BITRIX_FIELD_NATIONALITY_LEGACY, $nationalityRaw),
-            'birth_date' => $this->parseDate($item['BIRTHDATE'] ?? null),
-            'gender' => $this->resolveEnumDisplayValue($enumMap, self::BITRIX_FIELD_GENDER, $item[self::BITRIX_FIELD_GENDER] ?? null),
-            'language' => $this->resolveEnumDisplayValue($enumMap, self::BITRIX_FIELD_LANGUAGE, $item[self::BITRIX_FIELD_LANGUAGE] ?? null),
+            'nationality' => BitrixEnums::resolve($enums, self::UF_NATIONALITY, $nationalityRaw)
+                ?? BitrixEnums::resolve($enums, self::UF_NATIONALITY_OLD, $nationalityRaw),
+            'birth_date' => BitrixValue::dt($item['BIRTHDATE'] ?? null)?->startOfDay(),
+            'gender' => BitrixEnums::resolve($enums, self::UF_GENDER, $item[self::UF_GENDER] ?? null),
+            'language' => BitrixEnums::resolve($enums, self::UF_LANGUAGE, $item[self::UF_LANGUAGE] ?? null),
             'is_deleted' => false,
-            'bitrix_created_at' => $this->parseDateTime($item['DATE_CREATE'] ?? null),
-            'bitrix_updated_at' => $this->parseDateTime($item['DATE_MODIFY'] ?? null),
-            'last_synced_at' => $syncedAt,
-            'updated_at' => $syncedAt,
-            'created_at' => $syncedAt,
+            'bitrix_created_at' => BitrixValue::dt($item['DATE_CREATE'] ?? null),
+            'bitrix_updated_at' => BitrixValue::dt($item['DATE_MODIFY'] ?? null),
+            'last_synced_at' => $now,
+            'updated_at' => $now,
+            'created_at' => $now,
         ];
     }
 
     /**
-     * @return list<array{phone:string,type:?string,is_primary:bool,sort:int}>
+     * @param  callable(string): ?string  $normalize
+     * @return list<array{type:?string,is_primary:bool,sort:int}&array<string, string>>
      */
-    private function normPhones(mixed $phones): array
+    private function normMulti(mixed $rows, string $column, callable $normalize): array
     {
-        if (! is_array($phones)) {
+        if (! is_array($rows)) {
             return [];
         }
 
         $result = [];
-        foreach (array_values($phones) as $index => $phoneRow) {
-            if (! is_array($phoneRow)) {
+        foreach (array_values($rows) as $index => $row) {
+            if (! is_array($row)) {
                 continue;
             }
 
-            $phone = $this->normalizePhone((string) ($phoneRow['VALUE'] ?? ''));
-            if ($phone === null) {
+            $value = $normalize((string) ($row['VALUE'] ?? ''));
+            if ($value === null) {
                 continue;
             }
 
             $result[] = [
-                'phone' => $phone,
-                'type' => BitrixValue::str($phoneRow['VALUE_TYPE'] ?? null),
+                $column => $value,
+                'type' => BitrixValue::str($row['VALUE_TYPE'] ?? null),
                 'is_primary' => $index === 0,
                 'sort' => 100 + ($index * 100),
             ];
@@ -462,54 +467,28 @@ class ContactProfile implements EntityProfile
     }
 
     /**
-     * @return list<array{email:string,type:?string,is_primary:bool,sort:int}>
+     * @param  Collection<int|string, string>  $localIds
+     * @param  array<int, list<array<string, mixed>>>  $rowsById
      */
-    private function normEmails(mixed $emails): array
-    {
-        if (! is_array($emails)) {
-            return [];
-        }
-
-        $result = [];
-        foreach (array_values($emails) as $index => $emailRow) {
-            if (! is_array($emailRow)) {
-                continue;
-            }
-
-            $email = $this->normalizeEmail((string) ($emailRow['VALUE'] ?? ''));
-            if ($email === null) {
-                continue;
-            }
-
-            $result[] = [
-                'email' => $email,
-                'type' => BitrixValue::str($emailRow['VALUE_TYPE'] ?? null),
-                'is_primary' => $index === 0,
-                'sort' => 100 + ($index * 100),
-            ];
-        }
-
-        return $result;
-    }
-
-    /**
-     * @param  Collection<int|string, string>  $contactIdByBitrixId
-     * @param  array<int, list<array{phone:string,type:?string,is_primary:bool,sort:int}>>  $phonePayloadByBitrixId
-     */
-    private function insertPhones(Collection $contactIdByBitrixId, array $phonePayloadByBitrixId, Carbon $now): void
-    {
+    private function insertChildren(
+        string $table,
+        string $column,
+        Collection $localIds,
+        array $rowsById,
+        Carbon $now
+    ): void {
         $rows = [];
-        foreach ($phonePayloadByBitrixId as $bitrixId => $phoneRows) {
-            $contactId = $contactIdByBitrixId->get($bitrixId);
+        foreach ($rowsById as $bitrixId => $childRows) {
+            $contactId = $localIds->get($bitrixId);
             if (! is_string($contactId) || $contactId === '') {
                 continue;
             }
 
-            foreach ($phoneRows as $row) {
+            foreach ($childRows as $row) {
                 $rows[] = [
                     'id' => (string) Str::uuid(),
                     'contact_id' => $contactId,
-                    'phone' => $row['phone'],
+                    $column => $row[$column],
                     'type' => $row['type'],
                     'is_primary' => $row['is_primary'],
                     'sort' => $row['sort'],
@@ -520,39 +499,7 @@ class ContactProfile implements EntityProfile
         }
 
         if ($rows !== []) {
-            DB::table('contact_phones')->insert($rows);
-        }
-    }
-
-    /**
-     * @param  Collection<int|string, string>  $contactIdByBitrixId
-     * @param  array<int, list<array{email:string,type:?string,is_primary:bool,sort:int}>>  $emailPayloadByBitrixId
-     */
-    private function insertEmails(Collection $contactIdByBitrixId, array $emailPayloadByBitrixId, Carbon $now): void
-    {
-        $rows = [];
-        foreach ($emailPayloadByBitrixId as $bitrixId => $emailRows) {
-            $contactId = $contactIdByBitrixId->get($bitrixId);
-            if (! is_string($contactId) || $contactId === '') {
-                continue;
-            }
-
-            foreach ($emailRows as $row) {
-                $rows[] = [
-                    'id' => (string) Str::uuid(),
-                    'contact_id' => $contactId,
-                    'email' => $row['email'],
-                    'type' => $row['type'],
-                    'is_primary' => $row['is_primary'],
-                    'sort' => $row['sort'],
-                    'created_at' => $now,
-                    'updated_at' => $now,
-                ];
-            }
-        }
-
-        if ($rows !== []) {
-            DB::table('contact_emails')->insert($rows);
+            DB::table($table)->insert($rows);
         }
     }
 
@@ -563,87 +510,6 @@ class ContactProfile implements EntityProfile
         return preg_replace('/[^a-z0-9_]/', '', $normalized) ?? '';
     }
 
-    /**
-     * @param  list<string>  $fieldCodes
-     * @return array<string, array<string, string>>
-     */
-    private function contactEnums(array $fieldCodes): array
-    {
-        $response = $this->bitrixRestClient->postJson('crm.contact.fields', []);
-        $fields = data_get($response, 'result', []);
-        if (! is_array($fields)) {
-            return [];
-        }
-
-        $map = [];
-        foreach ($fieldCodes as $fieldCode) {
-            $definition = $fields[$fieldCode] ?? null;
-            if (! is_array($definition)) {
-                continue;
-            }
-
-            $items = $definition['items'] ?? null;
-            if (! is_array($items)) {
-                continue;
-            }
-
-            $fieldMap = [];
-            foreach ($items as $item) {
-                if (! is_array($item)) {
-                    continue;
-                }
-
-                $id = BitrixValue::str($item['ID'] ?? null);
-                $value = BitrixValue::str($item['VALUE'] ?? null);
-                if ($id === null || $value === null) {
-                    continue;
-                }
-
-                $fieldMap[$id] = $value;
-            }
-
-            if ($fieldMap !== []) {
-                $map[$fieldCode] = $fieldMap;
-            }
-        }
-
-        return $map;
-    }
-
-    /**
-     * @param  array<string, array<string, string>>  $enumMap
-     */
-    private function resolveEnumDisplayValue(array $enumMap, string $fieldCode, mixed $rawValue): ?string
-    {
-        $raw = BitrixValue::str($rawValue);
-        if ($raw === null) {
-            return null;
-        }
-
-        return $enumMap[$fieldCode][$raw] ?? $raw;
-    }
-
-
-    private function parseDate(mixed $value): ?Carbon
-    {
-        $string = BitrixValue::str($value);
-        if ($string === null) {
-            return null;
-        }
-
-        return Carbon::parse($string)->startOfDay();
-    }
-
-    private function parseDateTime(mixed $value): ?Carbon
-    {
-        $string = BitrixValue::str($value);
-        if ($string === null) {
-            return null;
-        }
-
-        return Carbon::parse($string);
-    }
-
     private function normalizePhone(string $value): ?string
     {
         $trimmed = trim($value);
@@ -652,11 +518,8 @@ class ContactProfile implements EntityProfile
         }
 
         $normalized = preg_replace('/[^\d+]+/', '', $trimmed);
-        if ($normalized === null || $normalized === '') {
-            return null;
-        }
 
-        return $normalized;
+        return ($normalized === null || $normalized === '') ? null : $normalized;
     }
 
     private function normalizeEmail(string $value): ?string
@@ -671,8 +534,7 @@ class ContactProfile implements EntityProfile
         return filter_var($email, FILTER_VALIDATE_EMAIL) !== false ? $email : null;
     }
 
-
-    private function formatDateOnly(mixed $value): ?string
+    private function formatDate(mixed $value): ?string
     {
         if ($value === null || $value === '') {
             return null;
@@ -689,23 +551,23 @@ class ContactProfile implements EntityProfile
         }
     }
 
-    private function resolveBitrixUserName(?int $bitrixUserId): ?string
+    private function userName(?int $userId): ?string
     {
-        if ($bitrixUserId === null || $bitrixUserId <= 0) {
+        if ($userId === null || $userId <= 0) {
             return null;
         }
 
-        if (array_key_exists($bitrixUserId, $this->bitrixUserNameCache)) {
-            return $this->bitrixUserNameCache[$bitrixUserId];
+        if (array_key_exists($userId, $this->userNames)) {
+            return $this->userNames[$userId];
         }
 
         try {
-            $response = $this->bitrixRestClient->postJson('user.get', [
-                'FILTER' => ['ID' => $bitrixUserId],
+            $response = $this->bitrix->postJson('user.get', [
+                'FILTER' => ['ID' => $userId],
             ]);
             $users = data_get($response, 'result', []);
             if (! is_array($users) || $users === [] || ! is_array($users[0] ?? null)) {
-                $this->bitrixUserNameCache[$bitrixUserId] = null;
+                $this->userNames[$userId] = null;
 
                 return null;
             }
@@ -714,11 +576,11 @@ class ContactProfile implements EntityProfile
             $lastName = BitrixValue::str($users[0]['LAST_NAME'] ?? null);
             $fullName = trim(($firstName ?? '').' '.($lastName ?? ''));
             $resolved = $fullName !== '' ? $fullName : (BitrixValue::str($users[0]['EMAIL'] ?? null) ?? null);
-            $this->bitrixUserNameCache[$bitrixUserId] = $resolved;
+            $this->userNames[$userId] = $resolved;
 
             return $resolved;
         } catch (\Throwable) {
-            $this->bitrixUserNameCache[$bitrixUserId] = null;
+            $this->userNames[$userId] = null;
 
             return null;
         }

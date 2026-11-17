@@ -1,4 +1,5 @@
 import { ref } from 'vue';
+import { expandPermissionIds } from '../permissionCompanions';
 
 export const useRolesCrud = ({
     canManageRoles,
@@ -39,15 +40,39 @@ export const useRolesCrud = ({
         roleModalOpen.value = true;
     };
 
+    const applyExpandedIds = (ids) => {
+        roleForm.value.permission_ids = expandPermissionIds(permissionOptions.value, ids);
+    };
+
     const toggleRolePermission = (permissionId) => {
         const ids = [...roleForm.value.permission_ids];
         const idx = ids.indexOf(permissionId);
         if (idx === -1) {
             ids.push(permissionId);
-        } else {
-            ids.splice(idx, 1);
+            applyExpandedIds(ids);
+            return;
         }
+
+        ids.splice(idx, 1);
         roleForm.value.permission_ids = ids;
+    };
+
+    const setRolePermissionGroup = (permissionIds, enabled) => {
+        const set = new Set(roleForm.value.permission_ids);
+        for (const id of permissionIds) {
+            if (enabled) {
+                set.add(id);
+            } else {
+                set.delete(id);
+            }
+        }
+
+        if (enabled) {
+            applyExpandedIds([...set]);
+            return;
+        }
+
+        roleForm.value.permission_ids = [...set];
     };
 
     const openEditRoleModal = async (row) => {
@@ -144,6 +169,7 @@ export const useRolesCrud = ({
         openEditRoleModal,
         closeRoleModal,
         toggleRolePermission,
+        setRolePermissionGroup,
         submitRole,
         deleteRoleFromModal,
     };

@@ -1,5 +1,6 @@
 <script setup>
-import { Link, router } from '@inertiajs/vue3';
+import { Link, router, usePage } from '@inertiajs/vue3';
+import { computed } from 'vue';
 import { useOlBotI18n } from '../../composables/useOlBotI18n';
 
 const props = defineProps({
@@ -7,6 +8,8 @@ const props = defineProps({
     scope: { type: String, default: 'main' },
 });
 
+const page = usePage();
+const canEdit = computed(() => page.props.auth?.user?.can?.editOlBotTemplates === true);
 const { t, formatDateTime } = useOlBotI18n();
 
 /**
@@ -14,6 +17,10 @@ const { t, formatDateTime } = useOlBotI18n();
  * @returns {void}
  */
 const activate = (id) => {
+    if (!canEdit.value) {
+        return;
+    }
+
     router.post(`/ol-bot/templates/${id}/activate`, { scope: props.scope });
 };
 </script>
@@ -42,7 +49,7 @@ const activate = (id) => {
                         <td class="px-2 py-2 text-ink-muted">{{ formatDateTime(item.created_at) }}</td>
                         <td class="px-2 py-2 text-right">
                             <button
-                                v-if="!item.is_active"
+                                v-if="canEdit && !item.is_active"
                                 type="button"
                                 class="ui-btn ui-btn-secondary"
                                 @click="activate(item.id)"

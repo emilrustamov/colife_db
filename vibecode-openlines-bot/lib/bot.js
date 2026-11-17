@@ -8,6 +8,7 @@ import {
   detectLang,
   FALLBACK_TEXT,
   OPERATOR_KEYBOARD,
+  parseModelReply,
   shouldHandleMessageEvent,
   wantsOperator,
 } from './reply.js';
@@ -18,11 +19,15 @@ import {
   hydrateStateFromText,
   hydrateStateFromTranscript,
   isRobotOnlyMessage,
+  languageSourceText,
   looksLikeReasoningLeak,
   looksLikeRobotTemplate,
+  replyLanguageMismatch,
   sanitizeClientText,
+  stripReIntro,
 } from './scenarios.js';
 import { findByUnitNumber } from './tools.js';
+import { getAiModel } from './settings.js';
 import {
   chatCompletions,
   getEvents,
@@ -48,7 +53,9 @@ function summarizeToolResult(result) {
     out.apartments = result.apartments.slice(0, 3).map((row) => ({
       id: row.apartment?.apartmentId,
       link: row.apartment?.link,
-      price: row.apartment?.price,
+      price: row.apartment?.priceForPeriod ?? row.apartment?.price,
+      period: row.apartment?.period,
+      availableFrom: row.apartment?.availableFrom || '',
       area: row.apartment?.area,
       type: row.apartment?.type,
     }));
@@ -58,9 +65,38 @@ function summarizeToolResult(result) {
       id: result.apartment.apartmentId,
       link: result.apartment.link,
       title: result.apartment.title,
+      availableFrom: result.apartment.availableFrom || '',
+      price: result.apartment.price,
+      priceVariants: result.apartment.priceVariants,
+      fitsMoveIn: result.apartment.fitsMoveIn,
+      availabilityKnown: result.apartment.availabilityKnown,
     };
   }
   return out;
+}
+
+/**
+ * @param {number} ms
+ * @returns {number}
+ */
+function secFromMs(ms) {
+  return Math.round(Math.max(0, Number(ms) || 0) / 10) / 100;
+}
+
+/**
+ * @param {Array<object>} analysis
+ * @param {string} type
+ * @param {string} title
+ * @param {number} durationSec
+ * @param {unknown} content
+ */
+function pushAnalysis(analysis, type, title, durationSec, content) {
+  analysis.push({
+    type,
+    title,
+    duration_sec: durationSec,
+    content: content == null ? null : content,
+  });
 }
 
 /**
@@ -79,7 +115,8 @@ function summarizeToolResult(result) {
 export function createBotWorker(config) {
   const apiKey = config.apiKey;
   const botId = config.botId;
-  const model = config.model || 'bitrix/bitrixgpt-5.5-thinking';
+  const defaultModel = config.model || process.env.AI_MODEL || 'bitrix/bitrixgpt-5.5-thinking';
+  let currentModel = defaultModel;
   let knowledgeBase = config.knowledgeBase || loadKnowledgeBase();
   const pollMs = config.pollMs || 3000;
   const catalogRefreshMs = config.catalogRefreshMs || 60 * 60 * 1000;
@@ -148,6 +185,8 @@ export function createBotWorker(config) {
       `transcript=${state.transcript.slice(-8).join(' | ')}`,
     ].join('\n');
     try {
+      const model = await getAiModel(defaultModel);
+      currentModel = model;
       const completion = await chatCompletions(apiKey, {
         model,
         temperature: 0.1,
@@ -181,19 +220,14 @@ export function createBotWorker(config) {
     hydrateStateFromTranscript(state);
     enrichStateForLeave(state);
     const summary = await buildOperatorSummary(state);
+    state.extras.operatorSummary = summary;
+    // Client sees only the short handoff notice — summary stays in extras for CRM/logs.
     if (mode === 'A' && notifyText) {
       try {
         await sendMessage(apiKey, botId, dialogId, { message: notifyText });
       } catch {
         // ignore
       }
-    }
-    try {
-      await sendMessage(apiKey, botId, dialogId, {
-        message: `Operator summary:\n${summary}`,
-      });
-    } catch {
-      // ignore summary delivery
     }
     state.handedOff = true;
     state.terminalAPendingLeave = false;
@@ -290,7 +324,9 @@ export function createBotWorker(config) {
       return;
     }
 
-    state.language = detectLang(text);
+    const langText = languageSourceText(text);
+    if (langText) state.language = detectLang(langText);
+    else if (!state.language) state.language = 'en';
     state.transcript.push(`User: ${text}`);
     if (state.transcript.length > 40) state.transcript.splice(0, state.transcript.length - 40);
     if (!isRobotOnlyMessage(text)) {
@@ -399,6 +435,7 @@ export function createBotWorker(config) {
       pendingHandoff: null,
       toolTrace: [],
       thinking: [],
+      analysis: [],
       searchedThisTurn: false,
     };
     const robotTurn = looksLikeRobotTemplate(text);
@@ -453,8 +490,26 @@ export function createBotWorker(config) {
       const robot = await loadTemplate('skill:robot_message');
       if (robot) instructionParts.push(`# Active skill: robot_message\n${robot}`);
     }
-    instructionParts.push(pickRelevantContext(knowledgeBase, text, 3500));
-    instructionParts.push(`Dialog state JSON: ${JSON.stringify({
+    const kbStarted = Date.now();
+    const kbSnippet = pickRelevantContext(knowledgeBase, text, 3500);
+    instructionParts.push(kbSnippet);
+    if (kbSnippet) {
+      pushAnalysis(
+        runtime.analysis,
+        'kb_search',
+        'Search in Knowledge base',
+        secFromMs(Date.now() - kbStarted),
+        String(kbSnippet).slice(0, 1200),
+      );
+      pushAnalysis(
+        runtime.analysis,
+        'kb_found',
+        'Found information',
+        0,
+        String(kbSnippet).slice(0, 800),
+      );
+    }
+    const dialogStateJson = {
       category: state.category,
       activeScenario: state.activeScenario,
       statusConnected: state.statusConnected,
@@ -476,7 +531,9 @@ export function createBotWorker(config) {
       contactId: state.contactId || '',
       shownLinks: state.shownLinks.slice(-5),
       language: state.language,
-    })}`);
+    };
+    instructionParts.push(`Dialog state JSON: ${JSON.stringify(dialogStateJson)}`);
+    pushAnalysis(runtime.analysis, 'parameters', 'Parameters', 0, dialogStateJson);
     if (state.unitNumber) {
       instructionParts.push(
         `Pending unit from earlier robot/request: ${state.unitNumber} (lookup=${state.unitLookupStatus || 'unknown'}). If client confirms Yes — call get_apartment_by_unit_number once if lookup is not found yet. Only say booked when tool returns not_found. If found — continue with that unit (do not ask apartment type when type is already known).`,
@@ -487,13 +544,16 @@ export function createBotWorker(config) {
       instructionParts.push(`Dialog history (oldest→newest):\n${prior.join('\n')}`);
     }
     instructionParts.push([
+      `Reply language for this turn: ${state.language === 'ru' ? 'Russian' : 'English'} only.`,
+      'When quoting a catalog unit, use availableFrom and priceVariants from the tool result for the requested period — never invent prices.',
+      'Catalog has apartments only. Never invent or quote room/sharing prices or “rooms from N AED” (apartment min_price is not a room rate). For room/sharing: activate_scenario sharing, collect missing params, qualify_lead(sharing), terminal A — no search_apartments/get_min_price.',
       'Continue this same dialog. Do not re-introduce yourself if Dialog history already has a Bot line.',
       'Use known filters from history/state; ask only for missing ones. Never re-ask move-in date or rental period if Dialog state JSON already has routingMoveInDate/savedMoveInDate/period/days_to_checkin.',
       'Never output chain-of-thought, skill names, tool plans, or analysis to the client. Client text only via make_answer (or a short plain final answer).',
-      'If budget and period are known, call search_apartments before saying there are no options or before handoff (unless terminal A/B already required by scenario).',
+      'If budget and period are known and this is NOT a sharing/room lead, call search_apartments before saying there are no options or before handoff (unless terminal A/B already required by scenario).',
       'If move-in is today/tomorrow or days_to_checkin<=1, activate_scenario urgent_move_in before search.',
       'If client asks weekly / less than a month / short-term stay, activate_scenario short_term and follow that scenario (handoff after required params; do not keep probing type/budget endlessly).',
-      'If client asks for room/shared accommodation, activate_scenario sharing and treat apartment type as room.',
+      'If client asks for room/shared accommodation, activate_scenario sharing immediately and treat apartment type as room.',
     ].join(' '));
     const system = instructionParts.filter(Boolean).join('\n\n');
 
@@ -508,9 +568,12 @@ export function createBotWorker(config) {
       { role: 'user', content: text },
     ];
 
+    const model = await getAiModel(defaultModel);
+    currentModel = model;
     let finalText = '';
     try {
       for (let step = 0; step < 6; step += 1) {
+        const llmStarted = Date.now();
         const completion = await chatCompletions(apiKey, {
           model,
           temperature: 0.2,
@@ -518,13 +581,26 @@ export function createBotWorker(config) {
           tool_choice: 'auto',
           messages,
         });
+        const llmSec = secFromMs(Date.now() - llmStarted);
         const usage = completion?.usage || {};
         const credits = Number(usage.total_tokens || usage.prompt_tokens || 0) / 1000;
         if (Number.isFinite(credits)) m.credits += credits;
 
         const choice = completion?.choices?.[0]?.message || {};
-        if (choice.reasoning || choice.thinking || choice.reasoning_content) {
-          runtime.thinking.push(String(choice.reasoning || choice.thinking || choice.reasoning_content).slice(0, 4000));
+        const thinkingText = String(
+          choice.reasoning || choice.thinking || choice.reasoning_content || '',
+        ).trim();
+        if (thinkingText) {
+          runtime.thinking.push(thinkingText.slice(0, 4000));
+          pushAnalysis(
+            runtime.analysis,
+            'explanation',
+            'Explanation of the result',
+            llmSec,
+            thinkingText.slice(0, 4000),
+          );
+        } else if (llmSec > 0) {
+          pushAnalysis(runtime.analysis, 'explanation', 'Explanation of the result', llmSec, choice.content || null);
         }
         const toolCalls = choice.tool_calls || [];
         if (toolCalls.length) {
@@ -541,12 +617,19 @@ export function createBotWorker(config) {
             } catch {
               args = {};
             }
-            if (name === 'leave_chat' && !runtime.pendingHandoff) {
-              runtime.pendingHandoff = { mode: 'A', reason: args.reason || 'leave_chat' };
-            }
             if (name === 'search_apartments') runtime.searchedThisTurn = true;
+            pushAnalysis(runtime.analysis, 'function_call', 'Function call', 0, { name, args });
+            const toolStarted = Date.now();
             const result = await executeTool(state, name, args, runtime);
-            runtime.toolTrace.push({ name, args, result: summarizeToolResult(result) });
+            const summarized = summarizeToolResult(result);
+            runtime.toolTrace.push({ name, args, result: summarized });
+            pushAnalysis(
+              runtime.analysis,
+              'function_call_result',
+              'Function call result',
+              secFromMs(Date.now() - toolStarted),
+              summarized,
+            );
             messages.push({
               role: 'tool',
               tool_call_id: call.id,
@@ -563,14 +646,17 @@ export function createBotWorker(config) {
     } catch (err) {
       finalText = FALLBACK_TEXT[state.language || detectLang(text)];
       runtime.pendingHandoff = { mode: 'A', reason: `ai_error:${err.message}` };
+      pushAnalysis(runtime.analysis, 'explanation', 'Explanation of the result', 0, `ai_error: ${err.message}`);
       pushLog({ question: text, answer: finalText, handedOff: true, error: err.message, dialogId });
     }
 
     runtime.pendingAnswers = runtime.pendingAnswers
-      .map((a) => sanitizeClientText(a))
-      .filter((a) => a && !looksLikeReasoningLeak(a));
+      .map((a) => stripReIntro(sanitizeClientText(a), state.introduced))
+      .filter((a) => a && !looksLikeReasoningLeak(a))
+      .filter((a) => !replyLanguageMismatch(a, state.language));
     finalText = sanitizeClientText(finalText);
     if (looksLikeReasoningLeak(finalText)) finalText = '';
+    if (replyLanguageMismatch(finalText, state.language)) finalText = '';
     if (
       !runtime.pendingAnswers.length
       && !finalText
@@ -588,25 +674,25 @@ export function createBotWorker(config) {
         keyboard: OPERATOR_KEYBOARD,
       });
       state.transcript.push(`Bot: ${answer}`);
+      state.introduced = true;
     }
 
     if (finalText && !runtime.pendingAnswers.length) {
-      let answer = finalText;
-      try {
-        const parsed = JSON.parse(finalText);
-        if (parsed?.answer) answer = sanitizeClientText(String(parsed.answer));
-        if (parsed?.handoff) {
-          runtime.pendingHandoff = runtime.pendingHandoff || {
-            mode: 'A',
-            reason: 'model_handoff',
-          };
-        }
-        if (parsed?.scenario) state.activeScenario = String(parsed.scenario);
-      } catch {
-        // plain text
+      const parsed = parseModelReply(finalText);
+      let answer = stripReIntro(sanitizeClientText(parsed.answer), state.introduced);
+      if (parsed.handoff) {
+        runtime.pendingHandoff = runtime.pendingHandoff || {
+          mode: 'A',
+          reason: 'model_handoff',
+        };
       }
+      if (parsed.scenario) state.activeScenario = parsed.scenario;
       if (looksLikeReasoningLeak(answer)) answer = '';
+      if (replyLanguageMismatch(answer, state.language)) answer = '';
       answer = sanitizeClientText(answer);
+      if (!answer && !runtime.pendingHandoff && !state.handedOff && !state.terminalAPendingLeave) {
+        answer = clarifyFallback(state);
+      }
       if (answer) {
         await sendMessage(apiKey, botId, dialogId, {
           message: answer,
@@ -617,9 +703,14 @@ export function createBotWorker(config) {
       }
     }
 
-    const elapsed = Math.round((Date.now() - started) / 1000);
+    const elapsedMs = Date.now() - started;
+    const elapsed = Math.round(elapsedMs / 1000);
     m.responses.push(elapsed);
     const clientAnswer = runtime.pendingAnswers.join('\n') || finalText || '';
+    if (clientAnswer) {
+      // Dialog content only — total wall time is response_sec / Analysis header.
+      pushAnalysis(runtime.analysis, 'dialog', 'Dialog', null, clientAnswer.slice(0, 2000));
+    }
     await insertMessage({
       chat_id: m.chatId,
       dialog_id: m.dialogId,
@@ -638,10 +729,12 @@ export function createBotWorker(config) {
       response_sec: elapsed,
       credits: m.credits,
       meta_json: JSON.stringify({
+        model,
         category: state.category,
         scenario: state.activeScenario,
         tools: runtime.toolTrace.slice(-12),
         thinking: runtime.thinking.slice(-3),
+        analysis: runtime.analysis.slice(-40),
         searchedThisTurn: runtime.searchedThisTurn,
         unitNumber: state.unitNumber,
         filters: {
@@ -676,7 +769,7 @@ export function createBotWorker(config) {
     }).catch(() => {});
 
     if (runtime.pendingHandoff || state.handedOff || state.terminalAPendingLeave) {
-      const mode = runtime.pendingHandoff?.mode || (state.terminalAPendingLeave ? 'A' : 'A');
+      const mode = runtime.pendingHandoff?.mode || 'A';
       const reason = runtime.pendingHandoff?.reason || 'leave_chat';
       const needNotify = mode === 'A' && !runtime.pendingAnswers.length;
       const notify = needNotify
@@ -766,7 +859,7 @@ export function createBotWorker(config) {
       getStatus() {
         return {
           botId,
-          model,
+          model: currentModel,
           lineId,
           offset: offset ?? null,
           lastCatalogRefresh,

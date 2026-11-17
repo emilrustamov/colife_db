@@ -7,13 +7,13 @@ use Throwable;
 class CollectFailureAlert
 {
     public function __construct(
-        private readonly TelegramAlert $telegramAlert,
-        private readonly TelegramAlertText $telegramText,
+        private readonly TelegramAlert $alerts,
+        private readonly TelegramAlertText $text,
         private readonly BitrixOAuth $oauth,
     ) {}
 
     /**
-     * Send a daily Telegram alert when an API collect fails.
+     * Send a daily Telegram alert when an API collect or sync fails.
      */
     public function notify(
         string $dedupeKey,
@@ -26,13 +26,13 @@ class CollectFailureAlert
         try {
             $domain = $this->resolveDomain($portalOrDomain);
             $error = mb_substr($e->getMessage(), 0, 300);
-            $message = $this->telegramText->message(
+            $message = $this->text->message(
                 $emoji,
                 $title,
                 $domain,
                 $hint."\n".$error,
             );
-            $this->telegramAlert->notifyOnce($dedupeKey, $message);
+            $this->alerts->notifyOnce($dedupeKey, $message);
         } catch (Throwable) {
         }
     }

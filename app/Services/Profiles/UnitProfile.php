@@ -3,22 +3,32 @@
 namespace App\Services\Profiles;
 
 use App\Models\Unit;
-use App\Support\EntityMap;
 use App\Support\BitrixValue;
+use App\Support\EntityMap;
 use Carbon\Carbon;
-use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 
 class UnitProfile extends SpaProfile
 {
     public const ENTITY_TYPE_ID = 167;
 
+    /**
+     * @return list<string>
+     */
+    public static function select(): array
+    {
+        return [
+            'id', 'title', 'stageId', 'createdTime', 'updatedTime',
+            'ufCrm8_1684429208', 'ufCrm8_1698838056004', 'ufCrm6_1707234311507',
+        ];
+    }
+
     public function entity(): string
     {
         return 'units';
     }
 
-    protected function modelClass(): string
+    protected function model(): string
     {
         return Unit::class;
     }
@@ -30,12 +40,12 @@ class UnitProfile extends SpaProfile
         return $typeId > 0 ? $typeId : self::ENTITY_TYPE_ID;
     }
 
-    protected function eventBase(): string
+    protected function event(): string
     {
         return 'bitrix.unit';
     }
 
-    protected function stageType(): string
+    protected function stageEntity(): string
     {
         return 'unit';
     }
@@ -43,48 +53,24 @@ class UnitProfile extends SpaProfile
     /**
      * @return list<string>
      */
-    protected function updateCols(): array
+    protected function fields(): array
     {
         return [
             'apartment_id',
             'title',
             'stage_id',
             'internal_number',
-            'is_deleted',
-            'bitrix_created_at',
-            'bitrix_updated_at',
-            'last_synced_at',
-            'updated_at',
         ];
     }
 
     /**
-     * @return list<string>
-     */
-    protected function logKeys(): array
-    {
-        return [
-            'bitrix_id',
-            'apartment_id',
-            'title',
-            'stage_id',
-            'internal_number',
-            'is_deleted',
-        ];
-    }
-
-    /**
-     * @return array{stageIdMap: array<string, int>, apartmentIdByBitrixId: array<int, string>}
+     * @return array{stages: array<string, int>, apartments: array<int, string>}
      */
     protected function context(): array
     {
         return [
-            'stageIdMap' => $this->loadStageIdMap(),
-            'apartmentIdByBitrixId' => DB::table('apartments')
-                ->where('portal_id', $this->portalId())
-                ->pluck('id', 'bitrix_id')
-                ->mapWithKeys(static fn ($id, $bitrixId): array => [(int) $bitrixId => (string) $id])
-                ->all(),
+            'stages' => $this->stageMap(),
+            'apartments' => $this->idMap('apartments', true),
         ];
     }
 
@@ -100,25 +86,18 @@ class UnitProfile extends SpaProfile
             throw new \RuntimeException('Invalid unit ID');
         }
 
-        $apartBitrixId = BitrixValue::firstInt($item['ufCrm8_1684429208'] ?? null);
-        if ($apartBitrixId === null) {
-            throw new \RuntimeException('Apartment link is empty');
-        }
-
-        /** @var array<int, string> $apartmentIdByBitrixId */
-        $apartmentIdByBitrixId = $context['apartmentIdByBitrixId'];
-        $apartmentId = $apartmentIdByBitrixId[$apartBitrixId] ?? null;
-        if (! is_string($apartmentId) || $apartmentId === '') {
-            throw new \RuntimeException('Apartment not found locally');
-        }
-
-        /** @var array<string, int> $stageIdMap */
-        $stageIdMap = $context['stageIdMap'];
-        $stageCode = trim((string) ($item['stageId'] ?? ''));
-        $internalNumber = BitrixValue::firstStr(
-            $item['ufCrm8_1698838056004'] ?? null,
-            $item['ufCrm6_1707234311507'] ?? null
+        /** @var array<int, string> $apartments */
+        $apartments = $context['apartments'];
+        $apartmentId = $this->requireMappedId(
+            $apartments,
+            BitrixValue::firstInt($item['ufCrm8_1684429208'] ?? null),
+            'Apartment link is empty',
+            'Apartment not found locally'
         );
+
+        /** @var array<string, int> $stages */
+        $stages = $context['stages'];
+        $stageCode = trim((string) ($item['stageId'] ?? ''));
 
         return [
             'id' => $existingId ?? (string) Str::uuid(),
@@ -126,14 +105,12 @@ class UnitProfile extends SpaProfile
             'bitrix_id' => $bitrixId,
             'apartment_id' => $apartmentId,
             'title' => BitrixValue::str($item['title'] ?? null),
-            'stage_id' => $stageCode !== '' ? ($stageIdMap[$stageCode] ?? null) : null,
-            'internal_number' => $internalNumber,
-            'is_deleted' => false,
-            'bitrix_created_at' => BitrixValue::dt($item['createdTime'] ?? null),
-            'bitrix_updated_at' => BitrixValue::dt($item['updatedTime'] ?? null),
-            'last_synced_at' => $now,
-            'updated_at' => $now,
-            'created_at' => $now,
+            'stage_id' => $stageCode !== '' ? ($stages[$stageCode] ?? null) : null,
+            'internal_number' => BitrixValue::firstStr(
+                $item['ufCrm8_1698838056004'] ?? null,
+                $item['ufCrm6_1707234311507'] ?? null
+            ),
+            ...$this->stamps($item, $now),
         ];
     }
 }

@@ -7,6 +7,7 @@ use App\Http\Controllers\Controller;
 use App\Models\BitrixToken;
 use App\Services\BitrixAuth;
 use App\Services\BitrixOAuth;
+use App\Services\CleaningAlert;
 use App\Services\TokenVerifier;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -19,6 +20,7 @@ class CleaningInstallController extends Controller
         private readonly BitrixAuth $bitrixAuthService,
         private readonly BitrixOAuth $oauth,
         private readonly TokenVerifier $tokenVerifier,
+        private readonly CleaningAlert $alerts,
     ) {}
 
     /**
@@ -95,13 +97,7 @@ class CleaningInstallController extends Controller
             return response()->json(['status' => 'error', 'message' => 'Tokens required'], 422);
         }
 
-        $systemUserId = (int) config('services.cleaning.system_user_id');
-        if (is_numeric($userId) && (int) $userId !== $systemUserId) {
-            $logger->warning('CLEANING_INSTALL_UNEXPECTED_USER', [
-                'expected' => $systemUserId,
-                'actual' => (int) $userId,
-            ]);
-        }
+        $this->warnUnexpectedInstaller($domain, $userId);
 
         $attributes = [
             'access_token' => $accessToken,
@@ -136,7 +132,6 @@ class CleaningInstallController extends Controller
     private function persistFromRequest(Request $request, string $domain): bool
     {
         $logger = Log::channel('bitrix_cleaning');
-        $systemUserId = (int) config('services.cleaning.system_user_id');
         $applicationToken = (string) data_get($request->all(), 'auth.application_token', '');
 
         $authAccessToken = (string) $request->input('auth.access_token', '');
@@ -146,12 +141,7 @@ class CleaningInstallController extends Controller
         $authUserId = $request->input('auth.user_id');
 
         if ($authAccessToken !== '' && $authRefreshToken !== '') {
-            if (is_numeric($authUserId) && (int) $authUserId !== $systemUserId) {
-                $logger->warning('CLEANING_INSTALL_UNEXPECTED_USER', [
-                    'expected' => $systemUserId,
-                    'actual' => (int) $authUserId,
-                ]);
-            }
+            $this->warnUnexpectedInstaller($domain, $authUserId);
 
             $attributes = [
                 'access_token' => $authAccessToken,
@@ -215,5 +205,23 @@ class CleaningInstallController extends Controller
         );
 
         return true;
+    }
+
+    /**
+     * Log and Telegram-alert when cleaning app is installed under the wrong Bitrix user.
+     */
+    private function warnUnexpectedInstaller(string $domain, mixed $userId): void
+    {
+        $systemUserId = (int) config('services.cleaning.system_user_id');
+        if (! is_numeric($userId) || (int) $userId === $systemUserId) {
+            return;
+        }
+
+        $actualUserId = (int) $userId;
+        Log::channel('bitrix_cleaning')->warning('CLEANING_INSTALL_UNEXPECTED_USER', [
+            'expected' => $systemUserId,
+            'actual' => $actualUserId,
+        ]);
+        $this->alerts->wrongInstaller($domain, $systemUserId, $actualUserId);
     }
 }

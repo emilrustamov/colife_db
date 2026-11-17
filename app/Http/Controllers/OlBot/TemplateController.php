@@ -5,6 +5,7 @@ namespace App\Http\Controllers\OlBot;
 use App\Http\Controllers\Controller;
 use App\Models\OlBotScopeTool;
 use App\Models\OlBotTemplateVersion;
+use App\Services\OlBotAlaioQuota;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -59,15 +60,41 @@ class TemplateController extends Controller
     /**
      * Main instruction + functions bindings.
      */
-    public function main(): Response
+    public function main(OlBotAlaioQuota $alaioQuota): Response
     {
         [$active, $history, $bindings] = $this->catalog();
+        $models = $alaioQuota->listModels(true);
 
         return Inertia::render('OlBot/Templates/Main', [
             'scope' => $this->scopePayload('main', $active->get('main'), $bindings),
             'toolCatalog' => self::TOOLS,
             'history' => $history,
+            'aiModels' => $models['models'],
+            'aiModel' => $models['active'],
+            'aiModelsOk' => (bool) ($models['ok'] ?? false),
+            'aiModelsError' => $models['error'] ?? null,
         ]);
+    }
+
+    /**
+     * Switch runtime AI model (Alaio catalog).
+     */
+    public function updateModel(Request $request, OlBotAlaioQuota $alaioQuota): RedirectResponse
+    {
+        $data = $request->validate([
+            'model' => ['required', 'string', 'max:128'],
+        ]);
+
+        $result = $alaioQuota->setActiveModel($data['model']);
+        if (! ($result['ok'] ?? false)) {
+            return redirect()
+                ->route('ol-bot.templates.main')
+                ->with('status', 'Model not updated: '.($result['error'] ?? 'error'));
+        }
+
+        return redirect()
+            ->route('ol-bot.templates.main')
+            ->with('status', 'Model: '.$result['model']);
     }
 
     /**

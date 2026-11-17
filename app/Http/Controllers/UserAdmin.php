@@ -3,6 +3,8 @@
 namespace App\Http\Controllers;
 
 use App\Models\User;
+use App\Support\AdminActivity;
+use App\Support\AdminPermissionPolicy;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
@@ -40,7 +42,7 @@ class UserAdmin extends Controller
     }
 
     /**
-     * Create a new user and assign roles.
+     * Create a new user and assign a single role.
      */
     public function store(Request $request): JsonResponse
     {
@@ -48,9 +50,13 @@ class UserAdmin extends Controller
             'name' => ['required', 'string', 'max:255'],
             'email' => ['required', 'string', 'email', 'max:255', 'unique:users,email'],
             'password' => ['required', 'string', 'min:8'],
-            'role_ids' => ['nullable', 'array'],
-            'role_ids.*' => ['integer', 'exists:roles,id'],
+            'role_id' => ['required', 'integer', 'exists:roles,id'],
         ]);
+
+        $role = Role::query()
+            ->where('id', $validated['role_id'])
+            ->where('guard_name', 'web')
+            ->firstOrFail();
 
         $user = User::query()->create([
             'name' => $validated['name'],
@@ -58,13 +64,17 @@ class UserAdmin extends Controller
             'password' => $validated['password'],
         ]);
 
-        $roleIds = $validated['role_ids'] ?? [];
-
-        if ($roleIds !== []) {
-            $user->syncRoles(Role::query()->whereIn('id', $roleIds)->where('guard_name', 'web')->pluck('name')->all());
-        }
-
+        $user->syncRoles([$role->name]);
         $user->load('roles:id,name');
+
+        AdminActivity::log(
+            'admin.user.created',
+            User::class,
+            $user->id,
+            $request->user(),
+            null,
+            AdminActivity::userSnapshot($user),
+        );
 
         return response()->json([
             'user' => [
@@ -80,7 +90,7 @@ class UserAdmin extends Controller
     }
 
     /**
-     * Update user fields and roles.
+     * Update user fields and the single assigned role.
      */
     public function update(Request $request, User $user): JsonResponse
     {
@@ -88,9 +98,18 @@ class UserAdmin extends Controller
             'name' => ['required', 'string', 'max:255'],
             'email' => ['required', 'string', 'email', 'max:255', Rule::unique('users', 'email')->ignore($user->id)],
             'password' => ['nullable', 'string', 'min:8'],
-            'role_ids' => ['nullable', 'array'],
-            'role_ids.*' => ['integer', 'exists:roles,id'],
+            'role_id' => ['required', 'integer', 'exists:roles,id'],
         ]);
+
+        $role = Role::query()
+            ->where('id', $validated['role_id'])
+            ->where('guard_name', 'web')
+            ->firstOrFail();
+
+        AdminPermissionPolicy::assertUserRoleAssignmentSafe($request->user(), $user, $role);
+
+        $user->load('roles:id,name');
+        $before = AdminActivity::userSnapshot($user);
 
         $user->name = $validated['name'];
         $user->email = $validated['email'];
@@ -100,11 +119,17 @@ class UserAdmin extends Controller
         }
 
         $user->save();
-
-        $roleIds = $validated['role_ids'] ?? [];
-        $user->syncRoles(Role::query()->whereIn('id', $roleIds)->where('guard_name', 'web')->pluck('name')->all());
-
+        $user->syncRoles([$role->name]);
         $user->load('roles:id,name');
+
+        AdminActivity::log(
+            'admin.user.updated',
+            User::class,
+            $user->id,
+            $request->user(),
+            $before,
+            AdminActivity::userSnapshot($user),
+        );
 
         return response()->json([
             'user' => [
@@ -120,15 +145,25 @@ class UserAdmin extends Controller
     }
 
     /**
-     * Delete a user (not yourself).
+     * Delete a user (not yourself / not last admin).
      */
     public function destroy(Request $request, User $user): JsonResponse
     {
-        if ($request->user()->id === $user->id) {
-            abort(403);
-        }
+        AdminPermissionPolicy::assertUserDeletable($request->user(), $user);
 
+        $user->load('roles:id,name');
+        $before = AdminActivity::userSnapshot($user);
+        $userId = $user->id;
         $user->delete();
+
+        AdminActivity::log(
+            'admin.user.deleted',
+            User::class,
+            $userId,
+            $request->user(),
+            $before,
+            null,
+        );
 
         return response()->json(['ok' => true]);
     }

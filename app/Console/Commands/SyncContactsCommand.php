@@ -3,10 +3,9 @@
 namespace App\Console\Commands;
 
 use App\Models\Contact;
-use App\Services\BitrixRest;
+use App\Services\BitrixListSync;
 use App\Services\CollectFailureAlert;
-use App\Services\EntitySync;
-use App\Support\BitrixSoftDelete;
+use App\Services\Profiles\ContactProfile;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\Log;
 use Throwable;
@@ -17,15 +16,37 @@ class SyncContactsCommand extends Command
 
     protected $description = 'Sync contacts from Bitrix24 to local database';
 
+    /**
+     * Run contacts list sync with soft-delete reconciliation.
+     */
     public function handle(
-        EntitySync $syncService,
-        BitrixRest $bitrixRestClient,
-        CollectFailureAlert $collectFailureAlert,
+        BitrixListSync $listSync,
+        CollectFailureAlert $alerts,
     ): int {
         $this->info('Bitrix contacts sync started...');
 
         try {
-            $result = $this->syncContacts($syncService, $bitrixRestClient);
+            $result = $listSync->syncList(
+                method: 'crm.contact.list.json',
+                payload: [
+                    'select' => ContactProfile::select(),
+                    'order' => ['ID' => 'ASC'],
+                ],
+                itemsPath: 'result',
+                idKey: 'ID',
+                entityKey: 'contacts',
+                modelClass: Contact::class,
+                now: now(),
+                onBatch: function (int $total, int $successful, int $failedCount): void {
+                    $this->info(sprintf(
+                        'Batch synced. Total processed: %d, successful: %d, failed: %d.',
+                        $total,
+                        $successful,
+                        $failedCount
+                    ));
+                },
+                pauseUs: 200_000,
+            );
 
             Log::channel('bitrix_contacts')->info('Bitrix contacts sync completed', $result);
 
@@ -41,7 +62,7 @@ class SyncContactsCommand extends Command
             ));
 
             if ($result['failed'] > 0) {
-                $this->warn('Failed contact ids: '.implode(', ', $result['failed_contact_ids']));
+                $this->warn('Failed ids: '.implode(', ', $result['failed_ids']));
             }
 
             return self::SUCCESS;
@@ -50,7 +71,7 @@ class SyncContactsCommand extends Command
                 'error' => $e->getMessage(),
             ]);
 
-            $collectFailureAlert->notify(
+            $alerts->notify(
                 'bitrix_sync_contacts_failed',
                 '📇',
                 'Sync contacts failed',
@@ -63,110 +84,5 @@ class SyncContactsCommand extends Command
 
             return self::FAILURE;
         }
-    }
-
-    /**
-     * @return array{total:int, successful:int, skipped:int, failed:int, failed_contact_ids:list<int|string>, marked_deleted:int, created:int, updated:int}
-     */
-    private function syncContacts(EntitySync $syncService, BitrixRest $bitrixRestClient): array
-    {
-        $start = 0;
-        $total = 0;
-        $created = 0;
-        $updated = 0;
-        $successful = 0;
-        $skipped = 0;
-        $failedContactIds = [];
-        $seenBitrixIds = [];
-
-        while (true) {
-            $data = $bitrixRestClient->postJson('crm.contact.list.json', [
-                'select' => [
-                    'ID',
-                    'NAME',
-                    'LAST_NAME',
-                    'MODIFY_BY_ID',
-                    'UF_CRM_1688664973718',
-                    'UF_CRM_1696438640',
-                    'UF_CRM_1755104713',
-                    'UF_CRM_1729690794035',
-                    'TYPE_ID',
-                    'BIRTHDATE',
-                    'PHONE',
-                    'EMAIL',
-                    'DATE_CREATE',
-                    'DATE_MODIFY',
-                ],
-                'order' => ['ID' => 'ASC'],
-                'start' => $start,
-            ]);
-
-            /** @var list<array<string, mixed>> $items */
-            $items = data_get($data, 'result', []);
-
-            if ($items === []) {
-                break;
-            }
-
-            foreach ($items as $item) {
-                if (! is_array($item)) {
-                    continue;
-                }
-
-                $bitrixId = (int) ($item['ID'] ?? $item['id'] ?? 0);
-                if ($bitrixId > 0) {
-                    $seenBitrixIds[] = $bitrixId;
-                }
-            }
-
-            $batch = $syncService->syncBatch($items);
-            $total += $batch['processed'];
-            $created += $batch['created'];
-            $updated += $batch['updated'];
-            $successful += $batch['successful'];
-            $skipped += $batch['skipped'];
-            $failedContactIds = array_merge($failedContactIds, $batch['failed_ids']);
-
-            $this->info(sprintf(
-                'Batch synced. Total processed: %d, created: %d, updated: %d, successful: %d, skipped: %d, failed: %d.',
-                $total,
-                $created,
-                $updated,
-                $successful,
-                $skipped,
-                count($failedContactIds)
-            ));
-            if ($this->getOutput()->isVerbose() && $batch['failed_ids'] !== []) {
-                $this->line('Batch failed IDs: '.implode(', ', array_map('strval', $batch['failed_ids'])));
-            }
-
-            $next = data_get($data, 'next');
-            if (! is_numeric($next)) {
-                break;
-            }
-
-            $start = (int) $next;
-            usleep(200_000);
-        }
-
-        $markedDeleted = 0;
-        if ($total > 0) {
-            $markedDeleted = BitrixSoftDelete::markMissing(
-                Contact::class,
-                array_values(array_unique($seenBitrixIds)),
-                now()
-            );
-        }
-
-        return [
-            'total' => $total,
-            'created' => $created,
-            'updated' => $updated,
-            'successful' => $successful,
-            'skipped' => $skipped,
-            'failed' => count($failedContactIds),
-            'failed_contact_ids' => $failedContactIds,
-            'marked_deleted' => $markedDeleted,
-        ];
     }
 }

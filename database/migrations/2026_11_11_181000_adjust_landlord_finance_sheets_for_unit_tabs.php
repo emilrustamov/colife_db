@@ -20,8 +20,10 @@ return new class extends Migration
             $table->dropUnique('lfs_sheet_landlord_unit_uq');
         });
 
-        DB::statement('ALTER TABLE landlord_finance_sheets MODIFY landlord_id VARCHAR(64) NULL');
-        DB::statement('ALTER TABLE landlord_finance_sheets MODIFY unit_id VARCHAR(64) NULL');
+        if (Schema::getConnection()->getDriverName() === 'mysql') {
+            DB::statement('ALTER TABLE landlord_finance_sheets MODIFY landlord_id VARCHAR(64) NULL');
+            DB::statement('ALTER TABLE landlord_finance_sheets MODIFY unit_id VARCHAR(64) NULL');
+        }
 
         if (! Schema::hasColumn('landlord_finance_sheets', 'layout')) {
             Schema::table('landlord_finance_sheets', function (Blueprint $table) {
@@ -53,8 +55,10 @@ return new class extends Migration
             });
         }
 
-        DB::statement('ALTER TABLE landlord_finance_sheets MODIFY landlord_id VARCHAR(64) NOT NULL');
-        DB::statement('ALTER TABLE landlord_finance_sheets MODIFY unit_id VARCHAR(64) NOT NULL');
+        if (Schema::getConnection()->getDriverName() === 'mysql') {
+            DB::statement('ALTER TABLE landlord_finance_sheets MODIFY landlord_id VARCHAR(64) NOT NULL');
+            DB::statement('ALTER TABLE landlord_finance_sheets MODIFY unit_id VARCHAR(64) NOT NULL');
+        }
 
         Schema::table('landlord_finance_sheets', function (Blueprint $table) {
             $table->unique(['spreadsheet_id', 'landlord_id', 'unit_id'], 'lfs_sheet_landlord_unit_uq');

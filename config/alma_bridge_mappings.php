@@ -54,6 +54,7 @@ return [
                     '8718' => 61,
                     '8722' => 1,
                     '8726' => 62,
+                    '8732' => 78,
                     '8734' => 57,
                     '8736' => 9,
                     '8738' => 11,
@@ -67,6 +68,7 @@ return [
                     '8756' => 26,
                     '8762' => 32,
                     '8764' => 34,
+                    '8766' => 79,
                     '8768' => 25,
                     '8776' => 40,
                     '8778' => 76,
@@ -97,7 +99,7 @@ return [
                     'building_name' => 'ufCrm6_1682232363193',
                     'apartment_number' => 'ufCrm6_1682232396330', 
                     'internal_area' => 'ufCrm6_1682232424142',
-                    'goal_rent_cost' => 'ufCrm6_1682232447205',
+                    'goal_rent_cost' => 'opportunity',
                     'number_of_baths' => 'ufCrm6_1682232465964',
                     'property_type' => 'ufCrm6_1682232863625',
                     'floor' => 'ufCrm6_1682232312628',
@@ -283,7 +285,6 @@ return [
                     10686 => 'Onpassive',
                     10688 => 'National Paints',
                     10690 => 'Insurance market',
-                    2762 => null
                 ],
                 'tenant_contract_archive_stage_ids' => [
                     'DT183_28:FAIL',
@@ -314,18 +315,18 @@ return [
                     'contract_scan' => 'ufCrm19Contract',
                 ],
                 'tenant_fields' => [
-                    'email' => 'UF_CRM_1727788747',
-                    'passport_number' => 'UF_CRM_20_1696523391',
-                    'id_scan' => 'UF_CRM_20_1696615939',
+                    'email' => null,
+                    'passport_number' => 'ufCrm19PassportIdCard',
+                    'id_scan' => 'ufCrm19PassportIdCardFiles',
                 ],
                 'landlord_fields' => [
-                    'email' => 'UF_CRM_1727788747',
-                    'passport_number' => 'UF_CRM_10_1740556751168',
-                    'id_scan' => 'UF_CRM_10_1741788524',
+                    'email' => null,
+                    'passport_number' => null,
+                    'id_scan' => null,
                 ],
                 'fields' => [
                     'building_name' => 'ufCrm11Building',
-                    'apartment_number' => 'ufCrm11ApartmentNumber',
+                    'apartment_number' => 'ufCrm11InternalNumberOfTheApartment',
                     'internal_area' => 'ufCrm11ApartmentAreaSqmtrs',
                     'goal_rent_cost' => 'opportunity',
                     'number_of_baths' => 'ufCrm11Bathrooms',
@@ -347,7 +348,7 @@ return [
                     'internal_area' => 'ufCrm13TotalAreaOfTheRoom',
                     'goal_rent_cost' => 'opportunity',
                     'goal_rent_cost_alt' => 'ufCrm13RentAmount',
-                    'number' => 'UF_CRM_13_NUMBER_OF_UNIT',
+                    'number' => 'ufCrm13NumberOfUnit',
                 ],
                 'unit_number_mapping' => [
                     '725' => '1',
@@ -382,8 +383,13 @@ return [
                     '783' => 'SP10-2',
                 ],
                 'property_type_mapping' => [
+                    '803' => 'studio',
+                    '805' => 'apartment',
+                    '807' => 'apartment',
                     '809' => 'apartment',
+                    '811' => 'apartment',
                     '813' => 'apartment',
+                    '815' => 'apartment',
                 ],
                 'bedrooms_mapping' => [
                     '803' => 1,
@@ -400,23 +406,17 @@ return [
                 ],
                 'default_rent_type_value' => '1069',
                 'contract_type_mapping' => [
-                    '983' => 'Short contract up to 1 month',
-                    '985' => 'Airbnb',
-                    '987' => 'Booking',
-                    '989' => 'Less than a month',
-                    '991' => 'Short term from 1 to 3 months',
-                    '993' => 'Long-term 3+ months',
                     '1277' => 'Less than 1 month contract',
                     '1279' => '1+ months',
                 ],
-                'no_invitation_contract_type_ids' => ['985'],
+                'no_invitation_contract_type_ids' => [],
                 'work_model_mapping' => [],
                 'metro_mapping' => [],
                 'tenant_contract_archive_stage_ids' => [
                     'DT1072_27:FAIL',
                     'DT1072_27:SUCCESS',
                 ],
-                'archive_stage_ids' => ['1025', '1027', '1029'],
+                'archive_stage_ids' => ['1025'],
                 'allowed_stage_ids' => ['1021', '1023']
             ]
         ];

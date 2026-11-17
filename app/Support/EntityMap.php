@@ -37,34 +37,4 @@ class EntityMap
             0
         );
     }
-
-    /**
-     * Portal code for a Bitrix domain from bitrix_entities map.
-     */
-    public static function portalByDomain(?string $domain): ?string
-    {
-        $normalized = self::normalizeDomain($domain);
-        if ($normalized === '') {
-            return null;
-        }
-
-        foreach (config('bitrix_entities.portals', []) as $code => $portal) {
-            if (! is_array($portal)) {
-                continue;
-            }
-            $portalDomain = self::normalizeDomain((string) ($portal['domain'] ?? ''));
-            if ($portalDomain !== '' && strcasecmp($portalDomain, $normalized) === 0) {
-                return strtolower((string) $code);
-            }
-        }
-
-        return null;
-    }
-
-    private static function normalizeDomain(?string $domain): string
-    {
-        $domain = (string) preg_replace('#^https?://#i', '', (string) ($domain ?? ''));
-
-        return rtrim(trim($domain), '/');
-    }
 }

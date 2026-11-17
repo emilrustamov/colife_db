@@ -1,10 +1,14 @@
 <script setup>
 import { computed, onMounted, onUnmounted, ref, watch } from 'vue';
+import { useAppPreferences } from '../../../composables/useAppPreferences';
+import { formatDateTime, formatIfDate } from '../../../utils/datetime';
 
 const props = defineProps({
     t: { type: Function, required: true },
     messages: { type: Object, required: true },
 });
+
+const { locale } = useAppPreferences();
 
 const loadingFolders = ref(false);
 const loadingFiles = ref(false);
@@ -424,11 +428,8 @@ const formatDate = (value) => {
         return '—';
     }
 
-    try {
-        return new Date(value).toLocaleString();
-    } catch {
-        return String(value);
-    }
+    const formatted = formatIfDate(value, locale.value) ?? formatDateTime(value, locale.value);
+    return formatted || '—';
 };
 
 const refreshAll = () => {

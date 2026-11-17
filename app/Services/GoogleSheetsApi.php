@@ -250,26 +250,6 @@ class GoogleSheetsApi
     }
 
     /**
-     * Resolve bound script project for a spreadsheet via known script id or Drive child.
-     */
-    public function scriptIdForSpreadsheet(string $spreadsheetId, ?string $knownScriptId = null): ?string
-    {
-        if ($knownScriptId !== null && $knownScriptId !== '') {
-            $project = $this->googleGet(
-                'https://script.googleapis.com/v1/projects/'.$knownScriptId,
-                [],
-                'Apps Script project'
-            );
-            $parentId = trim((string) ($project->json('parentId') ?? ''));
-            if ($parentId === '' || $parentId === $spreadsheetId) {
-                return $knownScriptId;
-            }
-        }
-
-        return $this->boundScriptId($spreadsheetId);
-    }
-
-    /**
      * @return array<string, string>
      */
     private function matchSetPropertiesMap(string $source): array

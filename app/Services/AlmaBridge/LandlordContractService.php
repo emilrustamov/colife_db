@@ -84,6 +84,7 @@ class LandlordContractService
             }
             $emailField = ProjectMapping::getLandlordField('email', $projectName);
             $clientData = BridgeSupport::contactToClient($contact, $emailField, $projectName);
+            $clientData = $this->enrichLandlordClientData($clientData, $item, $projectName);
             $clientExternalId = (string) $clientData['id'];
             $existingClient = Cache::lock(
                 'alma-bridge:create-client:'.$clientExternalId,
@@ -94,14 +95,18 @@ class LandlordContractService
                     return $existingClient;
                 }
 
-                return $this->almaApi->createClient([
+                $payload = array_filter([
                     'external_id' => $clientData['id'],
                     'first_name' => $clientData['first_name'] ?? '',
                     'last_name' => $clientData['last_name'] ?? '',
                     'phone' => $clientData['phone'] ?? '',
-                    'email' => $clientData['email'] !== '' ? $clientData['email'] : null,
+                    'email' => ($clientData['email'] ?? '') !== '' ? $clientData['email'] : null,
                     'country' => $clientData['country'] ?? 4,
-                ]);
+                    'passport' => $clientData['passport'] ?? null,
+                    'id_scan' => $clientData['id_scan'] ?? null,
+                ], static fn ($v) => $v !== null && $v !== '');
+
+                return $this->almaApi->createClient($payload);
             });
 
             $startField = ProjectMapping::landlordContractField('start_date', $projectName);
@@ -121,6 +126,41 @@ class LandlordContractService
                 'end_date' => BridgeSupport::formatDateForAlma(ProjectMapping::itemValue($item, $endField)),
                 'work_model' => ProjectMapping::mapWorkModel($workRaw, $projectName),
             ];
+
+            $scanMap = [
+                'contract_scan' => 'contract_with_client_scan',
+                'title_deed_scan' => 'property_title_deed_scan',
+                'pml_scan' => 'property_management_letter_scan',
+                'dtcm_scan' => 'dtcm_permit_scan',
+            ];
+            foreach ($scanMap as $mapKey => $almaKey) {
+                $field = ProjectMapping::landlordContractField($mapKey, $projectName);
+                if ($field === null) {
+                    continue;
+                }
+                $scanId = $this->almaApi->uploadExternalImage(
+                    ProjectMapping::itemValue($item, $field),
+                    'Landlord contract document'
+                );
+                if ($scanId !== null) {
+                    $payload[$almaKey] = $scanId;
+                }
+            }
+
+            $pmlStartField = ProjectMapping::landlordContractField('pml_start_date', $projectName);
+            $pmlEndField = ProjectMapping::landlordContractField('pml_end_date', $projectName);
+            if ($pmlStartField) {
+                $pmlStart = BridgeSupport::formatDateForAlma(ProjectMapping::itemValue($item, $pmlStartField));
+                if ($pmlStart !== '') {
+                    $payload['pml_start_date'] = $pmlStart;
+                }
+            }
+            if ($pmlEndField) {
+                $pmlEnd = BridgeSupport::formatDateForAlma(ProjectMapping::itemValue($item, $pmlEndField));
+                if ($pmlEnd !== '') {
+                    $payload['pml_end_date'] = $pmlEnd;
+                }
+            }
 
             $existing = $this->almaApi->landlordByExternalId($payload['external_id']);
 
@@ -165,5 +205,38 @@ class LandlordContractService
             ]);
             throw $e;
         }
+    }
+
+    /**
+     * @param  array<string, mixed>  $clientData
+     * @param  array<string, mixed>  $contractData
+     * @return array<string, mixed>
+     */
+    private function enrichLandlordClientData(array $clientData, array $contractData, string $projectName): array
+    {
+        $passportField = ProjectMapping::getLandlordField('passport_number', $projectName);
+        if ($passportField !== null) {
+            $passport = ProjectMapping::itemValue($contractData, $passportField);
+            if (is_array($passport)) {
+                $passport = $passport[0] ?? '';
+            }
+            $passport = trim((string) $passport);
+            if ($passport !== '') {
+                $clientData['passport'] = $passport;
+            }
+        }
+
+        $idScanField = ProjectMapping::getLandlordField('id_scan', $projectName);
+        if ($idScanField !== null) {
+            $scanId = $this->almaApi->uploadExternalImage(
+                ProjectMapping::itemValue($contractData, $idScanField),
+                'ID scan'
+            );
+            if ($scanId !== null) {
+                $clientData['id_scan'] = $scanId;
+            }
+        }
+
+        return $clientData;
     }
 }

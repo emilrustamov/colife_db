@@ -77,12 +77,15 @@ Deadline: +2 дня.
 
 - `B24_TR_PORTAL_DOMAIN` (по умолчанию `colife.bitrix24.com.tr`)
 - `B24_TR_CLIENT_ID`, `B24_TR_CLIENT_SECRET`, `B24_TR_REDIRECT_URI`
-- `CLEANING_APPLICATION_TOKEN` (или fallback на `B24_TR_APPLICATION_TOKEN`)
 - `CLEANING_DISK_FOLDER_ID` (по умолчанию `396621` — папка Cleaning в общем диске)
 - Опционально: `CLEANING_OBSERVER_IDS`, `CLEANING_DEADLINE_DAYS`
 
 User/group/entity IDs и поле units — в `config/services.php` → `cleaning.*` (не в `.env`).
 
-## Логи
+## Логи и алерты
 
 Канал `bitrix_cleaning` → `storage/logs/bitrix_cleaning-*.log`.
+
+Auth submit: `auth[domain]` + живой `auth[access_token]` из `BX24.getAuth()` (сервер проверяет через `user.current` на TR).
+
+Telegram (`CleaningAlert`): submit 500, form 403, install/submit под неверным user (не `71857`, dedupe раз в сутки). OAuth TR — через `telegram:health` → `/api/cleaning/install`.

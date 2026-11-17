@@ -79,7 +79,11 @@ function daysUntilDate(day, month, year) {
  * @param {string|null|undefined} value
  * @returns {Date|null}
  */
-function parseIsoDate(value) {
+/**
+ * @param {string|null|undefined} value
+ * @returns {Date|null}
+ */
+export function parseIsoDate(value) {
   const raw = String(value || '').trim();
   let m = raw.match(/^(\d{4})-(\d{2})-(\d{2})$/);
   if (m) {
@@ -95,6 +99,30 @@ function parseIsoDate(value) {
 }
 
 /**
+ * @param {string|null|undefined} availableFrom
+ * @param {string|null|undefined} moveInDdMmYyyy
+ * @returns {{ known: boolean, fits: boolean|null, availableFrom: string, moveIn: string|null }}
+ */
+export function unitFitsMoveIn(availableFrom, moveInDdMmYyyy) {
+  const availableRaw = String(availableFrom || '').trim();
+  const moveRaw = String(moveInDdMmYyyy || '').trim() || null;
+  const available = parseIsoDate(availableRaw);
+  const moveIn = parseIsoDate(moveRaw);
+  if (!availableRaw || !available) {
+    return { known: false, fits: null, availableFrom: availableRaw, moveIn: moveRaw };
+  }
+  if (!moveIn) {
+    return { known: true, fits: null, availableFrom: availableRaw, moveIn: moveRaw };
+  }
+  return {
+    known: true,
+    fits: available.getTime() <= moveIn.getTime(),
+    availableFrom: availableRaw,
+    moveIn: moveRaw,
+  };
+}
+
+/**
  * Soft availability: keep item if availableFrom is empty/unparsed or <= move-in date.
  *
  * @param {string|null|undefined} availableFrom
@@ -105,22 +133,28 @@ function availableByMoveIn(availableFrom, moveIn) {
   const raw = String(availableFrom || '').trim();
   if (!raw) return true;
   const iso = parseIsoDate(raw);
-  if (iso) return iso.getTime() <= moveIn.getTime();
-  const days = extractDaysToCheckin(raw);
-  if (days == null) return true;
-  const available = new Date();
-  available.setHours(0, 0, 0, 0);
-  available.setDate(available.getDate() + days);
-  return available.getTime() <= moveIn.getTime();
+  // Unknown catalog date formats → keep listing (catalog uses ISO / dd-mm-yyyy).
+  if (!iso) return true;
+  return iso.getTime() <= moveIn.getTime();
 }
+
+// RU stems need [а-яё]* endings; EN forms must not match inside "month"/"months".
+const MONTH_RU_RE = 'январ|феврал|март|апрел|ма[йя]|июн|июл|август|сентябр|октябр|ноябр|декабр';
+const MONTH_EN_RE =
+  'january|february|march|april|may|june|july|august|september|october|november|december|jan|feb|mar|apr|jun|jul|aug|sep|oct|nov|dec';
 
 /**
  * @param {string} text
  * @returns {number|undefined}
  */
 export function extractDaysToCheckin(text) {
-  const t = String(text || '');
-  if (/\b(asap|urgent|сейчас|сегодня|завтра|as soon as)\b/i.test(t)) return 1;
+  // Unit SKUs (7.1) are not stripped here — two-part dotted tokens are simply
+  // not accepted as dates (year required for dots; / or - for day/month only).
+  const t = String(text || '').replace(/\bunit\s+\d+(?:[./-]\d+[a-zA-Z]?)*/gi, ' ');
+  // Same urgency bucket: today / now / asap → 0 days (planning=urgent).
+  if (/\b(today|сегодня|сейчас|immediately|немедленн|asap|urgent|as soon as)\b/i.test(t)) return 0;
+  if (/\b(tomorrow|завтра)\b/i.test(t)) return 1;
+  if (/\b(next\s+week|следующ\w*\s+недел)\b/i.test(t)) return 7;
 
   const daysMatch = t.match(
     /(\d+)\s*(?:day|days|дн(?:я|ей|ень)?|сутки|суток)/i,
@@ -156,52 +190,59 @@ export function extractDaysToCheckin(text) {
     return n;
   }
 
-  const rangeRu = t.match(
-    /(?:с|from)?\s*(\d{1,2})\s*[-–—]\s*(\d{1,2})\s*(январ|феврал|март|апрел|ма[йя]|июн|июл|август|сентябр|октябр|ноябр|декабр|jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)/i,
+  const rangeDayMonth = t.match(
+    new RegExp(
+      `(?:с|from)?\\s*(\\d{1,2})\\s*[-–—]\\s*(\\d{1,2})\\s*(?:(${MONTH_RU_RE})[а-яё]*|(${MONTH_EN_RE})\\b)`,
+      'i',
+    ),
   );
-  if (rangeRu) {
-    return daysUntilDate(
-      Number.parseInt(rangeRu[1], 10),
-      monthIndexFromName(rangeRu[3]),
-    );
+  if (rangeDayMonth) {
+    const idx = monthIndexFromName(rangeDayMonth[3] || rangeDayMonth[4]);
+    if (idx >= 0) return daysUntilDate(Number.parseInt(rangeDayMonth[1], 10), idx);
   }
 
-  const fromDayMonth = t.match(
-    /(?:с|from|заезд|check[\s-]?in|переезд)\s*(?:с|from)?\s*(\d{1,2})\s*(январ|феврал|март|апрел|ма[йя]|июн|июл|август|сентябр|октябр|ноябр|декабр|jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)/i,
-  );
-  if (fromDayMonth) {
-    return daysUntilDate(
-      Number.parseInt(fromDayMonth[1], 10),
-      monthIndexFromName(fromDayMonth[2]),
-    );
+  const singleDayMonthPatterns = [
+    new RegExp(
+      `(?:с|from|заезд|check[\\s-]?in|переезд)\\s*(?:с|from)?\\s*(\\d{1,2})\\s*(?:(${MONTH_RU_RE})[а-яё]*|(${MONTH_EN_RE})\\b)`,
+      'i',
+    ),
+    // bare: 15 декабря / 15 December (no \\b before Cyrillic)
+    new RegExp(
+      `(?:^|[^0-9A-Za-zА-Яа-яЁё])(\\d{1,2})(?:st|nd|rd|th)?\\s*(?:(${MONTH_RU_RE})[а-яё]*|(${MONTH_EN_RE})\\b)`,
+      'i',
+    ),
+  ];
+  for (const re of singleDayMonthPatterns) {
+    const m = t.match(re);
+    if (!m) continue;
+    const idx = monthIndexFromName(m[2] || m[3]);
+    if (idx >= 0) return daysUntilDate(Number.parseInt(m[1], 10), idx);
   }
 
-  const bareDayMonth = t.match(
-    /\b(\d{1,2})(?:st|nd|rd|th)?\s+(январ|феврал|март|апрел|ма[йя]|июн|июл|август|сентябр|октябр|ноябр|декабр|january|february|march|april|may|june|july|august|september|october|november|december|jan|feb|mar|apr|jun|jul|aug|sep|oct|nov|dec)\b/i,
-  );
-  if (bareDayMonth) {
+  const dateWithYear = t.match(/(\d{1,2})[./-](\d{1,2})[./-](\d{2,4})\b/);
+  if (dateWithYear) {
+    let year = Number.parseInt(dateWithYear[3], 10);
+    if (year < 100) year += 2000;
     return daysUntilDate(
-      Number.parseInt(bareDayMonth[1], 10),
-      monthIndexFromName(bareDayMonth[2]),
-    );
-  }
-
-  const dateMatch = t.match(/(\d{1,2})[./-](\d{1,2})(?:[./-](\d{2,4}))?/);
-  if (dateMatch) {
-    let year;
-    if (dateMatch[3]) {
-      year = Number.parseInt(dateMatch[3], 10);
-      if (year < 100) year += 2000;
-    }
-    return daysUntilDate(
-      Number.parseInt(dateMatch[1], 10),
-      Number.parseInt(dateMatch[2], 10) - 1,
+      Number.parseInt(dateWithYear[1], 10),
+      Number.parseInt(dateWithYear[2], 10) - 1,
       year,
     );
   }
 
-  if (/\b(today|сегодня)\b/i.test(t)) return 0;
-  if (/\b(tomorrow|завтра)\b/i.test(t)) return 1;
+  // Two-part numeric dates only with / or - (dot is used by unit SKUs).
+  // Skip period ranges like "2-3 month" / "1-2 weeks".
+  const dateNoYear = t.match(
+    /(\d{1,2})[/-](\d{1,2})(?![./-\d])(?!\s*(?:months?|мес|weeks?|days?|дн|years?|год))/i,
+  );
+  if (dateNoYear) {
+    const day = Number.parseInt(dateNoYear[1], 10);
+    const month = Number.parseInt(dateNoYear[2], 10) - 1;
+    if (day >= 1 && day <= 31 && month >= 0 && month <= 11) {
+      return daysUntilDate(day, month);
+    }
+  }
+
   if (/\b(friday|пятниц)/i.test(t)) {
     const now = new Date();
     const day = now.getDay();
@@ -234,25 +275,38 @@ export function extractSearchArgs(text) {
   ) {
     price = UNLIMITED_BUDGET;
   } else {
-    const rangeMatch = t.match(
-      /(\d{1,2})\s*[-–—]\s*(\d{1,2})\s*([0-9]{3})\b|(\d{3,5})\s*[-–—]\s*(\d{3,5})\b/,
-    );
-    if (rangeMatch) {
-      let hi;
-      if (rangeMatch[1] && rangeMatch[3]) {
-        hi = Number.parseInt(`${rangeMatch[2]}${rangeMatch[3]}`, 10);
-      } else {
-        hi = Number.parseInt(rangeMatch[5], 10);
-      }
-      if (Number.isFinite(hi) && hi >= 1000) price = hi;
+    const kMatch = t.match(/(\d+(?:[.,]\d+)?)\s*k\b/i);
+    if (kMatch) {
+      const n = Number.parseFloat(kMatch[1].replace(',', '.')) * 1000;
+      if (Number.isFinite(n) && n >= 1000) price = Math.round(n);
     }
     if (price == null) {
-      const priceMatch = t.match(
-        /(\d{1,3}(?:[\s,]?\d{3})+|\d+)\s*(?:aed|дирхам|дерхам|дирхем|бюджет|до|max|under)?/i,
+      const rangeMatch = t.match(
+        /(\d{1,2})\s*[-–—]\s*(\d{1,2})\s*([0-9]{3})\b|(\d{3,5})\s*[-–—]\s*(\d{3,5})\b/,
       );
-      if (priceMatch) {
-        const n = Number.parseInt(priceMatch[1].replace(/[\s,]/g, ''), 10);
-        if (Number.isFinite(n) && n >= 1000) price = n;
+      if (rangeMatch) {
+        let hi;
+        if (rangeMatch[1] && rangeMatch[3]) {
+          hi = Number.parseInt(`${rangeMatch[2]}${rangeMatch[3]}`, 10);
+        } else {
+          hi = Number.parseInt(rangeMatch[5], 10);
+        }
+        if (Number.isFinite(hi) && hi >= 1000) price = hi;
+      }
+    }
+    if (price == null) {
+      // Prefer amounts marked as money; skip bare day numbers like "22 nov".
+      const moneyRe =
+        /(\d{1,3}(?:[\s,]?\d{3})+|\d{4,6}|\d+)\s*(?:aed|дирхам|дерхам|дирхем|бюджет|budget|max|under|до)?/gi;
+      let m;
+      while ((m = moneyRe.exec(t)) != null) {
+        const n = Number.parseInt(m[1].replace(/[\s,]/g, ''), 10);
+        if (!Number.isFinite(n) || n < 1000) continue;
+        const marked = /aed|дирхам|дерхам|дирхем|бюджет|budget|max|under|до/i.test(m[0]);
+        if (marked || n >= 1000) {
+          price = n;
+          if (marked) break;
+        }
       }
     }
   }
@@ -334,59 +388,6 @@ export function extractSearchArgs(text) {
     ...(areaFlexible ? { areaFlexible: true } : {}),
     exclude_ids: [],
   };
-}
-
-/**
- * @param {SearchApartmentsArgs} args
- * @returns {string}
- */
-export function formatKnownFiltersForPrompt(args) {
-  const lines = ['### Known lead filters (already collected — DO NOT ask again)'];
-  if (args.price != null) {
-    lines.push(
-      args.price >= 99999
-        ? '- budget: unlimited'
-        : `- budget max: ${args.price} AED/month`,
-    );
-  }
-  if (args.types?.length) {
-    const labels = args.types.map((t) =>
-      t === 0 ? 'Studio' : t === 1 ? '1br' : t === 2 ? '2br' : String(t),
-    );
-    lines.push(`- types: ${labels.join(', ')}`);
-  }
-  if (args.areaFlexible) lines.push('- area: any / no preference');
-  else if (args.area?.length) lines.push(`- areas: ${args.area.join(', ')}`);
-  if (args.period != null) lines.push(`- rental period: ~${args.period} month(s)`);
-  if (args.days_to_checkin != null) {
-    lines.push(`- days_to_checkin: ${args.days_to_checkin}`);
-  }
-  if (args.guests != null) lines.push(`- guests: ${args.guests}`);
-  if (lines.length === 1) lines.push('- (none yet)');
-  lines.push(
-    'Ask ONLY missing fields. If type + budget are known and area is any/known, show options or say you will pick from catalog.',
-  );
-  return lines.join('\n');
-}
-
-/**
- * @param {string} text
- * @returns {boolean}
- */
-export function looksLikeApartmentSearch(text) {
-  return /(apart|студи|комнат|каталог|снять|сниму|ищу|иду\s*квартир|аренд|жиль|budget|бюджет|дирхам|дерхам|1br|2br|studio|район|marina|jvc|jlt|downtown|business bay|квартир|ещё|еще вариант|other option|show more|покажи|вариант|на\s*двоих)/i.test(
-    String(text || ''),
-  );
-}
-
-/**
- * @param {string} text
- * @returns {boolean}
- */
-export function looksLikeShowOptions(text) {
-  return /(покажи|вариант|options?|show\s*(me)?|подбер|найди|search|ещё|еще\s*вариант|other\s*option|what\s*do\s*you\s*have|что\s*есть)/i.test(
-    String(text || ''),
-  );
 }
 
 /**
@@ -615,6 +616,8 @@ export function searchApartments(args, sourceApartments = loadApartments()) {
 
   return {
     apartments: found.matches.map((item) => {
+      const variants = convertPriceVariants(item);
+      const priceForPeriod = getPriceToCheck(variants, found.period);
       const apartment = {
         apartmentId: item.apartmentId,
         link: item.link,
@@ -622,9 +625,11 @@ export function searchApartments(args, sourceApartments = loadApartments()) {
         type: item.type,
         title: item.title,
         price: item.price,
+        priceForPeriod: priceForPeriod ?? item.price,
+        period: found.period ?? null,
         priceUnit: item.priceUnit,
         priceVariants: item.priceVariants,
-        availableFrom: item.availableFrom,
+        availableFrom: item.availableFrom || '',
         text: item.text,
       };
       if (item.comment) apartment.comment = item.comment;
@@ -643,8 +648,14 @@ export function searchApartments(args, sourceApartments = loadApartments()) {
  */
 export function classifyBudgetTarget(args, sourceApartments = loadApartments()) {
   const price = args.price ?? 0;
-  const isPriceKnown = price > 0;
   const days = args.days_to_checkin;
+
+  // Gate: only with stated budget and move-in within CLASSIFY_MAX_DAYS.
+  if (!(price > 0) || days == null || days > CLASSIFY_MAX_DAYS) {
+    return {
+      agentInstruction: 'Продолжай сценарий в соответствии с инструкциями',
+    };
+  }
 
   if (!sourceApartments.length) {
     return {
@@ -654,27 +665,16 @@ export function classifyBudgetTarget(args, sourceApartments = loadApartments()) 
   }
 
   const found = findMatchingApartments(args, sourceApartments);
-  const hasMatch = found.matches.length > 0;
-
-  if (!isPriceKnown) {
-    return {
-      hasMatch,
-      agentInstruction: 'Продолжай сценарий в соответствии с инструкциями',
-    };
-  }
-
-  if (!hasMatch) {
+  if (!found.matches.length) {
     return {
       category: 'out_of_budget',
       hasMatch: false,
       agentInstruction:
-        '*ВЫЗОВИ* qualify_lead с категорией out_of_budget и затем продолжай сценарий в соответствии с инструкциями.',
+        '*ВЫЗОВИ* qualify_lead с категорией out_of_budget. Дальше по сценарию: гибкие даты/районы/типы и поиск; шеринг предлагай без цен на комнаты; не уходи молча.',
     };
   }
 
-  const category =
-    days != null && days <= SUPER_TARGET_DAYS ? 'supertarget' : 'target';
-
+  const category = days <= SUPER_TARGET_DAYS ? 'supertarget' : 'target';
   return {
     category,
     hasMatch: true,
@@ -684,99 +684,3 @@ export function classifyBudgetTarget(args, sourceApartments = loadApartments()) 
   };
 }
 
-/**
- * @param {SearchApartmentsArgs} args
- * @param {boolean} [alreadyClassified]
- * @returns {boolean}
- */
-export function shouldClassifyBudgetTarget(args, alreadyClassified = false) {
-  if (alreadyClassified) return false;
-  const price = args.price ?? 0;
-  if (!(price > 0)) return false;
-  const days = args.days_to_checkin;
-  if (days == null || days > CLASSIFY_MAX_DAYS) return false;
-  return true;
-}
-
-/**
- * Backward-compatible helpers used by older call sites/tests.
- * @param {object} args
- * @param {object[]} [apartments]
- */
-export function searchApartment(args, apartments = loadApartments()) {
-  const normalized = {
-    area: args.area ? [].concat(args.area).filter(Boolean) : [],
-    price: args.price != null && args.price >= 0 ? args.price : undefined,
-    types: args.type != null && args.type >= 0 ? [args.type] : args.types || [],
-    period: args.period != null && args.period >= 0 ? args.period : undefined,
-    exclude_ids: args.exclude_ids || [],
-  };
-  const result = searchApartments(normalized, apartments);
-  if (result.error) return { error: result.error, agentInstruction: result.agentInstruction };
-  return { apartment: result.apartments?.[0]?.apartment, matches: result.apartments?.map((x) => x.apartment) };
-}
-
-/**
- * @param {object} args
- * @param {number} [limit]
- */
-export function searchApartmentList(args, limit = MAX_RESULT_SIZE) {
-  const normalized = {
-    area: args.area ? [].concat(args.area).filter(Boolean) : [],
-    price: args.price != null && args.price > 0 ? args.price : undefined,
-    types:
-      args.types ||
-      (args.type != null && args.type >= 0 ? [args.type] : []),
-    period: args.period != null && args.period > 0 ? args.period : undefined,
-    exclude_ids: args.exclude_ids || [],
-  };
-  const result = searchApartments(normalized);
-  if (result.apartments?.length) {
-    return result.apartments.slice(0, limit).map((row) => row.apartment);
-  }
-  return [];
-}
-
-/**
- * @param {object[]} matches
- * @param {string} [agentInstruction]
- * @returns {string}
- */
-export function formatMatchesForPrompt(matches, agentInstruction = '') {
-  if (!matches.length) {
-    return [
-      'Apartment search result: not_found.',
-      agentInstruction || 'Ask one clarifying question only if needed, otherwise hand off.',
-    ].join('\n');
-  }
-  return matches
-    .map((item, idx) => {
-      const comment = item.comment ? `\ncomment: ${item.comment}` : '';
-      return [
-        `#${idx + 1}: ${item.title || `${item.type} in ${item.area}`}`,
-        `apartmentId: ${item.apartmentId}`,
-        `link: ${item.link}`,
-        `area: ${item.area}; type: ${item.type}; price: ${item.price} AED/${item.priceUnit || 'month'}`,
-        `available: ${item.availableFrom || 'n/a'}${comment}`,
-        `details: ${String(item.text || '').slice(0, 700)}`,
-      ].join('\n');
-    })
-    .join('\n\n');
-}
-
-/**
- * @param {{ category?: string, hasMatch?: boolean, agentInstruction?: string, days_to_checkin?: number }} result
- * @returns {string}
- */
-export function formatClassifyForPrompt(result) {
-  return [
-    '### Budget classification (classify_budget_target)',
-    `category: ${result.category || 'n/a'}`,
-    `hasMatch: ${Boolean(result.hasMatch)}`,
-    result.days_to_checkin != null ? `days_to_checkin: ${result.days_to_checkin}` : null,
-    `agentInstruction: ${result.agentInstruction || ''}`,
-    'Do not show apartments yet unless the customer asked for options. Follow agentInstruction for lead category.',
-  ]
-    .filter(Boolean)
-    .join('\n');
-}

@@ -30,12 +30,15 @@ Bitrix bizproc activity
 | `app/Jobs/PauseJob.php` | Возобновление БП после задержки |
 | `app/Jobs/RegisterActivityJob.php` | Регистрация активности `custom_wait_v2` |
 | `app/Services/PauseDates.php` | Расчёт delay (секунды / дата, timezone портала) |
+| `app/Services/PauseAlert.php` | TG сразу: wait 403 / PauseJob failed |
+| `app/Services/PauseQueueHealth.php` | TG через `telegram:health`: backlog / failed_jobs |
 | `app/Console/Commands/RecoverPausesCommand.php` | `bitrix:recover-stuck-pauses` — разбор зависших job |
 | `routes/api.php` | `/api/bp/wait`, `/api/bp/handler`, `/api/bp/install` |
 | `routes/console.php` | schedule `bitrix:recover-stuck-pauses` каждые 5 минут |
 | `deploy/supervisor/laravel-horizon.conf` | Horizon → очереди `default` / `bp-pauses` / `disk` |
 | `config/services.php` | `services.bitrix.pause_dry_run` |
 | `.env` / `.env.example` | `B24_PAUSE_DRY_RUN`, `B24_PORTAL_TIMEZONE`, `B24_HK_*` |
+| `docs/TELEGRAM_ALERTS.md` | общее описание TG-алертов |
 
 ## Инфраструктура
 

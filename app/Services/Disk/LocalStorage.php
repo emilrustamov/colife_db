@@ -62,19 +62,6 @@ class LocalStorage
     }
 
     /**
-     * Build deleted file relative path (optionally with version suffix).
-     */
-    public function deletedRelativePath(
-        string $folderRelative,
-        string $fieldSlug,
-        int $fileId,
-        string $originalName,
-        ?int $version = null
-    ): string {
-        return rtrim($folderRelative, '/').'/'.$this->deletedFileName($fieldSlug, $fileId, $originalName, $version);
-    }
-
-    /**
      * Download remote file into local storage path.
      */
     public function downloadTo(string $downloadUrl, string $relativePath): void

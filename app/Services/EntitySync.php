@@ -3,9 +3,9 @@
 namespace App\Services;
 
 use App\Services\Contracts\EntityProfile;
-use App\Services\Profiles\OwnershipProfile;
 use App\Services\Profiles\ApartmentProfile;
 use App\Services\Profiles\ContactProfile;
+use App\Services\Profiles\OwnershipProfile;
 use App\Services\Profiles\UnitProfile;
 use App\Services\Profiles\UnitStayProfile;
 
@@ -17,18 +17,18 @@ class EntitySync
     private array $profiles;
 
     public function __construct(
-        ContactProfile $contactProfile,
-        ApartmentProfile $apartmentProfile,
-        UnitProfile $unitProfile,
-        UnitStayProfile $unitStayProfile,
-        OwnershipProfile $apartmentOwnershipProfile
+        ContactProfile $contacts,
+        ApartmentProfile $apartments,
+        UnitProfile $units,
+        UnitStayProfile $unitStays,
+        OwnershipProfile $ownerships
     ) {
         $this->profiles = [
-            $contactProfile->entity() => $contactProfile,
-            $apartmentProfile->entity() => $apartmentProfile,
-            $unitProfile->entity() => $unitProfile,
-            $unitStayProfile->entity() => $unitStayProfile,
-            $apartmentOwnershipProfile->entity() => $apartmentOwnershipProfile,
+            $contacts->entity() => $contacts,
+            $apartments->entity() => $apartments,
+            $units->entity() => $units,
+            $unitStays->entity() => $unitStays,
+            $ownerships->entity() => $ownerships,
         ];
     }
 
@@ -38,20 +38,20 @@ class EntitySync
      */
     public function syncBatch(array $items, string $entity = 'contacts'): array
     {
-        return $this->resolveProfile($entity)->syncBatch($items);
+        return $this->resolve($entity)->syncBatch($items);
     }
 
     public function syncOne(int $bitrixId, string $entity = 'contacts'): bool
     {
-        return $this->resolveProfile($entity)->syncOne($bitrixId);
+        return $this->resolve($entity)->syncOne($bitrixId);
     }
 
     public function markDeleted(int $bitrixId, string $entity = 'contacts'): int
     {
-        return $this->resolveProfile($entity)->markDeleted($bitrixId);
+        return $this->resolve($entity)->markDeleted($bitrixId);
     }
 
-    private function resolveProfile(string $entity): EntityProfile
+    private function resolve(string $entity): EntityProfile
     {
         if (isset($this->profiles[$entity])) {
             return $this->profiles[$entity];

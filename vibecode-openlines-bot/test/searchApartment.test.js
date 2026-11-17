@@ -4,9 +4,7 @@ import {
   classifyBudgetTarget,
   extractDaysToCheckin,
   extractSearchArgs,
-  searchApartment,
   searchApartments,
-  shouldClassifyBudgetTarget,
 } from '../lib/searchApartment.js';
 
 const sample = [
@@ -78,11 +76,11 @@ test('searchApartments returns up to 3 and supports exclude_ids', () => {
 });
 
 test('search can find yearly longterm by area/type', () => {
-  const result = searchApartment(
-    { area: 'Business Bay', type: 1, price: -1, period: 12 },
+  const result = searchApartments(
+    { area: ['Business Bay'], types: [1], price: undefined, period: 12 },
     sample,
   );
-  assert.match(result.apartment.title, /Hamilton/);
+  assert.match(result.apartments[0].apartment.title, /Hamilton/);
 });
 
 test('not_found with min price instruction', () => {
@@ -98,6 +96,42 @@ test('extracts days to checkin and unlimited budget', () => {
   assert.equal(extractDaysToCheckin('заезд через 10 дней'), 10);
   assert.equal(extractDaysToCheckin('check-in in 2 weeks'), 14);
   assert.equal(extractSearchArgs('бюджет не ограничен').price, 99999);
+});
+
+test('does not treat unit SKUs as calendar dates', () => {
+  assert.equal(extractDaysToCheckin('unit 7.1'), undefined);
+  assert.equal(extractDaysToCheckin('unit 853.1 Please confirm'), undefined);
+  assert.equal(extractDaysToCheckin('107.1'), undefined);
+  assert.ok(extractDaysToCheckin('15.12.2026') != null);
+  assert.ok(extractDaysToCheckin('15/12') != null);
+});
+
+test('parses bare RU and EN day+month move-in dates', () => {
+  assert.ok(extractDaysToCheckin('15 декабря') != null);
+  assert.ok(extractDaysToCheckin('15 января') != null);
+  assert.ok(extractDaysToCheckin('29 dec') != null);
+  assert.ok(extractDaysToCheckin('23 november') != null);
+  assert.equal(extractDaysToCheckin('want to move in today'), 0);
+  assert.equal(extractDaysToCheckin('next week'), 7);
+  assert.equal(extractDaysToCheckin('2-3 month 18000'), undefined);
+  assert.equal(extractDaysToCheckin('Need to move immediately'), 0);
+  assert.equal(extractDaysToCheckin('Need to move asap'), 0);
+  assert.equal(extractDaysToCheckin('urgent move-in please'), 0);
+});
+
+test('parses budgets with k suffix and after dates', () => {
+  assert.equal(extractSearchArgs('3 month and 4k').price, 4000);
+  assert.equal(extractSearchArgs('year 15k 1br').price, 15000);
+  assert.equal(extractSearchArgs('13k AED Maximum').price, 13000);
+  assert.equal(
+    extractSearchArgs(
+      'Want to start contract by 22 nov and 5000 max budget for 4 months',
+    ).price,
+    5000,
+  );
+  assert.equal(extractSearchArgs('2-3 month 18000').days_to_checkin, undefined);
+  assert.equal(extractSearchArgs('2-3 month 18000').period, 3);
+  assert.equal(extractSearchArgs('2-3 month 18000').price, 18000);
 });
 
 test('parses informal RU lead with budget range and Dec dates', () => {
@@ -117,12 +151,8 @@ test('parses informal RU lead with budget range and Dec dates', () => {
 
 test('classify_budget_target target vs out_of_budget', () => {
   assert.equal(
-    shouldClassifyBudgetTarget({ price: 7000, days_to_checkin: 20 }),
-    true,
-  );
-  assert.equal(
-    shouldClassifyBudgetTarget({ price: 7000, days_to_checkin: 90 }),
-    false,
+    classifyBudgetTarget({ price: 7000, days_to_checkin: 90 }, sample).category,
+    undefined,
   );
 
   const ok = classifyBudgetTarget(

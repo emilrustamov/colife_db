@@ -58,6 +58,9 @@ const {
     router,
 });
 const canManageUsers = computed(() => inertiaPage.props.auth?.user?.can?.manageUsers === true);
+const canEditUsers = computed(() => inertiaPage.props.auth?.user?.can?.editUsers === true);
+const canDeleteUsers = computed(() => inertiaPage.props.auth?.user?.can?.deleteUsers === true);
+const canAccessUsersAdmin = computed(() => canManageUsers.value || canEditUsers.value || canDeleteUsers.value);
 const canManageRoles = computed(() => inertiaPage.props.auth?.user?.can?.manageRoles === true);
 const currentUserId = computed(() => inertiaPage.props.auth?.user?.id ?? null);
 const isUsersDirectory = computed(() => selectedKey.value === 'users');
@@ -224,11 +227,13 @@ const {
     openCreateUserModal,
     openEditUserModal,
     closeUserModal,
-    toggleUserRole,
+    setUserRole,
     submitUser,
     deleteUserFromModal,
 } = useUsersCrud({
     canManageUsers,
+    canEditUsers,
+    canDeleteUsers,
     currentUserId,
     rowPrimaryKey,
     fetchRows,
@@ -247,6 +252,7 @@ const {
     openEditRoleModal,
     closeRoleModal,
     toggleRolePermission,
+    setRolePermissionGroup,
     submitRole,
     deleteRoleFromModal,
 } = useRolesCrud({
@@ -259,7 +265,7 @@ const {
 
 
 const handleRowDblClick = (row) => {
-    if (isUsersDirectory.value && canManageUsers.value) {
+    if (isUsersDirectory.value && canEditUsers.value) {
         openEditUserModal(row);
         return;
     }
@@ -487,6 +493,7 @@ onBeforeUnmount(() => {
                     :is-users-directory="isUsersDirectory"
                     :is-roles-directory="isRolesDirectory"
                     :can-manage-users="canManageUsers"
+                    :can-access-users-admin="canAccessUsersAdmin"
                     :can-manage-roles="canManageRoles"
                     :query="query"
                     :show-table-scroll-left="showTableScrollLeft"
@@ -554,7 +561,8 @@ onBeforeUnmount(() => {
             :user-modal-open="userModalOpen"
             :editing-user-id="editingUserId"
             :current-user-id="currentUserId"
-            :can-manage-users="canManageUsers"
+            :can-edit-users="canEditUsers"
+            :can-delete-users="canDeleteUsers"
             :user-admin-saving="userAdminSaving"
             :user-admin-error="userAdminError"
             :user-form="userForm"
@@ -562,7 +570,7 @@ onBeforeUnmount(() => {
             :messages="messages"
             :t="t"
             :close-user-modal="closeUserModal"
-            :toggle-user-role="toggleUserRole"
+            :set-user-role="setUserRole"
             :delete-user-from-modal="deleteUserFromModal"
             :submit-user="submitUser"
         />
@@ -577,6 +585,7 @@ onBeforeUnmount(() => {
             :t="t"
             :close-role-modal="closeRoleModal"
             :toggle-role-permission="toggleRolePermission"
+            :set-role-permission-group="setRolePermissionGroup"
             :delete-role-from-modal="deleteRoleFromModal"
             :submit-role="submitRole"
         />

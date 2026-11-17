@@ -17,20 +17,14 @@ class BitrixOAuth
                 continue;
             }
 
-            $clientId = (string) config("services.{$portalKey}.client_id");
-            $clientSecret = (string) config("services.{$portalKey}.client_secret");
-            if ($clientId === '' || $clientSecret === '') {
-                continue;
-            }
-
             $redirect = (string) config("services.{$portalKey}.redirect_uri", '');
             if ($redirect === '') {
                 $redirect = (string) config('services.bitrix.redirect_uri');
             }
 
             return [
-                'client_id' => $clientId,
-                'client_secret' => $clientSecret,
+                'client_id' => (string) config("services.{$portalKey}.client_id"),
+                'client_secret' => (string) config("services.{$portalKey}.client_secret"),
                 'redirect_uri' => $redirect,
             ];
         }

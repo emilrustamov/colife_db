@@ -75,17 +75,26 @@ class TelegramHealthCmd extends Command
         $portals = $oauth->configuredPortals();
         $ae = $portals['AE'] ?? 'colifeae.bitrix24.eu';
         $hk = $portals['HK'] ?? 'colifepacific.bitrix24.com';
+        $tr = $portals['TR'] ?? 'colife.bitrix24.com.tr';
         $appUrl = rtrim((string) config('app.url'), '/');
 
         $samples = [
             $text->message('🔐', 'OAuth отвалился', $hk, "Переустанови приложение: {$appUrl}/api/bp/install"),
+            $text->message('🔐', 'OAuth отвалился', $tr, "Переустанови приложение: {$appUrl}/api/cleaning/install"),
             $text->message('💾', 'Disk sync отвалился', $ae, 'Проверь логи bitrix_disk и список 322.'),
             $text->message('⏸️', 'Паузы отвалились · очередь стоит', null, 'Проверь supervisor horizon (очередь bp-pauses).'),
             $text->message('❌', 'Паузы отвалились', $hk, 'Проверь OAuth и failed_jobs — BP могут зависнуть.'),
             $text->message('⏸️', 'Паузы: wait отклонён', $hk, 'Bitrix шлёт wait, сервер отвечает 403 — BP зависают на паузе.'),
             $text->message('❌', 'Паузы: job упал', $hk, 'Bitrix OAuth refresh failed.'),
+            $text->message('🧹', 'Cleaning submit упал', $tr, "apartment=157\nHTTP request returned status code 400"),
+            $text->message('🧹', 'Cleaning: доступ отклонён', $tr, 'Форма Cleaning отвечает 403 — проверь install/OAuth TR.'),
+            $text->message('🧹', 'Cleaning: неверный install-user', $tr, 'Ожидали user 71857, токен от 70855. Переустанови /api/cleaning/install под системным пользователем.'),
+            $text->message('📇', 'Contacts sync упал', $ae, "bitrix:sync-contacts\nSQLSTATE[HY000]: General error: 1390"),
+            $text->message('💬', 'ChatApp collect упал', $ae, "AE · проверь CHATAPP_* логин/пароль\nConnection timed out"),
+            $text->message('💥', 'Job упал', null, "App\\Jobs\\ExampleJob · default\nRuntimeException"),
+            $text->message('⏳', 'Очередь тормозит', null, 'bp-pauses · wait 120s'),
             $text->message('📂', 'Storage rights broken', null, 'logs (0664, writable=no)'),
-            $text->message('⏰', 'Schedule failed', null, "bitrix:sync-contacts\nHTTP 429 OPERATION_TIME_LIMIT"),
+            $text->message('⏰', 'Schedule failed', null, "bitrix:sync-landlords\nexit code 1"),
             $text->message('⚙️', 'Воркеры очереди отвалились', null, 'Паузы и фоновые job не обрабатываются.'),
             $text->message('🌐', 'API отвалился', null, 'Bitrix не достучится до пауз и вебхуков.'),
         ];

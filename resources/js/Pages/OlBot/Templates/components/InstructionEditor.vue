@@ -1,6 +1,6 @@
 <script setup>
-import { useForm } from '@inertiajs/vue3';
-import { watch } from 'vue';
+import { useForm, usePage } from '@inertiajs/vue3';
+import { computed, watch } from 'vue';
 import { useOlBotI18n } from '../../composables/useOlBotI18n';
 
 const props = defineProps({
@@ -10,6 +10,8 @@ const props = defineProps({
     scope: { type: String, default: 'main' },
 });
 
+const page = usePage();
+const canEdit = computed(() => page.props.auth?.user?.can?.editOlBotTemplates === true);
 const { t } = useOlBotI18n();
 
 const form = useForm({
@@ -35,6 +37,10 @@ watch(
  * @returns {void}
  */
 const save = () => {
+    if (!canEdit.value) {
+        return;
+    }
+
     form.post('/ol-bot/templates');
 };
 </script>
@@ -48,7 +54,7 @@ const save = () => {
             </div>
             <div>
                 <label class="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-ink-muted">{{ t('note') }}</label>
-                <input v-model="form.note" class="ui-input" :placeholder="t('notePlaceholder')">
+                <input v-model="form.note" class="ui-input" :placeholder="t('notePlaceholder')" :disabled="!canEdit">
             </div>
         </div>
         <div>
@@ -60,9 +66,10 @@ const save = () => {
                 rows="18"
                 class="ui-input font-mono text-xs leading-5"
                 required
+                :readonly="!canEdit"
             />
         </div>
-        <div class="flex justify-end">
+        <div v-if="canEdit" class="flex justify-end">
             <button type="submit" class="ui-btn ui-btn-primary !px-4 !py-2 !text-sm" :disabled="form.processing">
                 {{ t('saveVersion') }}
             </button>

@@ -53,6 +53,7 @@ class TenantContractService
 
         $bitrix = BitrixWebhookClient::forProject($projectName);
         $contractTypeId = ProjectMapping::contractTypeId($projectName);
+        $contractData = [];
 
         try {
             $contractRes = $bitrix->call('crm.item.get', [
@@ -227,11 +228,26 @@ class TenantContractService
             return ['method' => 'POST', 'response' => $created];
         } catch (Throwable $e) {
             try {
+                $startField = ProjectMapping::getContractField('start_date', $projectName);
+                $endField = ProjectMapping::getContractField('end_date', $projectName);
+                $unitField = ProjectMapping::getContractField('unit_id', $projectName);
+                $unitExternalId = (string) (ProjectMapping::itemValue($contractData, $unitField) ?? '');
+                $almaUnitId = null;
+                if ($unitExternalId !== '') {
+                    $unit = $this->almaApi->unitByExternalId($unitExternalId)
+                        ?? $this->almaApi->roomByExternalId($unitExternalId);
+                    $almaUnitId = $unit['id'] ?? null;
+                }
                 BridgeSupport::addCrmTimelineComment(
                     $bitrix,
                     $contractTypeId,
                     $bitrixId,
-                    BridgeSupport::formatErrorComment($e->getMessage())
+                    BridgeSupport::formatSyncErrorComment(
+                        $e->getMessage(),
+                        $almaUnitId,
+                        ProjectMapping::itemValue($contractData, $startField),
+                        ProjectMapping::itemValue($contractData, $endField)
+                    )
                 );
             } catch (Throwable) {
             }
@@ -279,7 +295,7 @@ class TenantContractService
 
             $noInvitation = ProjectMapping::noInviteTypes($projectName);
             $sendInvitation = ! in_array((string) $contractType, $noInvitation, true);
-            $created = $this->almaApi->createClient([
+            $payload = array_filter([
                 'external_id' => $clientData['id'],
                 'first_name' => $clientData['first_name'] ?? '',
                 'last_name' => $clientData['last_name'] ?? '',
@@ -287,8 +303,13 @@ class TenantContractService
                 'country' => $clientData['country'] ?? 4,
                 'email' => $clientData['email'] ?? null,
                 'birthday' => $clientData['birthday'] ?? null,
+                'passport' => $clientData['passport'] ?? null,
+                'passport_scan' => $clientData['passport_scan'] ?? null,
+                'id_scan' => $clientData['id_scan'] ?? null,
                 'is_send_password_when_creating' => $sendInvitation,
-            ]);
+            ], static fn ($v) => $v !== null && $v !== '');
+
+            $created = $this->almaApi->createClient($payload);
 
             return (string) $created['id'];
         });
@@ -314,15 +335,38 @@ class TenantContractService
      */
     private function enrichClientData(array $clientData, array $contractData, string $projectName): array
     {
-        if ($projectName !== 'Dubai') {
+        $passportField = ProjectMapping::getTenantField('passport_number', $projectName);
+        $idScanField = ProjectMapping::getTenantField('id_scan', $projectName);
+        if ($passportField === null && $idScanField === null) {
             return $clientData;
         }
-        $passportField = ProjectMapping::getTenantField('passport_number', $projectName);
-        if ($passportField) {
-            $passport = ProjectMapping::itemValue($contractData, $passportField)
-                ?? ProjectMapping::itemValue($contractData, 'ufCrm20_1696523391');
-            if ($passport) {
-                $clientData['passport'] = is_array($passport) ? (string) ($passport[0] ?? '') : (string) $passport;
+
+        if ($passportField !== null) {
+            $passport = ProjectMapping::itemValue($contractData, $passportField);
+            if (is_array($passport)) {
+                $passport = $passport[0] ?? '';
+            }
+            $passport = trim((string) $passport);
+            if ($passport !== '') {
+                $clientData['passport'] = $passport;
+            }
+        }
+
+        if ($idScanField !== null) {
+            $scanData = ProjectMapping::itemValue($contractData, $idScanField);
+            $scanFields = ['id_scan', 'passport_scan'];
+            foreach (AlmaApi::extractBitrixFileUrls($scanData) as $index => $fileUrl) {
+                $almaField = $scanFields[$index] ?? null;
+                if ($almaField === null) {
+                    break;
+                }
+                $scanId = $this->almaApi->uploadExternalImage(
+                    $fileUrl,
+                    $index === 0 ? 'ID scan' : 'Passport scan'
+                );
+                if ($scanId !== null) {
+                    $clientData[$almaField] = $scanId;
+                }
             }
         }
 

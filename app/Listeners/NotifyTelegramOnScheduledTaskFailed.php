@@ -9,6 +9,29 @@ use Throwable;
 
 class NotifyTelegramOnScheduledTaskFailed
 {
+    /**
+     * Commands that already send a detailed CollectFailureAlert / sync alert.
+     *
+     * @var list<string>
+     */
+    private const SELF_ALERTED = [
+        'bitrix:sync-contacts',
+        'bitrix:sync-spa',
+        'bitrix:sync-apartments',
+        'bitrix:sync-units',
+        'bitrix:sync-apartment-ownerships',
+        'bitrix:sync-unit-stays',
+        'bitrix:sync-disk',
+        'chatapp:collect',
+        'twilio:collect',
+        'vdsina:collect',
+        'wazzup:collect',
+        'wikibot:collect',
+        'payments:collect',
+        'alma:collect',
+        'landlord-finance:collect',
+    ];
+
     public function __construct(
         private readonly TelegramAlert $alerts,
         private readonly TelegramAlertText $text,
@@ -21,8 +44,13 @@ class NotifyTelegramOnScheduledTaskFailed
     {
         try {
             $command = $this->commandName($event);
-            $error = $event->exception instanceof Throwable
-                ? mb_substr($event->exception->getMessage(), 0, 300)
+            if ($this->alreadyAlerted($command)) {
+                return;
+            }
+
+            $exitCode = $event->task->exitCode;
+            $error = is_int($exitCode)
+                ? 'exit code '.$exitCode
                 : 'exit non-zero';
 
             $message = $this->text->message(
@@ -35,10 +63,20 @@ class NotifyTelegramOnScheduledTaskFailed
             $this->alerts->notifyOnce(
                 'schedule_failed:'.$command,
                 $message,
-                (int) config('services.telegram.dedupe_ttl', 86400)
+                $this->alerts->dailyTtl(),
             );
         } catch (Throwable) {
         }
+    }
+
+    /**
+     * Whether a detailed failure alert was already sent by the command itself.
+     */
+    private function alreadyAlerted(string $command): bool
+    {
+        $base = strtok($command, ' ') ?: $command;
+
+        return in_array($base, self::SELF_ALERTED, true);
     }
 
     /**
@@ -51,12 +89,12 @@ class NotifyTelegramOnScheduledTaskFailed
             $description = trim((string) $event->task->description);
         }
 
-        if (preg_match("/artisan'\s+'([^']+)'/", $description, $m)) {
+        if (preg_match("/artisan'?\s+'?([^\s']+)/", $description, $m)) {
             return $m[1];
         }
 
         if (preg_match('/artisan\s+(\S+)/', $description, $m)) {
-            return $m[1];
+            return rtrim($m[1], "'\"");
         }
 
         return $description !== '' ? $description : 'unknown';

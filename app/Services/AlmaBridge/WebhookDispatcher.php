@@ -30,7 +30,9 @@ class WebhookDispatcher
 
         $aptIds = ProjectMapping::apartmentTypeIds($projectName);
         if ($entityTypeId !== null && in_array($entityTypeId, $aptIds, true)) {
-            return $this->apartments->upsert($id, $projectName, $entityTypeId);
+            return $this->apartments->upsert($id, $projectName, $entityTypeId, [
+                'skip_if_integration_update' => true,
+            ]);
         }
 
         $unitTypeId = ProjectMapping::unitTypeId($projectName);

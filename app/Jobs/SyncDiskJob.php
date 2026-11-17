@@ -2,6 +2,7 @@
 
 namespace App\Jobs;
 
+use App\Services\CollectFailureAlert;
 use App\Services\DiskSync;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
@@ -60,5 +61,15 @@ class SyncDiskJob implements ShouldQueue
             'element_id' => $this->elementId,
             'error' => $exception?->getMessage(),
         ]);
+
+        $error = $exception ?? new \RuntimeException('Disk sync job failed.');
+        app(CollectFailureAlert::class)->notify(
+            'disk_sync_errors',
+            '💾',
+            'Disk sync отвалился',
+            'AE',
+            'bitrix:sync-disk list='.$this->listId,
+            $error,
+        );
     }
 }

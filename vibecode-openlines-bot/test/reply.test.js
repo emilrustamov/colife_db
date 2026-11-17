@@ -50,8 +50,12 @@ test('operator request detection', () => {
 test('model reply parsing and outside-kb handoff', () => {
   assert.deepEqual(
     parseModelReply('{"answer":"Rent is fixed in contract","handoff":false}'),
-    { answer: 'Rent is fixed in contract', handoff: false },
+    { answer: 'Rent is fixed in contract', handoff: false, scenario: null },
   );
   assert.equal(parseModelReply('{"answer":"","handoff":true}').handoff, true);
   assert.equal(parseModelReply('HANDOFF').handoff, true);
+  assert.equal(
+    parseModelReply('{"answer":"ok","scenario":"sharing"}').scenario,
+    'sharing',
+  );
 });

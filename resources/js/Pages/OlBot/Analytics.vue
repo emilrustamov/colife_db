@@ -209,6 +209,7 @@ const quota = computed(() => props.quotaReport?.quota || null);
                             <th class="px-3 py-2.5">Reason</th>
                             <th class="px-3 py-2.5">Credits</th>
                             <th class="px-3 py-2.5">Tags</th>
+                            <th class="px-3 py-2.5">Analysis</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -257,9 +258,16 @@ const quota = computed(() => props.quotaReport?.quota || null);
                             </td>
                             <td class="px-3 py-2.5 text-ink whitespace-nowrap">{{ formatCredits(chat.credits) }}</td>
                             <td class="px-3 py-2.5 text-ink">{{ chat.tags || chat.category || '—' }}</td>
+                            <td class="px-3 py-2.5">
+                                <Link
+                                    :href="`/ol-bot/analytics/chats/${chat.chat_id}?analysis=1`"
+                                    class="ui-link text-xs"
+                                    @click.stop
+                                >{{ t('responseAnalysis') }}</Link>
+                            </td>
                         </tr>
                         <tr v-if="chats.length === 0">
-                            <td colspan="10" class="px-3 py-10 text-center text-sm text-ink-muted">No chats</td>
+                            <td colspan="11" class="px-3 py-10 text-center text-sm text-ink-muted">No chats</td>
                         </tr>
                     </tbody>
                 </table>
@@ -424,6 +432,16 @@ const quota = computed(() => props.quotaReport?.quota || null);
             </div>
 
             <template v-else>
+                <div class="ui-panel flex flex-wrap items-center justify-between gap-3 p-4">
+                    <div>
+                        <div class="text-xs uppercase tracking-wide text-ink-muted">{{ t('quotaActiveModel') }}</div>
+                        <div class="mt-1 text-base font-semibold text-ink">{{ quotaReport?.model || '—' }}</div>
+                    </div>
+                    <Link href="/ol-bot/templates/main" class="ui-btn ui-btn-secondary text-xs">
+                        {{ t('aiModel') }}
+                    </Link>
+                </div>
+
                 <div class="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
                     <div class="ui-panel p-4">
                         <div class="text-xs uppercase tracking-wide text-ink-muted">{{ t('quotaLeftMonth') }}</div>
@@ -440,7 +458,7 @@ const quota = computed(() => props.quotaReport?.quota || null);
                         <div class="text-xs uppercase tracking-wide text-ink-muted">{{ t('quotaSpentPeriod') }}</div>
                         <div class="mt-1 text-2xl font-semibold text-ink">{{ fmtNum(usage?.totalTokens) }}</div>
                         <div class="mt-1 text-xs text-ink-muted">
-                            {{ fmtNum(usage?.calls) }} {{ t('quotaCalls') }} · {{ formatCredits(usage?.credits) }}
+                            {{ fmtNum(usage?.calls) }} {{ t('quotaCalls') }} · {{ formatCredits(usage?.credits, { model: quotaReport?.model, free: usage?.free }) }}
                         </div>
                         <div class="mt-1 text-[11px] text-ink-muted">
                             {{ usage?.free ? t('quotaFree') : t('quotaPaid') }} · {{ t('quotaFact') }} {{ fmtUsd(usage?.costUsd) }}
@@ -479,12 +497,13 @@ const quota = computed(() => props.quotaReport?.quota || null);
                             <tr>
                                 <th class="px-3 py-2.5">Model</th>
                                 <th class="px-3 py-2.5">{{ t('quotaCalls') }}</th>
+                                <th class="px-3 py-2.5">{{ t('quotaCredits') }}</th>
                                 <th class="px-3 py-2.5">Prompt</th>
                                 <th class="px-3 py-2.5">Completion</th>
                                 <th class="px-3 py-2.5">Total</th>
                                 <th class="px-3 py-2.5">{{ t('quotaFact') }}</th>
                                 <th class="px-3 py-2.5">{{ t('quotaIfPaid') }}</th>
-                                <th class="px-3 py-2.5">%</th>
+                                <th class="px-3 py-2.5">{{ t('quotaModelLimit') }}</th>
                             </tr>
                         </thead>
                         <tbody>
@@ -492,21 +511,30 @@ const quota = computed(() => props.quotaReport?.quota || null);
                                 v-for="row in (quotaReport?.byModel || [])"
                                 :key="row.modelId"
                                 class="border-t border-line"
+                                :class="row.active ? 'bg-brand-soft/30' : ''"
                             >
                                 <td class="px-3 py-2.5 text-ink">
-                                    {{ row.modelId }}
-                                    <span class="ml-1 text-[11px] text-ink-muted">{{ row.free ? 'free' : 'paid' }}</span>
+                                    <div class="font-medium">{{ row.name || row.modelId }}</div>
+                                    <div class="text-[11px] text-ink-muted">
+                                        {{ row.modelId }}
+                                        <span v-if="row.active" class="ml-1 text-brand">· active</span>
+                                        <span class="ml-1">{{ row.free ? '· free' : '· paid' }}</span>
+                                    </div>
                                 </td>
                                 <td class="px-3 py-2.5 text-ink">{{ fmtNum(row.calls) }}</td>
+                                <td class="px-3 py-2.5 text-ink whitespace-nowrap">{{ formatCredits(row.credits, { model: row.modelId, free: row.free }) }}</td>
                                 <td class="px-3 py-2.5 text-ink">{{ fmtNum(row.promptTokens) }}</td>
                                 <td class="px-3 py-2.5 text-ink">{{ fmtNum(row.completionTokens) }}</td>
                                 <td class="px-3 py-2.5 text-ink">{{ fmtNum(row.totalTokens) }}</td>
                                 <td class="px-3 py-2.5 text-ink">{{ fmtUsd(row.cost) }}</td>
                                 <td class="px-3 py-2.5 text-ink">{{ fmtUsd(row.paidEstimateUsd) }}</td>
-                                <td class="px-3 py-2.5 text-ink">{{ row.pctOfLimit != null ? `${row.pctOfLimit}%` : '—' }}</td>
+                                <td class="px-3 py-2.5 text-ink">
+                                    <span v-if="row.pctOfLimit != null">{{ row.pctOfLimit }}%</span>
+                                    <span v-else class="text-ink-muted">—</span>
+                                </td>
                             </tr>
                             <tr v-if="!(quotaReport?.byModel || []).length">
-                                <td colspan="8" class="px-3 py-8 text-center text-ink-muted">{{ t('quotaEmpty') }}</td>
+                                <td colspan="9" class="px-3 py-8 text-center text-ink-muted">{{ t('quotaEmpty') }}</td>
                             </tr>
                         </tbody>
                     </table>

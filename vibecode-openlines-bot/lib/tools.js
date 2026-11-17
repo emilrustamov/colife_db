@@ -3,11 +3,11 @@ import { canReplaceCategory } from './categories.js';
 import {
   classifyBudgetTarget,
   searchApartments,
+  unitFitsMoveIn,
 } from './searchApartment.js';
 import { bucketEscalateReason } from './analytics.js';
 import {
   activateScenario,
-  enrichStateForLeave,
   resolveApartmentType,
   scenarioForCategory,
 } from './scenarios.js';
@@ -70,10 +70,36 @@ export function getMinPrice(types) {
  * @param {{ pendingAnswers?: string[], pendingHandoff?: object|null }} runtime
  * @returns {Promise<object>}
  */
+/**
+ * Catalog is apartments only — no room/sharing inventory or prices.
+ *
+ * @param {import('./state.js').DialogState} state
+ * @returns {boolean}
+ */
+function isSharingLead(state) {
+  return (
+    state.activeScenario === 'sharing'
+    || state.category === 'sharing'
+    || state.apartmentType === 'room'
+  );
+}
+
+const SHARING_NO_CATALOG = {
+  error: 'sharing_no_catalog',
+  agentInstruction:
+    'Sharing/room lead: catalog has apartments only. Do not quote room prices or min rates. Collect move-in/period/budget/area if missing, qualify_lead(sharing), then terminal A — no search_apartments / get_min_price.',
+};
+
 export async function executeTool(state, name, args, runtime) {
   const a = args && typeof args === 'object' ? args : {};
 
   if (name === 'search_apartments') {
+    if (isSharingLead(state)) return { ...SHARING_NO_CATALOG };
+    if (Array.isArray(a.types) && a.types.length) state.types = a.types.map(Number);
+    if (a.period != null && Number(a.period) > 0) state.period = Number(a.period);
+    if (a.price != null && Number(a.price) > 0) state.budget = Number(a.price);
+    if (a.move_in_date) state.routingMoveInDate = String(a.move_in_date);
+    if (Array.isArray(a.area) && a.area.length) state.area = a.area.map(String);
     const exclude = Array.isArray(a.exclude_ids) ? a.exclude_ids.map(Number) : state.excludeIds.slice();
     const result = searchApartments({
       area: a.area || state.area,
@@ -96,6 +122,7 @@ export async function executeTool(state, name, args, runtime) {
   }
 
   if (name === 'get_min_price') {
+    if (isSharingLead(state)) return { ...SHARING_NO_CATALOG };
     return getMinPrice(a.types);
   }
 
@@ -109,6 +136,23 @@ export async function executeTool(state, name, args, runtime) {
     }
     state.unitLookupStatus = 'found';
     if (found.link && !state.shownLinks.includes(found.link)) state.shownLinks.push(found.link);
+    const fit = unitFitsMoveIn(
+      found.availableFrom,
+      state.routingMoveInDate || state.savedMoveInDate,
+    );
+    /** @type {string} */
+    let agentInstruction =
+      'When quoting this unit, always state availableFrom and pick price from priceVariants for the requested period.';
+    if (!fit.known) {
+      agentInstruction =
+        'availableFrom is unknown — say availability must be confirmed; do not claim the unit is free now.';
+    } else if (fit.fits === false) {
+      agentInstruction =
+        `Unit availableFrom ${fit.availableFrom} is AFTER client move-in ${fit.moveIn}. Tell the client that date; offer to wait until availableFrom or search alternatives — do not treat as free on move-in.`;
+    } else if (fit.fits === true) {
+      agentInstruction =
+        `Unit is available from ${fit.availableFrom} (fits client move-in ${fit.moveIn}). State availableFrom; use priceVariants for the period. Do not route to postponed only because of this unit.`;
+    }
     return {
       apartment: {
         apartmentId: Number(found.uid) || found.uid,
@@ -117,9 +161,14 @@ export async function executeTool(state, name, args, runtime) {
         area: found.area,
         type: found.type,
         price: found.price,
-        availableFrom: found.availableFrom,
+        priceUnit: found.priceUnit,
+        priceVariants: found.priceVariants || [],
+        availableFrom: found.availableFrom || '',
         unitNumber: found.unitNumber || unit,
+        fitsMoveIn: fit.fits,
+        availabilityKnown: fit.known,
       },
+      agentInstruction,
     };
   }
 
@@ -216,9 +265,7 @@ export async function executeTool(state, name, args, runtime) {
   if (name === 'set_move_in_date') {
     if (a.dealId) state.dealId = String(a.dealId);
     if (a.contactId) state.contactId = String(a.contactId);
-    if (!state.dealId && !a.dealId && crmEnabled()) {
-      // deal will be auto-created in writeMoveInDate
-    } else if (!state.dealId && !crmEnabled() && !a.contactId && !state.contactId) {
+    if (!state.dealId && !crmEnabled() && !a.contactId && !state.contactId) {
       return { ok: false, skipped: true, reason: 'dealId required' };
     }
     state.savedMoveInDate = String(a.move_in_date || '');
@@ -240,15 +287,26 @@ export async function executeTool(state, name, args, runtime) {
 
   if (name === 'leave_chat') {
     if (a.budget != null) state.budget = Number(a.budget);
-    if (a.residents) state.residents = String(a.residents);
-    if (a.stay_duration) state.stayDuration = String(a.stay_duration);
-    if (a.apartment_type) state.apartmentType = String(a.apartment_type);
-    if (a.planning_to_move) state.planningToMove = String(a.planning_to_move);
+    if (a.residents && !state.residents) state.residents = String(a.residents);
+    // Do not let leave args overwrite fields we can derive from dialog state.
+    if (a.stay_duration && state.period == null && !state.stayDuration) {
+      state.stayDuration = String(a.stay_duration);
+    }
+    if (
+      a.apartment_type
+      && !state.apartmentType
+      && !(Array.isArray(state.types) && state.types.length)
+    ) {
+      state.apartmentType = String(a.apartment_type);
+    }
+    if (a.planning_to_move && state.extras?.days_to_checkin == null && !state.planningToMove) {
+      state.planningToMove = String(a.planning_to_move);
+    }
     if (a.dealId) state.dealId = String(a.dealId);
     if (a.contactId) state.contactId = String(a.contactId);
-    enrichStateForLeave(state);
     let crm = { ok: true, stub: !crmEnabled() };
     try {
+      // writeLeaveSnapshot → enrichStateForLeave (single place for leave fields)
       crm = await writeLeaveSnapshot(state);
     } catch (err) {
       crm = { ok: false, stub: false, error: err.message };
@@ -272,8 +330,9 @@ export async function executeTool(state, name, args, runtime) {
   }
 
   if (name === 'make_answer') {
-    const text = String(a.text || a.message || a.answer || '').trim();
-    if (text) runtime.pendingAnswers.push(text);
+    const text = String(a.text || '').trim();
+    // One client bubble per turn — last make_answer wins (stops duplicate spam).
+    if (text) runtime.pendingAnswers = [text];
     return { ok: true };
   }
 

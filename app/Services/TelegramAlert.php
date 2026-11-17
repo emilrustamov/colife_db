@@ -12,6 +12,26 @@ class TelegramAlert
     ) {}
 
     /**
+     * Default TTL for rare/daily alerts.
+     */
+    public function dailyTtl(): int
+    {
+        $ttl = (int) config('services.telegram.dedupe_ttl', 86400);
+
+        return $ttl > 0 ? $ttl : 86400;
+    }
+
+    /**
+     * Shorter TTL so a new breakage after a fix still notifies today.
+     */
+    public function instantTtl(): int
+    {
+        $ttl = (int) config('services.telegram.instant_dedupe_ttl', 3600);
+
+        return $ttl > 0 ? $ttl : 3600;
+    }
+
+    /**
      * Send an alert at most once per dedupe key until TTL expires.
      */
     public function notifyOnce(string $dedupeKey, string $text, ?int $ttlSeconds = null): bool
@@ -20,7 +40,7 @@ class TelegramAlert
             return false;
         }
 
-        $ttl = $ttlSeconds ?? (int) config('services.telegram.dedupe_ttl', 86400);
+        $ttl = $ttlSeconds ?? $this->dailyTtl();
         if ($ttl <= 0) {
             $ttl = 86400;
         }

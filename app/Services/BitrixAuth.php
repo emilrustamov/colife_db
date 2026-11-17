@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use App\Models\BitrixToken;
 use Illuminate\Support\Facades\Http;
 
 class BitrixAuth
@@ -49,5 +50,28 @@ class BitrixAuth
                 'refresh_token' => $refreshToken,
             ]
         )->json();
+    }
+
+    /**
+     * Persist a successful OAuth token response onto the local token row.
+     *
+     * @param  array<string, mixed>  $response
+     */
+    public function saveTokens(BitrixToken $token, array $response, string $fallbackRefresh): BitrixToken
+    {
+        $access = trim((string) ($response['access_token'] ?? ''));
+        $expiresIn = (int) ($response['expires_in'] ?? 0);
+        $refresh = (string) ($response['refresh_token'] ?? $fallbackRefresh);
+
+        $token->forceFill([
+            'access_token' => $access,
+            'auth_id' => $access,
+            'refresh_token' => $refresh,
+            'refresh_id' => $refresh,
+            'expires_in' => $expiresIn > 0 ? $expiresIn : null,
+            'expires_at' => $expiresIn > 0 ? now()->addSeconds($expiresIn) : null,
+        ])->save();
+
+        return $token->fresh() ?? $token;
     }
 }

@@ -11,7 +11,8 @@ class CleaningSubmitService
 {
     public function __construct(
         private readonly BitrixRest $bitrixRest,
-        private readonly BitrixOAuth $oauth
+        private readonly BitrixOAuth $oauth,
+        private readonly CleaningAlert $alerts,
     ) {}
 
     /**
@@ -120,6 +121,7 @@ class CleaningSubmitService
                 'domain' => $domain,
                 'note' => 'Timeline comments will be authored by the install user, not the system account.',
             ]);
+            $this->alerts->wrongInstaller($domain, $expectedUserId, $actualUserId);
         }
     }
 

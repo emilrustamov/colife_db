@@ -2,7 +2,6 @@
 
 namespace App\Http\Controllers\Api\AlmaBridge;
 
-use App\Enums\WebhookContext;
 use App\Http\Controllers\Controller;
 use App\Services\AlmaBridge\BridgeSupport;
 use App\Services\AlmaBridge\ProjectResolver;
@@ -123,20 +122,20 @@ class WebhookController extends Controller
     }
 
     /**
-     * Per-project token only (Dubai ≠ HongKong). Also accepts that portal's app token.
+     * Per-project token only (Dubai ≠ HongKong). Fail closed when project token is unset.
      */
     private function webhookAuthorized(Request $request, string $projectName): bool
     {
-        $incoming = $this->tokenVerifier->requestToken($request);
+        $projectToken = trim((string) config('alma_bridge.projects.'.$projectName.'.webhook_token', ''));
+        if ($projectToken === '') {
+            return false;
+        }
+
+        $incoming = $this->tokenVerifier->requestToken($request, true);
         if ($incoming === '') {
             return false;
         }
 
-        $projectToken = trim((string) config('alma_bridge.projects.'.$projectName.'.webhook_token', ''));
-        if ($projectToken !== '' && hash_equals($projectToken, $incoming)) {
-            return true;
-        }
-
-        return $this->tokenVerifier->matchesDomainToken($request, WebhookContext::Bizproc);
+        return hash_equals($projectToken, $incoming);
     }
 }

@@ -48,7 +48,7 @@ class UtilitiesSync
         $items = $this->fetchAllElements($iblockId);
         $fieldMap = $this->expandUtilitiesEnumMap($fieldMap, $items);
 
-        $apartmentIdByBitrixId = Apartment::query()
+        $apartments = Apartment::query()
             ->pluck('id', 'bitrix_id')
             ->mapWithKeys(static fn ($id, $bitrixId): array => [(int) $bitrixId => (string) $id])
             ->all();
@@ -77,7 +77,7 @@ class UtilitiesSync
             $total++;
 
             try {
-                $rows[] = $this->normalizeItem($item, $fieldMap, $existingIds, $apartmentIdByBitrixId, $now);
+                $rows[] = $this->normalizeItem($item, $fieldMap, $existingIds, $apartments, $now);
                 $successful++;
             } catch (Throwable $e) {
                 $failedIds[] = $item['ID'] ?? 'unknown';
@@ -277,14 +277,14 @@ class UtilitiesSync
      * @param  array<string, mixed>  $item
      * @param  array<string, array{field_id:string, enum_values:array<string, string>}>  $fieldMap
      * @param  array<int, string>  $existingIds
-     * @param  array<int, string>  $apartmentIdByBitrixId
+     * @param  array<int, string>  $apartments
      * @return array<string, mixed>
      */
     private function normalizeItem(
         array $item,
         array $fieldMap,
         array $existingIds,
-        array $apartmentIdByBitrixId,
+        array $apartments,
         Carbon $now
     ): array {
         $bitrixId = (int) ($item['ID'] ?? 0);
@@ -298,7 +298,7 @@ class UtilitiesSync
 
         $apartmentBitrixId = $this->extractCrmEntityId($this->propertyValue($item, $fieldMap, 'APARTMENT'));
         $apartmentId = $apartmentBitrixId !== null
-            ? ($apartmentIdByBitrixId[$apartmentBitrixId] ?? null)
+            ? ($apartments[$apartmentBitrixId] ?? null)
             : null;
 
         return [

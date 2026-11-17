@@ -1,3 +1,5 @@
+import { enrichStateForLeave } from './scenarios.js';
+
 const CATEGORY_LABEL = {
   non_target: 'Non-target',
   out_of_budget: 'Out of budget',
@@ -282,19 +284,14 @@ export async function writeMoveInDate(state, moveInDateDdMmYyyy) {
  * @returns {Promise<object>}
  */
 export async function writeLeaveSnapshot(state) {
+  enrichStateForLeave(state);
   if (!crmEnabled()) return { ok: true, stub: true };
   const dealId = await ensureDeal(state, 'OL Bot leave');
   /** @type {Record<string, any>} */
   const fields = {};
 
-  const apartmentType = state.apartmentType
-    || (state.category === 'sharing' || state.activeScenario === 'sharing' ? 'room' : null)
-    || (Array.isArray(state.types) && state.types[0] === 0 ? 'studio' : null)
-    || (Array.isArray(state.types) && state.types[0] === 1 ? '1_bedroom' : null)
-    || (Array.isArray(state.types) && state.types[0] === 2 ? '2_bedroom' : null)
-    || (Array.isArray(state.types) && state.types[0] === 3 ? '3_bedroom' : null);
+  const apartmentType = state.apartmentType;
   if (apartmentType) {
-    state.apartmentType = apartmentType;
     const id = await enumId(FIELD.apartmentType, APARTMENT_LABEL[apartmentType] || apartmentType);
     if (id) fields[FIELD.apartmentType] = id;
   }

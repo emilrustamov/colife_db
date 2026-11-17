@@ -8,10 +8,20 @@ use App\Http\Controllers\OlBot\TemplateController as OlBotTemplateController;
 use App\Http\Controllers\RoleAdmin;
 use App\Http\Controllers\UserAdmin;
 use App\Http\Middleware\RedirectLocalhost;
+use App\Support\AdminMenu;
+use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Route;
 
 Route::middleware([RedirectLocalhost::class])->group(function () {
-    Route::get('/', fn () => redirect()->route('directories.index'));
+    Route::get('/', function () {
+        $user = Auth::user();
+
+        if ($user === null) {
+            return redirect()->route('login');
+        }
+
+        return redirect()->to(AdminMenu::homeUrl($user));
+    });
 
         Route::middleware('guest')->group(function () {
             Route::get('/login', [AuthController::class, 'create'])->name('login');
@@ -36,10 +46,16 @@ Route::middleware([RedirectLocalhost::class])->group(function () {
         Route::get('/api/directories/{directory}/{id}', [DirectoryController::class, 'show'])->name('directories.show');
     });
 
-    Route::middleware(['auth', 'permission:users.manage'])->group(function (): void {
+    Route::middleware(['auth', 'permission:users.manage|users.edit|users.delete'])->group(function (): void {
         Route::get('/api/admin/users', [UserAdmin::class, 'index']);
+    });
+    Route::middleware(['auth', 'permission:users.manage'])->group(function (): void {
         Route::post('/api/admin/users', [UserAdmin::class, 'store']);
+    });
+    Route::middleware(['auth', 'permission:users.edit'])->group(function (): void {
         Route::put('/api/admin/users/{user}', [UserAdmin::class, 'update']);
+    });
+    Route::middleware(['auth', 'permission:users.delete'])->group(function (): void {
         Route::delete('/api/admin/users/{user}', [UserAdmin::class, 'destroy']);
     });
 
@@ -51,20 +67,46 @@ Route::middleware([RedirectLocalhost::class])->group(function () {
     });
 
     Route::middleware(['auth'])->prefix('ol-bot')->name('ol-bot.')->group(function (): void {
-        Route::get('/', fn () => redirect()->route('ol-bot.analytics'));
-        Route::get('/templates', [OlBotTemplateController::class, 'index'])->name('templates');
-        Route::get('/templates/main', [OlBotTemplateController::class, 'main'])->name('templates.main');
-        Route::get('/templates/scenarios', [OlBotTemplateController::class, 'scenarios'])->name('templates.scenarios');
-        Route::get('/templates/scenarios/{name}', [OlBotTemplateController::class, 'scenario'])->name('templates.scenario');
-        Route::get('/templates/skills', [OlBotTemplateController::class, 'skills'])->name('templates.skills');
-        Route::get('/templates/skills/{name}', [OlBotTemplateController::class, 'skill'])->name('templates.skill');
-        Route::get('/templates/tools', [OlBotTemplateController::class, 'tools'])->name('templates.tools');
-        Route::get('/templates/tools/{name}', [OlBotTemplateController::class, 'tool'])->name('templates.tool');
-        Route::post('/templates', [OlBotTemplateController::class, 'store'])->name('templates.store');
-        Route::post('/templates/scope-tools', [OlBotTemplateController::class, 'syncTools'])->name('templates.scope-tools');
-        Route::get('/templates/versions/{version}', [OlBotTemplateController::class, 'show'])->name('templates.show');
-        Route::post('/templates/{version}/activate', [OlBotTemplateController::class, 'activate'])->whereNumber('version')->name('templates.activate');
-        Route::get('/analytics', [OlBotAnalyticsController::class, 'index'])->name('analytics');
-        Route::get('/analytics/chats/{chatId}', [OlBotAnalyticsController::class, 'show'])->name('analytics.chat');
+        Route::get('/', function () {
+            $user = Auth::user();
+
+            if ($user !== null && $user->can('ol-bot.analytics')) {
+                return redirect()->route('ol-bot.analytics');
+            }
+
+            if ($user !== null && $user->can('ol-bot.catalog')) {
+                return redirect()->to('/ol-bot/analytics?tab=catalog');
+            }
+
+            if ($user !== null && $user->can('ol-bot.templates')) {
+                return redirect()->route('ol-bot.templates');
+            }
+
+            abort(403);
+        });
+
+        Route::middleware(['permission:ol-bot.templates'])->group(function (): void {
+            Route::get('/templates', [OlBotTemplateController::class, 'index'])->name('templates');
+            Route::get('/templates/main', [OlBotTemplateController::class, 'main'])->name('templates.main');
+            Route::get('/templates/scenarios', [OlBotTemplateController::class, 'scenarios'])->name('templates.scenarios');
+            Route::get('/templates/scenarios/{name}', [OlBotTemplateController::class, 'scenario'])->name('templates.scenario');
+            Route::get('/templates/skills', [OlBotTemplateController::class, 'skills'])->name('templates.skills');
+            Route::get('/templates/skills/{name}', [OlBotTemplateController::class, 'skill'])->name('templates.skill');
+            Route::get('/templates/tools', [OlBotTemplateController::class, 'tools'])->name('templates.tools');
+            Route::get('/templates/tools/{name}', [OlBotTemplateController::class, 'tool'])->name('templates.tool');
+            Route::get('/templates/versions/{version}', [OlBotTemplateController::class, 'show'])->name('templates.show');
+        });
+
+        Route::middleware(['permission:ol-bot.templates.edit'])->group(function (): void {
+            Route::post('/templates', [OlBotTemplateController::class, 'store'])->name('templates.store');
+            Route::post('/templates/scope-tools', [OlBotTemplateController::class, 'syncTools'])->name('templates.scope-tools');
+            Route::post('/templates/model', [OlBotTemplateController::class, 'updateModel'])->name('templates.model');
+            Route::post('/templates/{version}/activate', [OlBotTemplateController::class, 'activate'])->whereNumber('version')->name('templates.activate');
+        });
+
+        Route::middleware(['permission:ol-bot.analytics|ol-bot.catalog'])->group(function (): void {
+            Route::get('/analytics', [OlBotAnalyticsController::class, 'index'])->name('analytics');
+            Route::get('/analytics/chats/{chatId}', [OlBotAnalyticsController::class, 'show'])->name('analytics.chat');
+        });
     });
 });

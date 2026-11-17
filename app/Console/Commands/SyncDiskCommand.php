@@ -3,6 +3,7 @@
 namespace App\Console\Commands;
 
 use App\Jobs\SyncDiskJob;
+use App\Services\CollectFailureAlert;
 use App\Services\DiskSync;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\Log;
@@ -20,7 +21,7 @@ class SyncDiskCommand extends Command
     /**
      * Execute the console command.
      */
-    public function handle(DiskSync $service): int
+    public function handle(DiskSync $service, CollectFailureAlert $alerts): int
     {
         $listId = (int) ($this->argument('listId')
             ?: config('services.bitrix.lists.disk_iblock_id', 322));
@@ -66,6 +67,14 @@ class SyncDiskCommand extends Command
 
             if ($result['failed'] > 0) {
                 $this->warn('Failed element ids: '.implode(', ', $result['failed_ids']));
+                $alerts->notify(
+                    'disk_sync_errors',
+                    '💾',
+                    'Disk sync отвалился',
+                    'AE',
+                    'bitrix:sync-disk list='.$listId.' failed='.$result['failed'],
+                    new \RuntimeException('failed_ids: '.implode(', ', array_slice($result['failed_ids'], 0, 20))),
+                );
             }
 
             return self::SUCCESS;
@@ -75,6 +84,14 @@ class SyncDiskCommand extends Command
                 'element_id' => $elementId,
                 'error' => $e->getMessage(),
             ]);
+            $alerts->notify(
+                'disk_sync_errors',
+                '💾',
+                'Disk sync отвалился',
+                'AE',
+                'bitrix:sync-disk list='.$listId,
+                $e,
+            );
 
             $this->error('Bitrix disk sync failed: '.$e->getMessage());
 

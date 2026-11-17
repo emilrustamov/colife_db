@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use App\Models\OlBotSetting;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
 use Throwable;
@@ -18,6 +19,12 @@ class OlBotAlaioQuota
         'bitrix/bitrixgpt-5.5',
         'bitrix/bitrixgpt-5.5-thinking',
         'bitrix/embeddings',
+        'bitrix/bitrixgpt-6.0-diarization',
+    ];
+
+    private const NON_CHAT_MODELS = [
+        'bitrix/embeddings',
+        'bitrix/bitrixgpt-6.0-diarization',
     ];
 
     private const AGENT_PROMPT_PER_M = 0.889;
@@ -68,7 +75,7 @@ class OlBotAlaioQuota
             $calls = (int) ($totals['calls'] ?? 0);
             $cost = (float) ($totals['cost'] ?? 0);
             $paidEstimate = $this->estimatePaidUsd($promptTokens, $completionTokens);
-            $modelId = (string) (config('ol_bot.ai_model') ?: 'bitrix/bitrixgpt-5.5-thinking');
+            $modelId = $this->activeModel();
             $isFree = $this->isFreeModel($modelId) || $cost <= 0.0;
 
             $pctUsed = (float) ($quota['pctUsed'] ?? 0);
@@ -76,26 +83,57 @@ class OlBotAlaioQuota
             $dayPct = (float) data_get($pacing, 'day.pctUsed', 0);
             $weekPct = (float) data_get($pacing, 'week.pctUsed', 0);
 
-            $models = [];
+            $catalog = collect($this->listModels(false)['models'] ?? [])->keyBy('id');
+            $usageById = [];
             foreach ($byModel as $row) {
                 if (! is_array($row)) {
                     continue;
                 }
                 $id = (string) ($row['modelId'] ?? '');
+                if ($id === '') {
+                    continue;
+                }
+                $usageById[$id] = $row;
+            }
+
+            $models = [];
+            $seen = [];
+            foreach (array_unique(array_merge(array_keys($usageById), $catalog->keys()->all())) as $id) {
+                $id = (string) $id;
+                if ($id === '' || isset($seen[$id])) {
+                    continue;
+                }
+                $seen[$id] = true;
+                $row = $usageById[$id] ?? [];
+                $meta = $catalog->get($id) ?? [];
                 $p = (int) ($row['promptTokens'] ?? 0);
                 $c = (int) ($row['completionTokens'] ?? 0);
+                $total = (int) ($row['totalTokens'] ?? ($p + $c));
+                $rowCost = (float) ($row['cost'] ?? 0);
                 $models[] = [
                     'modelId' => $id,
+                    'name' => (string) ($meta['name'] ?? $id),
+                    'active' => $id === $modelId,
+                    'chat' => (bool) ($meta['chat'] ?? ! in_array($id, self::NON_CHAT_MODELS, true)),
                     'calls' => (int) ($row['calls'] ?? 0),
                     'promptTokens' => $p,
                     'completionTokens' => $c,
-                    'totalTokens' => (int) ($row['totalTokens'] ?? ($p + $c)),
-                    'cost' => (float) ($row['cost'] ?? 0),
+                    'totalTokens' => $total,
+                    'credits' => round($total / 1000, 3),
+                    'cost' => $rowCost,
                     'paidEstimateUsd' => round($this->estimatePaidUsd($p, $c), 2),
-                    'free' => $this->isFreeModel($id) || (float) ($row['cost'] ?? 0) <= 0.0,
+                    'free' => $this->isFreeModel($id) || $rowCost <= 0.0 || (bool) ($meta['free'] ?? false),
                     'pctOfLimit' => $this->modelPctOfLimit($quota, $id),
+                    'pricing' => $meta['pricing'] ?? null,
                 ];
             }
+            usort($models, function (array $a, array $b): int {
+                if (($a['active'] ?? false) !== ($b['active'] ?? false)) {
+                    return ($b['active'] ?? false) ? 1 : -1;
+                }
+
+                return ($b['totalTokens'] ?? 0) <=> ($a['totalTokens'] ?? 0);
+            });
 
             return [
                 'ok' => true,
@@ -140,6 +178,112 @@ class OlBotAlaioQuota
     }
 
     /**
+     * Available Alaio models for the picker (chat-capable by default).
+     *
+     * @return array{ok: bool, error: ?string, models: list<array<string, mixed>>, active: string}
+     */
+    public function listModels(bool $chatOnly = true): array
+    {
+        $active = $this->activeModel();
+        $apiKey = $this->apiKey();
+        $base = (string) config('ol_bot.vibe_api_base');
+        if ($apiKey === '' || $base === '') {
+            return ['ok' => false, 'error' => 'missing_api_key', 'models' => [], 'active' => $active];
+        }
+
+        try {
+            $response = Http::withHeaders([
+                'X-Api-Key' => $apiKey,
+                'Accept' => 'application/json',
+            ])->timeout(20)->get($base.'/ai/models');
+
+            if (! $response->successful()) {
+                return ['ok' => false, 'error' => 'api_http_error', 'models' => [], 'active' => $active];
+            }
+
+            $rows = $response->json('data');
+            if (! is_array($rows)) {
+                $rows = [];
+            }
+
+            $models = [];
+            foreach ($rows as $row) {
+                if (! is_array($row)) {
+                    continue;
+                }
+                $id = (string) ($row['id'] ?? '');
+                if ($id === '') {
+                    continue;
+                }
+                $prompt = (float) data_get($row, 'pricing.prompt', 0);
+                $completion = (float) data_get($row, 'pricing.completion', 0);
+                $chat = ! in_array($id, self::NON_CHAT_MODELS, true);
+                if ($chatOnly && ! $chat) {
+                    continue;
+                }
+                $models[] = [
+                    'id' => $id,
+                    'name' => (string) ($row['name'] ?? $id),
+                    'ownedBy' => (string) ($row['owned_by'] ?? 'bitrix'),
+                    'contextLength' => (int) ($row['context_length'] ?? 0),
+                    'maxOutputTokens' => (int) ($row['max_output_tokens'] ?? 0),
+                    'pricing' => [
+                        'prompt' => $prompt,
+                        'completion' => $completion,
+                        'unit' => (string) data_get($row, 'pricing.unit', 'vibes'),
+                    ],
+                    'free' => $this->isFreeModel($id) || ($prompt <= 0 && $completion <= 0),
+                    'reasoning' => (bool) data_get($row, 'capabilities.reasoning', false),
+                    'chat' => $chat,
+                    'active' => $id === $active,
+                ];
+            }
+
+            usort($models, fn (array $a, array $b) => strcmp($a['name'], $b['name']));
+
+            return [
+                'ok' => true,
+                'error' => null,
+                'models' => $models,
+                'active' => $active,
+            ];
+        } catch (Throwable $e) {
+            Log::warning('ol_bot.alaio_models_failed', ['error' => $e->getMessage()]);
+
+            return ['ok' => false, 'error' => 'api_exception', 'models' => [], 'active' => $active];
+        }
+    }
+
+    public function activeModel(): string
+    {
+        return (string) (
+            OlBotSetting::getValue('ai_model')
+            ?: config('ol_bot.ai_model')
+            ?: 'bitrix/bitrixgpt-5.5-thinking'
+        );
+    }
+
+    /**
+     * Persist active model if it exists in Alaio catalog.
+     */
+    public function setActiveModel(string $modelId): array
+    {
+        $modelId = trim($modelId);
+        $catalog = $this->listModels(false);
+        $allowed = collect($catalog['models'] ?? [])->pluck('id')->all();
+        if ($modelId === '' || ($catalog['ok'] && $allowed !== [] && ! in_array($modelId, $allowed, true))) {
+            return ['ok' => false, 'error' => 'unknown_model', 'model' => $this->activeModel()];
+        }
+        if (in_array($modelId, self::NON_CHAT_MODELS, true)) {
+            return ['ok' => false, 'error' => 'not_chat_model', 'model' => $this->activeModel()];
+        }
+
+        OlBotSetting::setValue('ai_model', $modelId);
+
+        return ['ok' => true, 'error' => null, 'model' => $modelId];
+    }
+
+    /**
      * @return array<string, mixed>
      */
     private function emptyReport(string $period, string $error): array
@@ -149,7 +293,7 @@ class OlBotAlaioQuota
             'error' => $error,
             'period' => $period,
             'days' => self::PERIOD_DAYS[$period] ?? 1,
-            'model' => (string) config('ol_bot.ai_model'),
+            'model' => $this->activeModel(),
             'usage' => null,
             'quota' => null,
             'byModel' => [],

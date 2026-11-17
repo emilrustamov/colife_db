@@ -63,7 +63,7 @@ class DirectoriesSmokeTest extends TestCase
                 'name' => 'Smoke User',
                 'email' => 'smoke.user@example.com',
                 'password' => 'password123',
-                'role_ids' => [$viewerRoleId],
+                'role_id' => $viewerRoleId,
             ]);
 
         $created->assertCreated();
@@ -74,7 +74,7 @@ class DirectoriesSmokeTest extends TestCase
             ->putJson("/api/admin/users/{$userId}", [
                 'name' => 'Smoke User Updated',
                 'email' => 'smoke.user.updated@example.com',
-                'role_ids' => [$viewerRoleId],
+                'role_id' => $viewerRoleId,
             ])
             ->assertOk()
             ->assertJsonPath('user.email', 'smoke.user.updated@example.com');
@@ -88,7 +88,7 @@ class DirectoriesSmokeTest extends TestCase
 
     public function test_roles_api_crud_smoke_flow(): void
     {
-        $permissionId = (int) Permission::query()->where('name', 'directories.view')->value('id');
+        $permissionId = (int) Permission::query()->where('name', 'directory.contacts')->value('id');
 
         $created = $this->actingAs($this->admin)
             ->postJson('/api/admin/roles', [

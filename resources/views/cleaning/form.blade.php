@@ -1257,13 +1257,15 @@
         const bxAuth = await ensureBxAuth();
         const placementDomain = new URLSearchParams(window.location.search).get('DOMAIN') || '';
         const portalDomain = (bxAuth && bxAuth.domain) || placementDomain;
-        if (!portalDomain) {
+        const accessToken = (bxAuth && bxAuth.access_token) || '';
+        if (!portalDomain || !accessToken) {
             setStatus('err', 'Bitrix authorization is missing. Reopen the form and try again.');
             return;
         }
 
         const formData = new FormData();
         formData.append('auth[domain]', portalDomain);
+        formData.append('auth[access_token]', accessToken);
         formData.append('apartment_id', String(apartment.id));
         formData.append('apartment_title', apartment.title);
         formData.append('unit_id', isCommonArea ? 'common' : String(unitId));

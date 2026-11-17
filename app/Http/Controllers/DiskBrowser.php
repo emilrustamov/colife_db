@@ -375,7 +375,7 @@ class DiskBrowser extends Controller
     {
         abort_if($user === null, 403);
 
-        if ($user->can('directories.view') || $user->can('directory.disk')) {
+        if ($user->can('directory.disk')) {
             return;
         }
 

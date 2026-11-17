@@ -4,24 +4,26 @@
 
 ## Что алертит
 
-**Сразу (в момент ошибки, без ожидания schedule):**
+**Сразу (в момент ошибки):**
 
+- OAuth: refresh упал при живом REST-вызове (`BitrixRest` → тот же текст, что health; dedupe `oauth:{domain}`)
 - Паузы: `BP_WAIT_REJECTED` на `/api/bp/wait` (403 / auth)
 - Паузы: `PauseJob` окончательно упал после retries
-- Collect упал (раз в сутки на ключ): ChatApp AE/HK, Twilio, VDSina, Wazzup, Wikibot, `payments:collect`, Alma
+- Collect упал (раз в сутки на ключ): ChatApp AE/HK, Twilio, VDSina, Wazzup, Wikibot, `payments:collect`, Alma, landlord-finance
 - Bitrix sync упал: `bitrix:sync-contacts`, SPA (`ownerships` / `unit-stays` / …)
-- Schedule: любая scheduled-команда с non-zero exit (`ScheduledTaskFailed`)
+- Disk sync упал / partial failed (`bitrix:sync-disk` / `SyncDiskJob`; dedupe `disk_sync_errors`)
+- Schedule: любая scheduled-команда с non-zero exit (`ScheduledTaskFailed`); skip для sync/collect, у которых свой алерт
+- Cleaning (TR): submit 500, form 403, install не под user 71857 (wrong installer — раз в сутки)
+- Job finally failed (skip `PauseJob` / `SyncDiskJob`) / Horizon long wait
 
-**По расписанию `telegram:health` (каждые 15 мин):**
+**Только опросом `telegram:health` (каждые 15 мин)** — нет события «сломалось», пока сами не проверим:
 
-- Bitrix OAuth (AE / ГК / TR): `refresh_token` мёртв (`invalid_grant`) или отсутствует
-- Disk sync: `ERROR` / `failed > 0` в логах `bitrix_disk` за последние N часов
-- Паузы: overdue/stuck jobs в очереди `bp-pauses`
-- Паузы: свежие `failed_jobs` по `bp-pauses`
-- Storage: каталоги `storage/logs` / `storage/framework*` без `+x` или не writable (тихо чинит `0775`; в TG только если не удалось)
+- OAuth backup: токен уже мёртв, но портал никто не дергал
+- Disk sync: `ERROR` в логах `bitrix_disk` за N часов (если sync не кинул exception)
+- Паузы: overdue/stuck в очереди `bp-pauses` / свежие `failed_jobs`
+- Storage: права на `storage/logs` / framework
 - Supervisor: `horizon` не `RUNNING`
-- Job finally failed / Horizon long wait (мгновенно, с dedupe)
-- HTTP: `APP_URL/up` не отвечает 2xx (nginx/php недоступны снаружи)
+- HTTP: `APP_URL/up` не 2xx
 
 > Важно: если `/api/bp/wait` падает 500 **до** постановки в очередь (как при битых правах на логи), `PauseQueueHealth` молчит — очередь пустая. За это отвечает `StorageHealth`.
 
@@ -77,6 +79,8 @@ Schedule telegram:health (каждые 15 мин)
 | `app/Services/TelegramBot.php` | Bot API |
 | `app/Services/TelegramAlert.php` | dedupe + send |
 | `app/Services/CollectFailureAlert.php` | TG при падении `*:collect` |
+| `app/Services/CleaningAlert.php` | TG при cleaning submit fail / 403 / wrong installer |
+| `app/Services/PauseAlert.php` | TG при wait 403 / PauseJob failed |
 | `app/Services/BitrixOAuthHealth.php` | проверка токенов |
 | `app/Services/DiskSyncHealth.php` | проверка disk логов |
 | `app/Services/PauseQueueHealth.php` | overdue/stuck + failed_jobs пауз |

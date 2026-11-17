@@ -53,6 +53,12 @@ export function activateScenario(state, scenario) {
   if (scenario === 'sharing' && !state.apartmentType) {
     state.apartmentType = 'room';
   }
+  if (scenario === 'non_target' && !state.category) {
+    state.category = 'non_target';
+  }
+  if (scenario === 'short_term' && !state.category) {
+    state.category = 'short_term';
+  }
   return { ok: true, activeScenario: scenario };
 }
 
@@ -80,12 +86,46 @@ export function apartmentTypeFromRooms(type) {
  * @returns {string|null}
  */
 export function resolveApartmentType(state) {
-  if (state.apartmentType) return String(state.apartmentType);
-  if (state.category === 'sharing' || state.activeScenario === 'sharing') return 'room';
+  const sharing = state.category === 'sharing' || state.activeScenario === 'sharing';
+  // Room only wins while we are still on a sharing route.
+  if (state.apartmentType === 'room' && sharing) return 'room';
   if (Array.isArray(state.types) && state.types.length) {
-    return apartmentTypeFromRooms(state.types[0]);
+    const fromTypes = apartmentTypeFromRooms(state.types[0]);
+    if (fromTypes) return fromTypes;
   }
+  if (state.apartmentType === 'room') return 'room';
+  if (state.apartmentType) return String(state.apartmentType);
+  if (sharing) return 'room';
   return null;
+}
+
+/**
+ * @param {string|null|undefined} ddMmYyyy
+ * @returns {Date|null}
+ */
+export function parseDdMmYyyy(ddMmYyyy) {
+  const m = String(ddMmYyyy || '').trim().match(/^(\d{2})-(\d{2})-(\d{4})$/);
+  if (!m) return null;
+  const d = new Date(Number(m[3]), Number(m[2]) - 1, Number(m[1]));
+  return Number.isNaN(d.getTime()) ? null : d;
+}
+
+/**
+ * Move-in on/after POSTPONED_FROM_DATE (env, default 2026-12-10).
+ *
+ * @param {string|null|undefined} ddMmYyyy
+ * @returns {boolean}
+ */
+export function isPostponedMoveIn(ddMmYyyy) {
+  const move = parseDdMmYyyy(ddMmYyyy);
+  if (!move) return false;
+  const raw = String(process.env.POSTPONED_FROM_DATE || '2026-12-10').trim();
+  let from = null;
+  const iso = raw.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  if (iso) from = new Date(Number(iso[1]), Number(iso[2]) - 1, Number(iso[3]));
+  else from = parseDdMmYyyy(raw);
+  if (!from || Number.isNaN(from.getTime())) return false;
+  return move.getTime() >= from.getTime();
 }
 
 /**
@@ -93,21 +133,28 @@ export function resolveApartmentType(state) {
  * @returns {boolean}
  */
 export function looksLikeRoomRequest(text) {
-  return /\b(room|bedspace|bed\s*space|partition|shared\s*room|shared\s*accommodation|co-?living|комнат[аыу]|койк)/i.test(
-    String(text || ''),
-  ) && !/\b(studio|1\s*-?\s*br|2\s*-?\s*br|bedroom\s*apartment|квартир)/i.test(String(text || ''));
+  const t = String(text || '');
+  // Whole apartments ("1 bedroom", "2br") are not sharing — even if "room" appears nearby.
+  if (/\b(?:studio|[1-3]\s*-?\s*br|[1-3]\s*-?\s*bedrooms?|bedroom\s*apartment|квартир)/i.test(t)) {
+    return false;
+  }
+  return /\b(room|bedspace|bed\s*space|partition|master[-\s]?room|shared\s*room|shared\s*accommodation|co-?living|комнат[аыу]|койк)/i.test(t);
 }
 
 /**
+ * Stay duration is short-term — not "move in in N days".
+ *
  * @param {string} text
  * @returns {boolean}
  */
 export function looksLikeShortTerm(text) {
   const t = String(text || '');
   return (
-    /\b(weekly|per\s*week|week\s*option|short[-\s]?term|посуточ|понедельн|на\s*недел)/i.test(t)
+    /\b(weekly|per\s*week|week\s*option|short[-\s]?term|посуточ|понедельн)\b/i.test(t)
+    || /\bна\s+неделю\b/i.test(t)
     || /\bless\s+than\s+a\s+month\b|\bменьше\s+месяца\b|\bподмесяц/i.test(t)
-    || /\b([1-9]|[12]\d)\s*days?\b/i.test(t)
+    || /\b(?:for|на|сроком)\s*([1-9]|[12]\d)\s*(?:days?|дн(?:я|ей|ень)?)\b/i.test(t)
+    || /\b([1-9]|[12]\d)\s*(?:days?|дн(?:я|ей|ень)?)\s*(?:rental|stay|аренд|прожив)/i.test(t)
   );
 }
 
@@ -129,7 +176,7 @@ function formatDdMmYyyy(date) {
 export function stayDurationFromPeriod(period) {
   const p = Number(period);
   if (!Number.isFinite(p) || p <= 0) return null;
-  if (p < 0.5) return '1-14_days';
+  if (p <= 0.5) return '1-14_days';
   if (p < 1) return '15-29_days';
   if (p < 2) return '1_month';
   if (p <= 3) return '2-3_months';
@@ -158,18 +205,31 @@ export function planningFromDays(days) {
  * @returns {void}
  */
 export function enrichStateForLeave(state) {
-  if (!state.apartmentType) state.apartmentType = resolveApartmentType(state);
-  if (!state.stayDuration) state.stayDuration = stayDurationFromPeriod(state.period);
-  if (!state.planningToMove) {
+  const resolvedType = resolveApartmentType(state);
+  if (resolvedType) state.apartmentType = resolvedType;
+  // Prefer period → stay enum over a wrong leave_chat override.
+  if (state.period != null) {
+    const derived = stayDurationFromPeriod(state.period);
+    if (derived) state.stayDuration = derived;
+  } else if (!state.stayDuration) {
+    state.stayDuration = stayDurationFromPeriod(state.period);
+  }
+  if (state.extras?.days_to_checkin != null) {
+    state.planningToMove = planningFromDays(state.extras.days_to_checkin);
+  } else if (!state.planningToMove) {
     state.planningToMove = planningFromDays(state.extras?.days_to_checkin);
   }
   if (!state.savedMoveInDate && state.routingMoveInDate && /^\d{2}-\d{2}-\d{4}$/.test(state.routingMoveInDate)) {
     state.savedMoveInDate = state.routingMoveInDate;
   }
-  if (!state.residents) {
-    if (Array.isArray(state.types) && state.types.length === 0 && state.apartmentType === 'room') {
-      state.residents = state.residents || null;
-    }
+  if (!state.category) {
+    if (state.activeScenario === 'non_target') state.category = 'non_target';
+    else if (state.activeScenario === 'short_term') state.category = 'short_term';
+    else if (state.activeScenario === 'postponed') state.category = 'postponed';
+    else if (state.activeScenario === 'sharing') state.category = 'sharing';
+    else if (state.activeScenario === 'out_of_budget') state.category = 'out_of_budget';
+    else if (state.activeScenario === 'ejari') state.category = 'ejari';
+    else state.category = 'no_information';
   }
   state.extras.leaveSnapshot = {
     budget: state.budget,
@@ -192,9 +252,10 @@ export function hydrateStateFromTranscript(state) {
   const lines = Array.isArray(state.transcript) ? state.transcript : [];
   for (const line of lines) {
     if (!String(line).startsWith('User: ')) continue;
-    hydrateStateFromText(state, String(line).slice(6));
+    const body = String(line).slice(6);
+    if (isRobotOnlyMessage(body)) continue;
+    hydrateStateFromText(state, body);
   }
-  enrichStateForLeave(state);
 }
 
 /**
@@ -206,16 +267,12 @@ export function hydrateStateFromTranscript(state) {
  */
 export function hydrateStateFromText(state, text) {
   const args = extractSearchArgs(text);
-  if (args.price != null && (state.budget == null || !(state.budget > 0))) {
-    state.budget = args.price;
-  }
-  if (args.period != null && (state.period == null || !(state.period > 0))) {
-    state.period = args.period;
-  }
-  if (Array.isArray(args.types) && args.types.length && !state.types.length) {
+  if (args.price != null && args.price > 0) state.budget = args.price;
+  if (args.period != null && args.period > 0) state.period = args.period;
+  if (Array.isArray(args.types) && args.types.length) {
     state.types = args.types.map(Number);
   }
-  if (Array.isArray(args.area) && args.area.length && !state.area.length) {
+  if (Array.isArray(args.area) && args.area.length) {
     state.area = args.area.map(String);
   }
   if (args.guests != null && !state.residents) {
@@ -231,30 +288,31 @@ export function hydrateStateFromText(state, text) {
   }
   if (args.days_to_checkin != null) {
     state.extras.days_to_checkin = args.days_to_checkin;
-    if (!state.planningToMove) {
-      state.planningToMove = planningFromDays(args.days_to_checkin);
-    }
-    if (!state.routingMoveInDate) {
-      const d = new Date();
-      d.setHours(0, 0, 0, 0);
-      d.setDate(d.getDate() + Number(args.days_to_checkin));
-      state.routingMoveInDate = formatDdMmYyyy(d);
-      state.savedMoveInDate = state.savedMoveInDate || state.routingMoveInDate;
-    }
+    state.planningToMove = planningFromDays(args.days_to_checkin);
+    const d = new Date();
+    d.setHours(0, 0, 0, 0);
+    d.setDate(d.getDate() + Number(args.days_to_checkin));
+    state.routingMoveInDate = formatDdMmYyyy(d);
+    state.savedMoveInDate = state.routingMoveInDate;
   }
-  if (looksLikeRoomRequest(text) && !state.apartmentType) {
+  if (looksLikeRoomRequest(text)) {
     state.apartmentType = 'room';
-  }
-  if (!state.apartmentType) {
-    state.apartmentType = resolveApartmentType(state);
-  }
-  if (looksLikeShortTerm(text) && (state.period == null || state.period >= 1)) {
-    if (/\bless\s+than\s+a\s+month\b|\bweekly\b|\b\d+\s*days?\b/i.test(text)) {
-      state.period = state.period != null && state.period < 1 ? state.period : 0.5;
+    state.types = [];
+  } else if (Array.isArray(args.types) && args.types.length) {
+    state.apartmentType = apartmentTypeFromRooms(args.types[0]);
+    // Whole apartment after sharing: leave the sharing route.
+    if (
+      state.activeScenario === 'sharing'
+      && state.apartmentType
+      && state.apartmentType !== 'room'
+    ) {
+      activateScenario(state, null);
+      if (state.category === 'sharing') state.category = null;
     }
   }
-  if (state.period == null && args.days_to_checkin != null && args.days_to_checkin <= 29 && /\bday/i.test(text)) {
-    state.period = args.days_to_checkin / 30;
+
+  if (looksLikeShortTerm(text) && (state.period == null || state.period >= 1)) {
+    state.period = 0.5;
   }
 
   if (!state.activeScenario) {
@@ -262,8 +320,10 @@ export function hydrateStateFromText(state, text) {
       activateScenario(state, 'sharing');
     } else if (looksLikeShortTerm(text)) {
       activateScenario(state, 'short_term');
-    } else if ((args.days_to_checkin != null && args.days_to_checkin <= 1) || extractDaysToCheckin(text) === 1) {
+    } else if (args.days_to_checkin != null && args.days_to_checkin <= 1) {
       activateScenario(state, 'urgent_move_in');
+    } else if (isPostponedMoveIn(state.routingMoveInDate)) {
+      activateScenario(state, 'postponed');
     }
   }
 }
@@ -279,8 +339,7 @@ export function clarifyFallback(state) {
   const hasMove = Boolean(
     state.routingMoveInDate
     || state.savedMoveInDate
-    || state.extras?.days_to_checkin != null
-    || state.planningToMove,
+    || state.extras?.days_to_checkin != null,
   );
   const hasPeriod = state.period != null && Number(state.period) > 0;
   const hasType = Boolean(state.apartmentType || (state.types && state.types.length));
@@ -340,10 +399,27 @@ export function looksLikeRobotTemplate(text) {
 export function extractUnitNumber(text) {
   const t = String(text || '');
   const m =
-    t.match(/\bunit\s+(\d+(?:[./-]\d+[a-zA-Z]?)*)\b/i) ||
-    t.match(/\b(?:юнит|unit)\s*[#:]?\s*(\d+(?:[./-]\d+[a-zA-Z]?)*)\b/i) ||
-    t.match(/\b(\d{1,4}\.\d{1,3})\b/);
+    t.match(/\b(?:unit|юнит)\s*[#:]?\s*(\d+(?:[./-]\d+[a-zA-Z]?)*)\b/i)
+    || t.match(/\b(\d{1,4}\.\d{1,3})\b/);
   return m ? m[1] : null;
+}
+
+/**
+ * Free client text after stripping robot-template boilerplate.
+ *
+ * @param {string} text
+ * @returns {string}
+ */
+export function freeClientText(text) {
+  return String(text || '')
+    .replace(/\[B\]Отправлено роботом\[\/B\]/gi, '')
+    .replace(/Отправлено роботом/gi, '')
+    .replace(/Sent by a robot/gi, '')
+    .replace(/\|?\s*\[(?:Yes|No(?:,\s*thanks)?|Да|Нет)\]\s*/gi, ' ')
+    .replace(/Hello,[\s\S]*?continue processing it\.?/gi, ' ')
+    .replace(/Здравствуйте![\s\S]*?статус\.?/gi, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
 }
 
 /**
@@ -354,18 +430,24 @@ export function extractUnitNumber(text) {
  */
 export function isRobotOnlyMessage(text) {
   if (!looksLikeRobotTemplate(text)) return false;
-  let rest = String(text || '')
-    .replace(/\[B\]Отправлено роботом\[\/B\]/gi, '')
-    .replace(/Sent by a robot/gi, '')
-    .replace(/\|?\s*\[(?:Yes|No(?:,\s*thanks)?|Да|Нет)\]\s*/gi, ' ')
-    .replace(/Hello,[\s\S]*?continue processing it\.?/gi, ' ')
-    .replace(/Здравствуйте![\s\S]*?статус\.?/gi, ' ')
-    .replace(/\s+/g, ' ')
-    .trim();
+  const rest = freeClientText(text);
   if (!rest) return true;
   if (/^(yes|no|no[, ]?thanks|да|нет)$/i.test(rest)) return false;
   if (extractUnitNumber(rest) && rest.length < 40) return true;
   return rest.length < 8;
+}
+
+/**
+ * Text used for reply-language detection (ignore robot RU wrappers).
+ *
+ * @param {string} text
+ * @returns {string|null} null → keep previous language
+ */
+export function languageSourceText(text) {
+  if (!looksLikeRobotTemplate(text)) return String(text || '');
+  const rest = freeClientText(text);
+  if (!rest) return null;
+  return rest;
 }
 
 /**
@@ -415,4 +497,39 @@ export function sanitizeClientText(text) {
   }
   out = out.replace(/\n{3,}/g, '\n\n');
   return out.trim();
+}
+
+/**
+ * True when client-facing text is clearly the wrong language.
+ *
+ * @param {string} text
+ * @param {'en'|'ru'|string|null|undefined} language
+ * @returns {boolean}
+ */
+export function replyLanguageMismatch(text, language) {
+  const t = String(text || '');
+  if (!t || !language) return false;
+  const cyr = (t.match(/[а-яё]/gi) || []).length;
+  const lat = (t.match(/[a-z]/gi) || []).length;
+  if (cyr + lat < 12) return false;
+  if (language === 'en') return cyr > lat * 2;
+  if (language === 'ru') return lat > cyr * 2;
+  return false;
+}
+
+/**
+ * Drop re-intro fluff after the bot already greeted.
+ *
+ * @param {string} text
+ * @param {boolean} introduced
+ * @returns {string}
+ */
+export function stripReIntro(text, introduced) {
+  if (!introduced) return String(text || '');
+  return String(text || '')
+    .replace(
+      /^(?:hello|hi|hey|здравствуйте|добрый\s+день)[!.]?\s*(?:this is|i'?m|i am|это(?:\s+менеджер)?)[\s\S]{0,120}?(?:\n+|$)/i,
+      '',
+    )
+    .trim();
 }

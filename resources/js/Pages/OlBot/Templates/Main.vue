@@ -5,6 +5,7 @@ import OlBotLayout from '../OlBotLayout.vue';
 import { useOlBotI18n } from '../composables/useOlBotI18n';
 import FunctionsPicker from './components/FunctionsPicker.vue';
 import InstructionEditor from './components/InstructionEditor.vue';
+import ModelPicker from './components/ModelPicker.vue';
 import TemplatesSubnav from './components/TemplatesSubnav.vue';
 import VersionHistory from './components/VersionHistory.vue';
 
@@ -12,6 +13,10 @@ const props = defineProps({
     scope: { type: Object, required: true },
     toolCatalog: { type: Array, default: () => [] },
     history: { type: Array, default: () => [] },
+    aiModels: { type: Array, default: () => [] },
+    aiModel: { type: String, default: '' },
+    aiModelsOk: { type: Boolean, default: true },
+    aiModelsError: { type: String, default: null },
 });
 
 const page = usePage();
@@ -34,11 +39,19 @@ const keyHistory = computed(() =>
 
         <TemplatesSubnav section="main" />
 
-        <div class="flex flex-wrap items-center gap-2">
-            <h2 class="text-base font-semibold text-ink">{{ t('navMain') }}</h2>
-            <span class="rounded-full bg-ink-muted/10 px-2.5 py-1 text-xs font-medium text-ink-muted">
-                {{ t('functionsCount') }} {{ scope.functions_count || 0 }}
-            </span>
+        <div class="flex flex-wrap items-center justify-between gap-3">
+            <div class="flex flex-wrap items-center gap-2">
+                <h2 class="text-base font-semibold text-ink">{{ t('navMain') }}</h2>
+                <span class="rounded-full bg-ink-muted/10 px-2.5 py-1 text-xs font-medium text-ink-muted">
+                    {{ t('functionsCount') }} {{ scope.functions_count || 0 }}
+                </span>
+            </div>
+            <ModelPicker
+                :models="aiModels"
+                :active="aiModel"
+                :ok="aiModelsOk"
+                :error="aiModelsError"
+            />
         </div>
 
         <InstructionEditor

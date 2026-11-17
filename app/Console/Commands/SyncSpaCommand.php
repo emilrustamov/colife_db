@@ -32,10 +32,10 @@ class SyncSpaCommand extends Command
      */
     public function handle(
         BitrixListSync $listSync,
-        BitrixRest $bitrixRestClient,
+        BitrixRest $bitrix,
         BitrixStages $stages,
         BitrixSync $syncContext,
-        CollectFailureAlert $collectFailureAlert,
+        CollectFailureAlert $alerts,
     ): int {
         $entity = strtolower(trim((string) $this->argument('entity')));
         $config = $this->entityConfig($entity);
@@ -51,7 +51,7 @@ class SyncSpaCommand extends Command
         try {
             if ($this->option('sync-stages') !== '0') {
                 $syncedStages = $stages->sync(
-                    $bitrixRestClient,
+                    $bitrix,
                     $config['entity_type_id'],
                     $config['stage_key'],
                     $config['stage_label'],
@@ -101,7 +101,7 @@ class SyncSpaCommand extends Command
 
             return self::SUCCESS;
         } catch (Throwable $e) {
-            $collectFailureAlert->notify(
+            $alerts->notify(
                 'bitrix_sync_spa_failed:'.$config['entity_key'],
                 '📇',
                 'Sync '.$config['entity_key'].' failed',
@@ -130,6 +130,8 @@ class SyncSpaCommand extends Command
      */
     private function entityConfig(string $entity): ?array
     {
+        $portalId = Portal::idByCode('ae');
+
         return match ($entity) {
             'apartments' => [
                 'label' => 'Bitrix apartments',
@@ -138,19 +140,8 @@ class SyncSpaCommand extends Command
                 'stage_key' => 'apartment',
                 'stage_label' => 'Apartments',
                 'model' => Apartment::class,
-                'select' => [
-                    'id', 'title', 'stageId', 'contactId', 'createdTime', 'updatedTime',
-                    'ufCrm6_1682232363193', 'ufCrm6_1707234311507', 'ufCrm6_1718821717',
-                    'ufCrm6_1682232863625', 'ufCrm6_1682233481671', 'ufCrm6_1682232312628',
-                    'ufCrm6_1682238902770', 'ufCrm6_1689258811986', 'ufCrm6Adresslink',
-                    'ufCrm6_1697722222483', 'ufCrm6_1724248916', 'ufCrm6_1724247642',
-                    'ufCrm6_1682235809295', 'ufCrm6_1686728251990', 'ufCrm6_1715776920',
-                    'ufCrm6_1715777017', 'ufCrm6_1715777650', 'ufCrm6_1715777670',
-                    'ufCrm6_1720794204', 'ufCrm6_1721897304', 'ufCrm6_1736951470242',
-                    'ufCrm6_1753278068179', 'ufCrm6_1682238927645', 'ufCrm6_1683299159437',
-                    'ufCrm6_1785314487770',
-                ],
-                'portal_id' => Portal::idByCode('ae'),
+                'select' => ApartmentProfile::select(),
+                'portal_id' => $portalId,
                 'force_upsert' => true,
             ],
             'units' => [
@@ -160,11 +151,8 @@ class SyncSpaCommand extends Command
                 'stage_key' => 'unit',
                 'stage_label' => 'Units',
                 'model' => Unit::class,
-                'select' => [
-                    'id', 'title', 'stageId', 'createdTime', 'updatedTime',
-                    'ufCrm8_1684429208', 'ufCrm8_1698838056004', 'ufCrm6_1707234311507',
-                ],
-                'portal_id' => Portal::idByCode('ae'),
+                'select' => UnitProfile::select(),
+                'portal_id' => $portalId,
                 'force_upsert' => true,
             ],
             'apartment-ownerships', 'ownerships' => [
@@ -174,13 +162,8 @@ class SyncSpaCommand extends Command
                 'stage_key' => 'apartment_ownership',
                 'stage_label' => 'Apartment ownerships',
                 'model' => ApartmentOwnership::class,
-                'select' => [
-                    'id', 'title', 'stageId', 'createdTime', 'updatedTime', 'parentId144',
-                    'ufCrm10_1693823301', 'ufCrm10_1693823247516', 'ufCrm10_1693823282826',
-                    'ufCrm10_1708956056', 'ufCrm10_1708955996', 'ufCrm10_1714652654',
-                    'ufCrm10_1714652687', 'ufCrm10TerminationDate', 'ufCrm10_1727422412',
-                ],
-                'portal_id' => Portal::idByCode('ae'),
+                'select' => OwnershipProfile::select(),
+                'portal_id' => $portalId,
                 'force_upsert' => false,
             ],
             'unit-stays', 'stays' => [
@@ -190,16 +173,8 @@ class SyncSpaCommand extends Command
                 'stage_key' => 'unit_stay',
                 'stage_label' => 'Unit stays',
                 'model' => UnitStay::class,
-                'select' => [
-                    'id', 'title', 'stageId', 'createdTime', 'updatedTime', 'contactId',
-                    'opportunity', 'currencyId', 'parentId2', 'parentId167',
-                    'ufCrm20_1693919019', 'ufCrm20_1700215654', 'ufCrm20Deal',
-                    'ufCrm20_1693561495', 'ufCrm20TypeOfDeal', 'ufCrm20TypeOfPayment',
-                    'ufCrm20_1744800159', 'ufCrm20_1744800193', 'ufCrm20HowManyMonths',
-                    'ufCrm20RentalPrice', 'ufCrm20Deposit', 'ufCrm20TotalContractAmount',
-                    'ufCrm20_1696523391', 'ufCrm20ContractStartDate', 'ufCrm20ContractEndDate',
-                ],
-                'portal_id' => Portal::idByCode('ae'),
+                'select' => UnitStayProfile::select(),
+                'portal_id' => $portalId,
                 'force_upsert' => false,
             ],
             default => null,

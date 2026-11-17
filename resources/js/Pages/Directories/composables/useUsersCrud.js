@@ -2,6 +2,8 @@ import { ref } from 'vue';
 
 export const useUsersCrud = ({
     canManageUsers,
+    canEditUsers,
+    canDeleteUsers,
     currentUserId,
     rowPrimaryKey,
     fetchRows,
@@ -10,19 +12,22 @@ export const useUsersCrud = ({
 }) => {
     const userModalOpen = ref(false);
     const editingUserId = ref(null);
-    const userForm = ref({ name: '', email: '', password: '', role_ids: [] });
+    const userForm = ref({ name: '', email: '', password: '', role_id: null });
     const roleOptions = ref([]);
     const userAdminError = ref('');
     const userAdminSaving = ref(false);
 
+    const canAccessUsersAdmin = () =>
+        canManageUsers.value || canEditUsers.value || canDeleteUsers.value;
+
     const resetUserForm = () => {
         editingUserId.value = null;
-        userForm.value = { name: '', email: '', password: '', role_ids: [] };
+        userForm.value = { name: '', email: '', password: '', role_id: null };
         userAdminError.value = '';
     };
 
     const loadUserRoleOptions = async () => {
-        if (!canManageUsers.value) {
+        if (!canAccessUsersAdmin()) {
             return;
         }
 
@@ -35,24 +40,21 @@ export const useUsersCrud = ({
     };
 
     const openCreateUserModal = async () => {
+        if (!canManageUsers.value) {
+            return;
+        }
+
         resetUserForm();
         await loadUserRoleOptions();
         userModalOpen.value = true;
     };
 
-    const toggleUserRole = (roleId) => {
-        const ids = [...userForm.value.role_ids];
-        const idx = ids.indexOf(roleId);
-        if (idx === -1) {
-            ids.push(roleId);
-        } else {
-            ids.splice(idx, 1);
-        }
-        userForm.value.role_ids = ids;
+    const setUserRole = (roleId) => {
+        userForm.value.role_id = roleId;
     };
 
     const openEditUserModal = async (row) => {
-        if (!canManageUsers.value) {
+        if (!canEditUsers.value) {
             return;
         }
 
@@ -72,7 +74,7 @@ export const useUsersCrud = ({
                 name: user.name ?? '',
                 email: user.email ?? '',
                 password: '',
-                role_ids: Array.isArray(user.roles) ? user.roles.map((r) => r.id) : [],
+                role_id: Array.isArray(user.roles) && user.roles.length > 0 ? user.roles[0].id : null,
             };
             userModalOpen.value = true;
         } catch {
@@ -86,6 +88,14 @@ export const useUsersCrud = ({
     };
 
     const submitUser = async () => {
+        if (editingUserId.value && !canEditUsers.value) {
+            return;
+        }
+
+        if (!editingUserId.value && !canManageUsers.value) {
+            return;
+        }
+
         userAdminSaving.value = true;
         userAdminError.value = '';
 
@@ -94,7 +104,7 @@ export const useUsersCrud = ({
                 const payload = {
                     name: userForm.value.name,
                     email: userForm.value.email,
-                    role_ids: userForm.value.role_ids,
+                    role_id: userForm.value.role_id,
                 };
                 if (userForm.value.password) {
                     payload.password = userForm.value.password;
@@ -105,7 +115,7 @@ export const useUsersCrud = ({
                     name: userForm.value.name,
                     email: userForm.value.email,
                     password: userForm.value.password,
-                    role_ids: userForm.value.role_ids,
+                    role_id: userForm.value.role_id,
                 });
             }
 
@@ -121,7 +131,7 @@ export const useUsersCrud = ({
     };
 
     const deleteUserFromModal = async () => {
-        if (!editingUserId.value || editingUserId.value === currentUserId.value) {
+        if (!editingUserId.value || editingUserId.value === currentUserId.value || !canDeleteUsers.value) {
             return;
         }
 
@@ -153,7 +163,7 @@ export const useUsersCrud = ({
         openCreateUserModal,
         openEditUserModal,
         closeUserModal,
-        toggleUserRole,
+        setUserRole,
         submitUser,
         deleteUserFromModal,
     };
