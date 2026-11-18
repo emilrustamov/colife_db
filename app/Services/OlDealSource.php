@@ -83,6 +83,60 @@ class OlDealSource
             );
         }
 
+        $this->applyMatchedRule($domain, $dealId, $text, $rule, $chatId);
+    }
+
+    /**
+     * Match first-message text against configured OL source rules.
+     *
+     * @return array{name: string, source_id: string|null, promo_value: int|string|null, category_id: int, patterns: list<string>}|null
+     */
+    public function matchTextRule(string $text, int $lineId): ?array
+    {
+        $text = trim($text);
+        if ($text === '' || $lineId <= 0) {
+            return null;
+        }
+
+        return $this->matchRule($text, $lineId);
+    }
+
+    /**
+     * Match first-message text against rules and apply SOURCE_ID / promo to an existing deal.
+     *
+     * @return string applied|no_match|skip_category|skip_stage|skip_flag
+     */
+    public function applyTextToDeal(string $domain, int $dealId, string $text, int $lineId): string
+    {
+        $domain = $this->oauth->normalizeDomain($domain);
+        $rule = $this->matchTextRule($text, $lineId);
+        if ($rule === null || $dealId <= 0) {
+            return 'no_match';
+        }
+
+        return $this->applyMatchedRule($domain, $dealId, trim($text), $rule, 0);
+    }
+
+    /**
+     * Whether SOURCE_ID looks like an auto OL connector value (safe to overwrite).
+     */
+    public function isConnectorSourceId(string $sourceId): bool
+    {
+        return $this->isConnectorSource($sourceId);
+    }
+
+    /**
+     * @param  array{name: string, source_id: string|null, promo_value: int|string|null, category_id: int, patterns: list<string>}  $rule
+     * @return string applied|skip_category|skip_stage|skip_flag
+     */
+    private function applyMatchedRule(
+        string $domain,
+        int $dealId,
+        string $text,
+        array $rule,
+        int $chatId
+    ): string {
+        $logger = Log::channel('bitrix_open_lines');
         $ufFlag = (string) config('open_lines_source.uf_flag');
         $ufValue = (string) config('open_lines_source.uf_flag_value', 'Y');
         $categoryId = (int) $rule['category_id'];
@@ -97,7 +151,7 @@ class OlDealSource
                 'rule' => $rule['name'],
             ]);
 
-            return;
+            return 'skip_category';
         }
 
         $stageSemantic = strtoupper(trim((string) ($fields['STAGE_SEMANTIC_ID'] ?? '')));
@@ -116,14 +170,14 @@ class OlDealSource
                 'stage_semantic' => $stageSemantic !== '' ? $stageSemantic : null,
             ]);
 
-            return;
+            return 'skip_stage';
         }
 
         $existingFlag = trim((string) ($fields[$ufFlag] ?? ''));
         if ($existingFlag !== '') {
             $logger->info('OL_SOURCE_SKIP_FLAG', ['deal_id' => $dealId]);
 
-            return;
+            return 'skip_flag';
         }
 
         $updateFields = [
@@ -197,6 +251,8 @@ class OlDealSource
                 'promo_changed' => $promoChanged,
                 'chat_id' => $chatId,
             ]);
+
+            return 'applied';
         } catch (Throwable $e) {
             $logger->error('OL_SOURCE_UPDATE_FAILED', [
                 'deal_id' => $dealId,

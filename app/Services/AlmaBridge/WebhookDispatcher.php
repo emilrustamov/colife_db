@@ -2,8 +2,6 @@
 
 namespace App\Services\AlmaBridge;
 
-use InvalidArgumentException;
-
 class WebhookDispatcher
 {
     public function __construct(
@@ -54,8 +52,20 @@ class WebhookDispatcher
             ]);
         }
 
-        throw new InvalidArgumentException(
-            'Unsupported Alma bridge entityTypeId='.(string) $entityTypeId.' project='.$projectName
-        );
+        // Legacy /var/www/alma/index.php silently ignored unknown SPA types
+        // (ONCRMTYPEADD noise, unrelated dynamics). Keep the same behavior.
+        BridgeSupport::log()->info('Webhook skipped: unsupported entity type', [
+            'id' => $id,
+            'entity_type_id' => $entityTypeId,
+            'project' => $projectName,
+            'event' => $eventName,
+        ]);
+
+        return [
+            'skipped' => true,
+            'reason' => 'unsupported_entity_type',
+            'entity_type_id' => $entityTypeId,
+            'project' => $projectName,
+        ];
     }
 }

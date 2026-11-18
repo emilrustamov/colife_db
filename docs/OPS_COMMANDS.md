@@ -21,6 +21,11 @@ Redis UI: `/redis-ui/` (Redis Commander, basic auth; процесс `redis-comma
 | `telegram:setup` | Разовая настройка webhook бота |
 | `alma-bridge:upsert` | Ручной upsert сущности Bridge |
 | `bitrix:sync-spa {entity}` | Общий SPA-sync (`apartments`, `units`, `apartment-ownerships`, `unit-stays`); старые `bitrix:sync-*` — aliases |
+| `prices:calculate` | Пересчёт `price_monthly_reports` (обычно в schedule после `bitrix:sync-unit-stays`; вручную после сверки / cutover) |
+
+## Prices
+
+Cutover выполнен: nginx/`prices:calculate` на colife_db, `/var/www/prices` удалён, домен `prices.colifeb24apps.com`. См. [PRICES.md](PRICES.md).
 
 ## Identifiers
 

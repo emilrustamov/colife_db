@@ -44,6 +44,17 @@ class AppServiceProvider extends ServiceProvider
             return Limit::perMinute(120)->by($request->ip());
         });
 
+        RateLimiter::for('prices-api', function (Request $request) {
+            $action = (string) $request->query('action', '');
+            $by = $request->ip() ?: 'unknown';
+
+            return match ($action) {
+                'export' => Limit::perMinute(6)->by('prices-export:'.$by),
+                'report' => Limit::perMinute(30)->by('prices-report:'.$by),
+                default => Limit::perMinute(60)->by('prices-api:'.$by),
+            };
+        });
+
         Gate::before(function ($user, ?string $ability) {
             if ($user instanceof User && $user->is_superadmin) {
                 return true;

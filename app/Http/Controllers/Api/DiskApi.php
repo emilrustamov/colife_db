@@ -95,7 +95,7 @@ class DiskApi extends Controller
     }
 
     /**
-     * Authorize Bitrix URL calls via X-Api-Key header only.
+     * Authorize Bitrix URL/outbound webhook calls via X-Api-Key header or key query/body.
      */
     private function pullOk(Request $request): bool
     {
@@ -105,6 +105,12 @@ class DiskApi extends Controller
         }
 
         $provided = (string) $request->header('X-Api-Key', '');
+        if ($provided === '') {
+            $provided = (string) $request->input('key', '');
+        }
+        if ($provided === '') {
+            $provided = (string) $request->input('api_key', '');
+        }
         if ($provided === '') {
             return false;
         }

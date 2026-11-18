@@ -4,6 +4,7 @@ use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
 use Illuminate\Foundation\Configuration\Middleware;
 use App\Http\Middleware\DirectoriesAccess;
+use App\Http\Middleware\EnsureEmailIsVerified;
 use App\Http\Middleware\InertiaShare;
 use App\Http\Middleware\ApiKey;
 use Spatie\Permission\Middleware\PermissionMiddleware;
@@ -28,6 +29,7 @@ return Application::configure(basePath: dirname(__DIR__))
             'role_or_permission' => RoleOrPermissionMiddleware::class,
             'directories.module' => DirectoriesAccess::class,
             'api.key' => ApiKey::class,
+            'verified' => EnsureEmailIsVerified::class,
         ]);
     })
     ->withExceptions(function (Exceptions $exceptions): void {

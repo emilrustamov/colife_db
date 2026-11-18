@@ -60,7 +60,7 @@ class UserAdmin extends Controller
 
         $user = User::query()->create([
             'name' => $validated['name'],
-            'email' => $validated['email'],
+            'email' => mb_strtolower(trim($validated['email'])),
             'password' => $validated['password'],
         ]);
 
@@ -111,8 +111,15 @@ class UserAdmin extends Controller
         $user->load('roles:id,name');
         $before = AdminActivity::userSnapshot($user);
 
+        $newEmail = mb_strtolower(trim($validated['email']));
+        $emailChanged = $user->email !== $newEmail;
+
         $user->name = $validated['name'];
-        $user->email = $validated['email'];
+        $user->email = $newEmail;
+
+        if ($emailChanged) {
+            $user->email_verified_at = null;
+        }
 
         if (! empty($validated['password'])) {
             $user->password = $validated['password'];

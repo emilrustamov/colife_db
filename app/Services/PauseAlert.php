@@ -16,17 +16,22 @@ class PauseAlert
     public function waitRejected(?string $domain, ?string $workflowId = null): void
     {
         $domain = $this->oauth->normalizeDomain((string) $domain);
+        // Empty domain = probe/noise (curl, scanners), not a real Bitrix wait.
+        if ($domain === '') {
+            return;
+        }
+
         $detail = 'Bitrix шлёт wait, сервер отвечает 403 — BP зависают на паузе.';
         if ($workflowId !== null && $workflowId !== '') {
             $detail .= ' wf='.$workflowId;
         }
 
         $this->alerts->notifyOnce(
-            'pause_wait_rejected:'.($domain !== '' ? $domain : 'unknown'),
+            'pause_wait_rejected:'.$domain,
             $this->text->message(
                 '⏸️',
                 'Паузы: wait отклонён',
-                $domain !== '' ? $domain : null,
+                $domain,
                 $detail,
             ),
             $this->alerts->instantTtl(),

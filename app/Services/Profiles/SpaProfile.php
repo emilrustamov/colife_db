@@ -99,6 +99,19 @@ abstract class SpaProfile implements EntityProfile
     }
 
     /**
+     * Columns needed for freshness skip and activity old_values snapshot.
+     *
+     * @return list<string>
+     */
+    protected function existingSelectColumns(): array
+    {
+        return array_values(array_unique(array_merge(
+            ['id', 'bitrix_updated_at'],
+            $this->logKeys(),
+        )));
+    }
+
+    /**
      * @param  list<array<string, mixed>>  $items
      * @return array{processed:int, created:int, updated:int, successful:int, skipped:int, failed:int, failed_ids:list<int|string>}
      */
@@ -128,7 +141,7 @@ abstract class SpaProfile implements EntityProfile
         $existing = $modelClass::query()
             ->where('portal_id', $portalId)
             ->whereIn('bitrix_id', $incomingIds)
-            ->get(['id', 'bitrix_id', 'bitrix_updated_at']);
+            ->get($this->existingSelectColumns());
         $existingById = $existing->keyBy(static fn (Model $row): int => (int) $row->getAttribute('bitrix_id'));
 
         $context = $this->context();

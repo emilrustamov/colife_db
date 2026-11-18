@@ -272,9 +272,17 @@ return [
         'bot_token' => env('TELEGRAM_BOT_TOKEN'),
         'chat_id' => env('TELEGRAM_CHAT_ID'),
         'disk_lookback_hours' => (int) env('TELEGRAM_DISK_LOOKBACK_HOURS', 6),
+        'disk_stale_days' => (int) env('TELEGRAM_DISK_STALE_DAYS', 3),
         'pause_failed_lookback_hours' => (int) env('TELEGRAM_PAUSE_FAILED_LOOKBACK_HOURS', 6),
         'dedupe_ttl' => (int) env('TELEGRAM_ALERT_DEDUPE_TTL', 86400),
         'instant_dedupe_ttl' => (int) env('TELEGRAM_INSTANT_DEDUPE_TTL', 3600),
+    ],
+
+    'prices' => [
+        'domain' => 'prices.colifeb24apps.com',
+        'contract_url' => 'https://colifeae.bitrix24.eu/page/register_of_documents/register_of_tenants_documents/type/183/details/',
+        'cache_ttl' => 300,
+        'export_max_years' => 5,
     ],
 
 ];

@@ -3,6 +3,7 @@
 namespace App\Services\Profiles;
 
 use App\Models\Apartment;
+use App\Models\District;
 use App\Support\BitrixEnums;
 use App\Support\BitrixValue;
 use App\Support\EntityMap;
@@ -29,7 +30,7 @@ class ApartmentProfile extends SpaProfile
             'ufCrm6_1715777017', 'ufCrm6_1715777650', 'ufCrm6_1715777670',
             'ufCrm6_1720794204', 'ufCrm6_1721897304', 'ufCrm6_1736951470242',
             'ufCrm6_1753278068179', 'ufCrm6_1682238927645', 'ufCrm6_1683299159437',
-            'ufCrm6_1785314487770',
+            'ufCrm6_1785314487770', 'ufCrm6District',
         ];
     }
 
@@ -74,6 +75,7 @@ class ApartmentProfile extends SpaProfile
             'apartment_type_id',
             'internal_number',
             'address',
+            'district_id',
             'property_mode',
             'rental_type',
             'status',
@@ -165,6 +167,7 @@ class ApartmentProfile extends SpaProfile
             'apartment_type_id' => $typeEnumId > 0 ? ($typeIds[$typeEnumId] ?? null) : null,
             'internal_number' => BitrixValue::str($item['ufCrm6_1707234311507'] ?? null),
             'address' => BitrixValue::str($item['ufCrm6_1718821717'] ?? null),
+            ...$this->districtFields($item['ufCrm6District'] ?? null),
             'property_mode' => $this->mapMode($modeLabel),
             'rental_type' => $this->mapRental($rentalLabel),
             'status' => 'free',
@@ -210,6 +213,16 @@ class ApartmentProfile extends SpaProfile
                 return [$name => (string) $row->id];
             })
             ->all();
+    }
+
+    /**
+     * @return array{district_id: ?int}
+     */
+    private function districtFields(mixed $raw): array
+    {
+        return [
+            'district_id' => District::resolveFromBitrix($raw)?->id,
+        ];
     }
 
     private function textKey(string $value): string

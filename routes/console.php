@@ -7,6 +7,7 @@ Schedule::command('bitrix:sync-landlords')->dailyAt('23:25')->withoutOverlapping
 Schedule::command('bitrix:sync-units')->dailyAt('23:30')->withoutOverlapping(120);
 Schedule::command('bitrix:sync-apartment-ownerships')->dailyAt('23:35')->withoutOverlapping(120);
 Schedule::command('bitrix:sync-unit-stays')->dailyAt('23:38')->withoutOverlapping(120);
+Schedule::command('prices:calculate')->dailyAt('23:42')->withoutOverlapping(120);
 Schedule::command('bitrix:sync-units-snapshot')->dailyAt('23:40')->withoutOverlapping(60);
 Schedule::command('bitrix:sync-utilities')->dailyAt('23:45')->withoutOverlapping(60);
 Schedule::command('bitrix:sync-contacts')->dailyAt('23:50')->withoutOverlapping(240);
@@ -51,7 +52,7 @@ Schedule::command('payments:collect')
     ->timezone('Europe/Moscow');
 
 Schedule::command('alma:collect')
-    ->everyTwoHours()
+    ->twiceDaily(1, 13)
     ->timezone('Europe/Moscow');
 
 Schedule::command('landlord-finance:collect')

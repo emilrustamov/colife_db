@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Services\AuthEmailCode;
 use App\Support\AdminMenu;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -11,18 +12,12 @@ use Inertia\Response;
 
 class AuthController extends Controller
 {
-    /**
-     * Show login page.
-     */
     public function create(): Response
     {
         return Inertia::render('Auth/Login');
     }
 
-    /**
-     * Authenticate user.
-     */
-    public function store(Request $request): RedirectResponse
+    public function store(Request $request, AuthEmailCode $codes): RedirectResponse
     {
         $credentials = $request->validate([
             'email' => ['required', 'email'],
@@ -30,7 +25,7 @@ class AuthController extends Controller
             'remember' => ['nullable', 'boolean'],
         ]);
 
-        if (!Auth::attempt([
+        if (! Auth::attempt([
             'email' => $credentials['email'],
             'password' => $credentials['password'],
         ], (bool) ($credentials['remember'] ?? false))) {
@@ -41,12 +36,18 @@ class AuthController extends Controller
 
         $request->session()->regenerate();
 
-        return redirect()->intended(AdminMenu::homeUrl($request->user()));
+        $user = $request->user();
+        if ($user->email_verified_at === null) {
+            $codes->send($user->email, AuthEmailCode::PURPOSE_EMAIL_VERIFY);
+
+            return redirect()
+                ->route('email.verify')
+                ->with('status', 'Мы отправили код подтверждения на '.$user->email);
+        }
+
+        return redirect()->intended(AdminMenu::homeUrl($user));
     }
 
-    /**
-     * Logout current user.
-     */
     public function destroy(Request $request): RedirectResponse
     {
         Auth::logout();

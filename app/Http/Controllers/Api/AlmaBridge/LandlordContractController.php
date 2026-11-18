@@ -31,4 +31,12 @@ class LandlordContractController extends Controller
             $bitrixId
         );
     }
+
+    /**
+     * Upsert landlord contract (create / update) — Postman/legacy LandlordContractApi.php.
+     */
+    public function upsert(Request $request, LandlordContractService $contracts): JsonResponse
+    {
+        return $this->runBridge($request, fn (string $id, string $project) => $contracts->upsert($id, $project));
+    }
 }

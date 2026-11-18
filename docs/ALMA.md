@@ -16,7 +16,7 @@
 ## Flow
 
 ```
-Schedule alma:collect (every 2 hours, Europe/Moscow)
+Schedule alma:collect (twice daily 01:00 and 13:00 Europe/Moscow)
   → AlmaCollectCmd
   → CollectAlmaContacts
   → AlmaApi (GET users/clients/)

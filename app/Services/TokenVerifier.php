@@ -61,14 +61,14 @@ class TokenVerifier
             return [false, $channel];
         }
 
-        $dedicated = trim((string) config('services.bitrix.open_lines_application_token', ''));
-        if ($dedicated === '') {
+        $expected = trim((string) config('services.bitrix.open_lines_application_token', ''));
+        if ($expected === '') {
             Log::channel($channel)->error('Open Lines application token config is empty');
 
             return [false, $channel];
         }
 
-        return [hash_equals($dedicated, $incoming), $channel];
+        return [hash_equals($expected, $incoming), $channel];
     }
 
     /**

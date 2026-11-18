@@ -32,6 +32,7 @@ class Apartment extends Model
         'apartment_type_id',
         'internal_number',
         'address',
+        'district_id',
         'property_mode',
         'rental_type',
         'status',
@@ -95,6 +96,14 @@ class Apartment extends Model
     public function building(): BelongsTo
     {
         return $this->belongsTo(Building::class);
+    }
+
+    /**
+     * @return BelongsTo<District, $this>
+     */
+    public function districtRef(): BelongsTo
+    {
+        return $this->belongsTo(District::class, 'district_id');
     }
 
     /**

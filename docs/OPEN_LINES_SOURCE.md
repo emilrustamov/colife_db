@@ -84,7 +84,8 @@ Job стартует с задержкой **60 с** (сделка успева�
 - `B24_HK_PORTAL_DOMAIN=colifepacific.bitrix24.com`
 - `B24_HK_CLIENT_ID`, `B24_HK_CLIENT_SECRET` — то же приложение, что для пауз
 - `BITRIX_OPEN_LINES_HANDLER_URL` (по умолчанию `{APP_URL}/api/webhooks/bitrix/open-lines`)
-- `BITRIX_OPEN_LINES_APPLICATION_TOKEN` (**обязателен**; пустой = reject всех OL webhook / install/save)
+- `BITRIX_OPEN_LINES_APPLICATION_TOKEN` (**обязателен**; пустой = reject всех OL webhook / install/save). Это `application_token` того же локального HK-приложения (`B24_HK_CLIENT_ID`), что и для пауз — значение с install / из карточки приложения на `colifepacific.bitrix24.com`.
+- Backfill пропущенных лидов: `php artisan open-lines:backfill-sources --since=2026-11-16` (`--dry-run`, `--deal=ID`)
 
 ## Логи
 

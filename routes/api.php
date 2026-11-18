@@ -28,7 +28,9 @@ Route::middleware(['api.key'])->group(function (): void {
     Route::post('/alma/contacts/external-id', [AlmaContactController::class, 'updateExternalId']);
     Route::get('/bitrix-units/idle-apartments', [UnitsSnapshotController::class, 'idleApartments']);
     Route::post('/disk/sync', [DiskApi::class, 'sync']);
+});
 
+Route::middleware(['api.key:alma_bridge'])->group(function (): void {
     Route::post('/alma-bridge/contracts', [AlmaBridgeTenantContractController::class, 'store']);
     Route::patch('/alma-bridge/contracts/{bitrixId}', [AlmaBridgeTenantContractController::class, 'update']);
     Route::post('/alma-bridge/contracts/upsert', [AlmaBridgeTenantContractController::class, 'upsert']);
@@ -36,6 +38,7 @@ Route::middleware(['api.key'])->group(function (): void {
     Route::post('/alma-bridge/units/upsert', [AlmaBridgeUnitController::class, 'upsert']);
     Route::post('/alma-bridge/landlord-contracts', [AlmaBridgeLandlordContractController::class, 'store']);
     Route::patch('/alma-bridge/landlord-contracts/{bitrixId}', [AlmaBridgeLandlordContractController::class, 'update']);
+    Route::post('/alma-bridge/landlord-contracts/upsert', [AlmaBridgeLandlordContractController::class, 'upsert']);
     Route::post('/alma-bridge/blocking/apply', [AlmaBridgeBlockingController::class, 'apply']);
     Route::post('/alma-bridge/termination/apply', [AlmaBridgeTerminationController::class, 'apply']);
 });

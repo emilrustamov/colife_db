@@ -2,7 +2,9 @@
 
 namespace App\Services;
 
+use App\Models\DiskSyncedFile;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\Schema;
 
 class DiskSyncHealth
 {
@@ -13,7 +15,7 @@ class DiskSyncHealth
     ) {}
 
     /**
-     * Scan recent bitrix_disk logs for sync failures and alert once per day.
+     * Scan recent bitrix_disk logs for sync failures / long silence and alert once per day.
      *
      * @return list<string>
      */
@@ -22,6 +24,7 @@ class DiskSyncHealth
         $hours = max(1, (int) config('services.telegram.disk_lookback_hours', 6));
         $since = now()->subHours($hours);
         $hasIssue = false;
+        $reason = 'Проверь логи bitrix_disk и список 322.';
 
         foreach ($this->logFiles() as $path) {
             $handle = fopen($path, 'r');
@@ -65,6 +68,16 @@ class DiskSyncHealth
         }
 
         if (! $hasIssue) {
+            $staleDays = max(1, (int) config('services.telegram.disk_stale_days', 3));
+            $lastSyncedAt = $this->lastSyncedAt();
+            if ($lastSyncedAt !== null && $lastSyncedAt->lt(now()->subDays($staleDays))) {
+                $hasIssue = true;
+                $reason = 'Нет успешного disk sync уже '.$lastSyncedAt->diffForHumans()
+                    .' (проверь /api/disk/pull auth и Bitrix webhook).';
+            }
+        }
+
+        if (! $hasIssue) {
             return [];
         }
 
@@ -73,11 +86,31 @@ class DiskSyncHealth
             '💾',
             'Disk sync отвалился',
             $domain,
-            'Проверь логи bitrix_disk и список 322.',
+            $reason,
         );
         $this->alerts->notifyOnce('disk_sync_errors', $message);
 
         return [$message];
+    }
+
+    private function lastSyncedAt(): ?Carbon
+    {
+        if (! Schema::hasTable('disk_synced_files')) {
+            return null;
+        }
+
+        $value = DiskSyncedFile::query()->max('last_synced_at')
+            ?? DiskSyncedFile::query()->max('updated_at');
+
+        if ($value === null || $value === '') {
+            return null;
+        }
+
+        try {
+            return Carbon::parse($value, config('app.timezone'));
+        } catch (\Throwable) {
+            return null;
+        }
     }
 
     /**

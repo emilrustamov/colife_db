@@ -2,6 +2,9 @@
 
 return [
     'enabled' => filter_var(env('ALMA_BRIDGE_ENABLED', false), FILTER_VALIDATE_BOOL),
+    // Ingress key for /api/alma-bridge/* (X-Api-Key / Postman {{colifeApiKey}}).
+    // Not Alma External ALMA_API_KEY and not CLIENT_BALANCE_API_KEY.
+    'api_key' => env('COLIFE_API_KEY'),
     'default_project' => env('PROJECT_DEFAULT_NAME', 'Dubai'),
     'events' => [
         'deal_add' => env('BITRIX_EVENT_DEAL_ADD', 'ONCRMDEALADD'),

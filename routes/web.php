@@ -3,14 +3,21 @@
 use App\Http\Controllers\AuthController;
 use App\Http\Controllers\DirectoryController;
 use App\Http\Controllers\DiskBrowser;
+use App\Http\Controllers\EmailVerificationController;
 use App\Http\Controllers\OlBot\AnalyticsController as OlBotAnalyticsController;
 use App\Http\Controllers\OlBot\TemplateController as OlBotTemplateController;
+use App\Http\Controllers\PasswordResetController;
 use App\Http\Controllers\RoleAdmin;
 use App\Http\Controllers\UserAdmin;
 use App\Http\Middleware\RedirectLocalhost;
 use App\Support\AdminMenu;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Route;
+
+$pricesDomain = (string) config('services.prices.domain');
+if ($pricesDomain !== '') {
+    Route::domain($pricesDomain)->group(base_path('routes/prices.php'));
+}
 
 Route::middleware([RedirectLocalhost::class])->group(function () {
     Route::get('/', function () {
@@ -20,21 +27,42 @@ Route::middleware([RedirectLocalhost::class])->group(function () {
             return redirect()->route('login');
         }
 
+        if ($user->email_verified_at === null) {
+            return redirect()->route('email.verify');
+        }
+
         return redirect()->to(AdminMenu::homeUrl($user));
     });
 
-        Route::middleware('guest')->group(function () {
-            Route::get('/login', [AuthController::class, 'create'])->name('login');
-            Route::post('/login', [AuthController::class, 'store'])
-                ->middleware('throttle:5,1')
-                ->name('login.store');
-        });
+    Route::middleware('guest')->group(function () {
+        Route::get('/login', [AuthController::class, 'create'])->name('login');
+        Route::post('/login', [AuthController::class, 'store'])
+            ->middleware('throttle:5,1')
+            ->name('login.store');
+
+        Route::get('/forgot-password', [PasswordResetController::class, 'create'])->name('password.request');
+        Route::post('/forgot-password', [PasswordResetController::class, 'store'])
+            ->middleware('throttle:5,1')
+            ->name('password.email');
+        Route::get('/reset-password', [PasswordResetController::class, 'edit'])->name('password.reset');
+        Route::post('/reset-password', [PasswordResetController::class, 'update'])
+            ->middleware('throttle:5,1')
+            ->name('password.update');
+    });
 
     Route::middleware('auth')->group(function () {
         Route::post('/logout', [AuthController::class, 'destroy'])->name('logout');
+
+        Route::get('/email/verify', [EmailVerificationController::class, 'show'])->name('email.verify');
+        Route::post('/email/verify', [EmailVerificationController::class, 'store'])
+            ->middleware('throttle:10,1')
+            ->name('email.verify.store');
+        Route::post('/email/verify/resend', [EmailVerificationController::class, 'resend'])
+            ->middleware('throttle:3,1')
+            ->name('email.verify.resend');
     });
 
-    Route::middleware(['auth', 'directories.module'])->group(function () {
+    Route::middleware(['auth', 'verified', 'directories.module'])->group(function () {
         Route::get('/directories', [DirectoryController::class, 'root'])->name('directories.index');
         Route::get('/directories/{directory}', [DirectoryController::class, 'index'])->name('directories.page');
         Route::get('/api/directories/disk/browser/folders', [DiskBrowser::class, 'folders'])->name('directories.disk.folders');
@@ -46,27 +74,27 @@ Route::middleware([RedirectLocalhost::class])->group(function () {
         Route::get('/api/directories/{directory}/{id}', [DirectoryController::class, 'show'])->name('directories.show');
     });
 
-    Route::middleware(['auth', 'permission:users.manage|users.edit|users.delete'])->group(function (): void {
+    Route::middleware(['auth', 'verified', 'permission:users.manage|users.edit|users.delete'])->group(function (): void {
         Route::get('/api/admin/users', [UserAdmin::class, 'index']);
     });
-    Route::middleware(['auth', 'permission:users.manage'])->group(function (): void {
+    Route::middleware(['auth', 'verified', 'permission:users.manage'])->group(function (): void {
         Route::post('/api/admin/users', [UserAdmin::class, 'store']);
     });
-    Route::middleware(['auth', 'permission:users.edit'])->group(function (): void {
+    Route::middleware(['auth', 'verified', 'permission:users.edit'])->group(function (): void {
         Route::put('/api/admin/users/{user}', [UserAdmin::class, 'update']);
     });
-    Route::middleware(['auth', 'permission:users.delete'])->group(function (): void {
+    Route::middleware(['auth', 'verified', 'permission:users.delete'])->group(function (): void {
         Route::delete('/api/admin/users/{user}', [UserAdmin::class, 'destroy']);
     });
 
-    Route::middleware(['auth', 'permission:roles.manage'])->group(function (): void {
+    Route::middleware(['auth', 'verified', 'permission:roles.manage'])->group(function (): void {
         Route::get('/api/admin/roles', [RoleAdmin::class, 'index']);
         Route::post('/api/admin/roles', [RoleAdmin::class, 'store']);
         Route::put('/api/admin/roles/{role}', [RoleAdmin::class, 'update']);
         Route::delete('/api/admin/roles/{role}', [RoleAdmin::class, 'destroy']);
     });
 
-    Route::middleware(['auth'])->prefix('ol-bot')->name('ol-bot.')->group(function (): void {
+    Route::middleware(['auth', 'verified'])->prefix('ol-bot')->name('ol-bot.')->group(function (): void {
         Route::get('/', function () {
             $user = Auth::user();
 

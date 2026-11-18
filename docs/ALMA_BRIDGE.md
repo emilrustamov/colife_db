@@ -9,10 +9,10 @@
 | Этап | Статус |
 |------|--------|
 | A. Архитектура + аудит | сделано |
-| B. Код в Laravel, `ALMA_BRIDGE_ENABLED=false` | **сделано** — parity с `/var/www/alma` на 2026-11-16 (коммиты `5abd3f4`, `37df3dc`) |
-| C. Cutover + удаление `/var/www/alma` | ждать команду «запускаем» |
+| B. Код в Laravel | сделано |
+| C. Cutover | **включено 2026-11-18** — `ALMA_BRIDGE_ENABLED=true`; nginx `alma.colifeb24apps.com` / `.ru` → Laravel webhook; `/var/www/alma` **пока не удаляем** (`/Api/*` ещё с legacy) |
 
-Прод по-прежнему на `alma.colifeb24apps.com` → `/var/www/alma`, пока флаг выключен и Bitrix handlers не переключены.
+Handler Bitrix может оставаться `https://alma.colifeb24apps.com/index.php` (и `.ru`) — nginx проксирует в `POST /api/webhooks/bitrix/alma`. Альтернатива напрямую: `https://db.colifeb24apps.com/api/webhooks/bitrix/alma`.
 
 ## Flow
 
@@ -22,7 +22,7 @@ Bitrix webhook → POST /api/webhooks/bitrix/alma
   → ApartmentService / UnitService / TenantContractService /
     LandlordContractService / ContactService
 
-REST (X-Api-Key), resource controllers:
+REST (`X-Api-Key: <COLIFE_API_KEY>` / Postman `{{colifeApiKey}}`), resource controllers:
   POST   /api/alma-bridge/contracts              — create
   PATCH  /api/alma-bridge/contracts/{bitrixId}   — update
   POST   /api/alma-bridge/contracts/upsert
@@ -30,8 +30,12 @@ REST (X-Api-Key), resource controllers:
   POST   /api/alma-bridge/units/upsert
   POST   /api/alma-bridge/landlord-contracts
   PATCH  /api/alma-bridge/landlord-contracts/{bitrixId}
+  POST   /api/alma-bridge/landlord-contracts/upsert
   POST   /api/alma-bridge/blocking/apply
   POST   /api/alma-bridge/termination/apply
+
+Не путать с `ALMA_API_KEY` (ключ Alma External API) и `CLIENT_BALANCE_API_KEY` (другие `/api/*`).  
+Postman: header `X-Api-Key` = `{{colifeApiKey}}` (= `COLIFE_API_KEY` в `.env`).
 
 artisan alma-bridge:upsert {type} {id} [--project=] [--create] [--update]
 ```

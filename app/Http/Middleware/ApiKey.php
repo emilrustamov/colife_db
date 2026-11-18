@@ -9,11 +9,18 @@ use Symfony\Component\HttpFoundation\Response;
 class ApiKey
 {
     /**
-     * Validate X-Api-Key header against configured API key.
+     * Validate X-Api-Key header against a configured API key.
+     *
+     * Usage:
+     * - middleware('api.key') → CLIENT_BALANCE_API_KEY
+     * - middleware('api.key:alma_bridge') → COLIFE_API_KEY (Postman {{colifeApiKey}})
      */
-    public function handle(Request $request, Closure $next): Response
+    public function handle(Request $request, Closure $next, string $name = 'client_balance'): Response
     {
-        $expected = (string) config('services.client_balance.api_key', '');
+        $expected = match ($name) {
+            'alma_bridge' => (string) config('alma_bridge.api_key', ''),
+            default => (string) config('services.client_balance.api_key', ''),
+        };
         $apiKey = (string) $request->header('X-Api-Key', '');
 
         if ($expected === '' || $apiKey === '' || ! hash_equals($expected, $apiKey)) {
