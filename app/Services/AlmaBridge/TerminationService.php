@@ -61,7 +61,7 @@ class TerminationService
             return;
         }
 
-        $unit = $this->almaApi->unitByExternalId($apartmentBitrixId);
+        $unit = $this->almaApi->rentalObjectByBitrixId($apartmentBitrixId);
         if ($unit === null || empty($unit['id'])) {
             BridgeSupport::log()->warning('Termination sync skipped: apartment not in Alma', [
                 'apartment_id' => $apartmentBitrixId,
@@ -149,7 +149,7 @@ class TerminationService
         if ($apartmentId === null) {
             throw new RuntimeException('Termination list element has empty apartment id');
         }
-        $unit = $this->almaApi->unitByExternalId((string) $apartmentId);
+        $unit = $this->almaApi->rentalObjectByBitrixId((string) $apartmentId);
         if ($unit === null || empty($unit['id'])) {
             throw new RuntimeException('Apartment not found in Alma for termination');
         }

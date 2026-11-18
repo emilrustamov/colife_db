@@ -52,7 +52,18 @@ class BlockingService
         if ($inactive) {
             $existing = $this->almaApi->tenantByExternalId($externalId);
             if ($existing !== null) {
-                $this->almaApi->archiveTenant($externalId, true);
+                if (BridgeSupport::isAlmaContractArchived($existing)) {
+                    BridgeSupport::log()->info('Blocking already archived', ['external_id' => $externalId]);
+
+                    return ['method' => 'ARCHIVE', 'external_id' => $externalId, 'already' => true];
+                }
+                try {
+                    $this->almaApi->archiveTenant($externalId, true);
+                } catch (RuntimeException $e) {
+                    if (! AlmaApi::isArchivedConflict($e)) {
+                        throw $e;
+                    }
+                }
                 BridgeSupport::log()->info('Blocking contract archived', ['external_id' => $externalId]);
 
                 return ['method' => 'ARCHIVE', 'external_id' => $externalId];
@@ -83,7 +94,7 @@ class BlockingService
         if ($apartmentId === null) {
             throw new RuntimeException('Blocking list element has empty apartment id');
         }
-        $unit = $this->almaApi->unitByExternalId((string) $apartmentId);
+        $unit = $this->almaApi->rentalObjectByBitrixId((string) $apartmentId);
         if ($unit === null || empty($unit['id'])) {
             throw new RuntimeException('Apartment not found in Alma for blocking');
         }

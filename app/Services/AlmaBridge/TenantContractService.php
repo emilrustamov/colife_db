@@ -73,11 +73,11 @@ class TenantContractService
                     $contractData,
                     $bitrix->restUserId()
                 )) {
-                    BridgeSupport::log()->info('Contract sync skipped: webhook echo from Alma error comment', [
+                    BridgeSupport::log()->info('Contract sync skipped: webhook echo from Alma timeline comment', [
                         'contract_id' => $bitrixId,
                     ]);
 
-                    return ['skipped' => true, 'reason' => 'error_comment_echo'];
+                    return ['skipped' => true, 'reason' => 'alma_comment_echo'];
                 }
             }
 
@@ -153,7 +153,10 @@ class TenantContractService
                     'method' => 'POST',
                 ]);
 
-                return ['method' => 'POST', 'response' => $created];
+                return $this->finishSync($bitrix, $contractTypeId, $bitrixId, [
+                    'method' => 'POST',
+                    'response' => $created,
+                ], $clientAlmaId);
             }
 
             if (! empty($options['force_update'])) {
@@ -168,7 +171,10 @@ class TenantContractService
                         'alma_id' => $created['id'] ?? null,
                     ]);
 
-                    return ['method' => 'POST', 'response' => $created];
+                    return $this->finishSync($bitrix, $contractTypeId, $bitrixId, [
+                        'method' => 'POST',
+                        'response' => $created,
+                    ], $clientAlmaId);
                 }
                 unset($payload['client_id']);
                 $updated = $this->almaApi->updateTenantContract($existing['id'], $payload);
@@ -191,7 +197,10 @@ class TenantContractService
                         'method' => 'POST',
                     ]);
 
-                    return ['method' => 'POST', 'response' => $created];
+                    return $this->finishSync($bitrix, $contractTypeId, $bitrixId, [
+                        'method' => 'POST',
+                        'response' => $created,
+                    ], $clientAlmaId);
                 }
                 unset($payload['client_id']);
                 try {
@@ -205,7 +214,10 @@ class TenantContractService
                             'alma_id' => $created['id'] ?? null,
                         ]);
 
-                        return ['method' => 'POST', 'response' => $created];
+                        return $this->finishSync($bitrix, $contractTypeId, $bitrixId, [
+                            'method' => 'POST',
+                            'response' => $created,
+                        ], $clientAlmaId);
                     }
                     throw $e;
                 }
@@ -225,7 +237,10 @@ class TenantContractService
                 'method' => 'POST',
             ]);
 
-            return ['method' => 'POST', 'response' => $created];
+            return $this->finishSync($bitrix, $contractTypeId, $bitrixId, [
+                'method' => 'POST',
+                'response' => $created,
+            ], $clientAlmaId);
         } catch (Throwable $e) {
             try {
                 $startField = ProjectMapping::getContractField('start_date', $projectName);
@@ -234,9 +249,7 @@ class TenantContractService
                 $unitExternalId = (string) (ProjectMapping::itemValue($contractData, $unitField) ?? '');
                 $almaUnitId = null;
                 if ($unitExternalId !== '') {
-                    $unit = $this->almaApi->unitByExternalId($unitExternalId)
-                        ?? $this->almaApi->roomByExternalId($unitExternalId);
-                    $almaUnitId = $unit['id'] ?? null;
+                    $almaUnitId = $this->almaApi->rentalObjectByBitrixId($unitExternalId)['id'] ?? null;
                 }
                 BridgeSupport::addCrmTimelineComment(
                     $bitrix,
@@ -317,15 +330,53 @@ class TenantContractService
 
     private function findAlmaObjectById(string $bitrixId): int|string
     {
-        $unit = $this->almaApi->unitByExternalId($bitrixId);
-        if ($unit !== null && isset($unit['id'])) {
-            return $unit['id'];
+        $object = $this->almaApi->rentalObjectByBitrixId($bitrixId);
+        if ($object === null || ! isset($object['id'])) {
+            throw new RuntimeException('Alma rental object not found for Bitrix id='.$bitrixId);
         }
-        $room = $this->almaApi->roomByExternalId($bitrixId);
-        if ($room !== null && isset($room['id'])) {
-            return $room['id'];
+
+        return $object['id'];
+    }
+
+    /**
+     * Timeline "created" comment only on POST (legacy parity) — never on PATCH.
+     *
+     * @param  array{method: string, response?: array<string, mixed>}  $result
+     * @return array{method: string, response?: array<string, mixed>}
+     */
+    private function finishSync(
+        BitrixWebhookClient $bitrix,
+        int $contractTypeId,
+        int|string $bitrixId,
+        array $result,
+        int|string|null $almaClientId = null,
+    ): array {
+        if (($result['method'] ?? '') !== 'POST') {
+            return $result;
         }
-        throw new RuntimeException('Alma rental object not found for unit external_id='.$bitrixId);
+
+        $clientId = $almaClientId
+            ?? ($result['response']['unit_usage']['client_id'] ?? null)
+            ?? ($result['response']['client']['id'] ?? null);
+        if ($clientId === null || $clientId === '') {
+            return $result;
+        }
+
+        try {
+            BridgeSupport::addCrmTimelineComment(
+                $bitrix,
+                $contractTypeId,
+                $bitrixId,
+                BridgeSupport::formatContractCreatedComment($clientId)
+            );
+        } catch (Throwable $commentError) {
+            BridgeSupport::log()->warning('Failed to add Bitrix success comment on contract', [
+                'contract_id' => $bitrixId,
+                'error' => $commentError->getMessage(),
+            ]);
+        }
+
+        return $result;
     }
 
     /**

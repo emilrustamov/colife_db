@@ -63,12 +63,28 @@ class LandlordContractService
                 throw new RuntimeException('Landlord contract not found');
             }
 
+            if (! empty($options['skip_if_integration_update'])) {
+                if (BridgeSupport::isWebhookEcho(
+                    $bitrix,
+                    $llTypeId,
+                    $bitrixId,
+                    $item,
+                    $bitrix->restUserId()
+                )) {
+                    BridgeSupport::log()->info('Landlord contract sync skipped: webhook echo from Alma timeline comment', [
+                        'contract_id' => $bitrixId,
+                    ]);
+
+                    return ['skipped' => true, 'reason' => 'alma_comment_echo'];
+                }
+            }
+
             $apartmentField = ProjectMapping::landlordContractField('apartment_id', $projectName);
             $apartmentExternalId = (string) (ProjectMapping::itemValue($item, $apartmentField) ?? '');
             if ($apartmentExternalId === '') {
                 throw new InvalidArgumentException('Apartment is not linked to landlord contract');
             }
-            $unit = $this->almaApi->unitByExternalId($apartmentExternalId);
+            $unit = $this->almaApi->rentalObjectByBitrixId($apartmentExternalId);
             if ($unit === null || empty($unit['id'])) {
                 throw new RuntimeException('Apartment not found in Alma');
             }
@@ -174,7 +190,13 @@ class LandlordContractService
                     'method' => 'POST',
                 ]);
 
-                return ['method' => 'POST', 'response' => $created];
+                return $this->finishCreateComment(
+                    $bitrix,
+                    $llTypeId,
+                    $bitrixId,
+                    ['method' => 'POST', 'response' => $created],
+                    $existingClient['id'] ?? null
+                );
             }
 
             if (! empty($options['force_update']) || $existing !== null) {
@@ -196,7 +218,13 @@ class LandlordContractService
                 'method' => 'POST',
             ]);
 
-            return ['method' => 'POST', 'response' => $created];
+            return $this->finishCreateComment(
+                $bitrix,
+                $llTypeId,
+                $bitrixId,
+                ['method' => 'POST', 'response' => $created],
+                $existingClient['id'] ?? null
+            );
         } catch (Throwable $e) {
             BridgeSupport::log()->error('Webhook: landlord contract sync failed', [
                 'entity_id' => $bitrixId,
@@ -205,6 +233,47 @@ class LandlordContractService
             ]);
             throw $e;
         }
+    }
+
+    /**
+     * Timeline "created" comment only on POST — never on PATCH.
+     *
+     * @param  array{method: string, response?: array<string, mixed>}  $result
+     * @return array{method: string, response?: array<string, mixed>}
+     */
+    private function finishCreateComment(
+        BitrixWebhookClient $bitrix,
+        int $entityTypeId,
+        int|string $bitrixId,
+        array $result,
+        int|string|null $almaClientId = null,
+    ): array {
+        if (($result['method'] ?? '') !== 'POST') {
+            return $result;
+        }
+
+        $clientId = $almaClientId
+            ?? ($result['response']['client_id'] ?? null)
+            ?? ($result['response']['client']['id'] ?? null);
+        if ($clientId === null || $clientId === '') {
+            return $result;
+        }
+
+        try {
+            BridgeSupport::addCrmTimelineComment(
+                $bitrix,
+                $entityTypeId,
+                $bitrixId,
+                BridgeSupport::formatContractCreatedComment($clientId)
+            );
+        } catch (Throwable $commentError) {
+            BridgeSupport::log()->warning('Failed to add Bitrix success comment on landlord contract', [
+                'contract_id' => $bitrixId,
+                'error' => $commentError->getMessage(),
+            ]);
+        }
+
+        return $result;
     }
 
     /**

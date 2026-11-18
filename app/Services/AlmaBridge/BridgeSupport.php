@@ -93,15 +93,17 @@ class BridgeSupport
     }
 
     /**
-     * Detect webhook echo after Alma error comment on timeline.
+     * Detect ONUPDATE echo after our timeline comment (create or error).
+     * Comments contain "Alma sync"; author must be the Bitrix REST integration user.
+     * Prevents: create/error comment → item update webhook → sync → comment → loop.
      *
-     * @param  array<string, mixed>  $contractData
+     * @param  array<string, mixed>  $entityData
      */
     public static function isWebhookEcho(
         BitrixWebhookClient $bitrix,
         int $entityTypeId,
         int|string $entityId,
-        array $contractData,
+        array $entityData,
         ?int $integrationUserId
     ): bool {
         if ($integrationUserId === null) {
@@ -128,7 +130,7 @@ class BridgeSupport
         }
 
         $commentTs = strtotime((string) ($latest['CREATED'] ?? ''));
-        $updatedTs = strtotime((string) ($contractData['updatedTime'] ?? $contractData['UPDATED_TIME'] ?? ''));
+        $updatedTs = strtotime((string) ($entityData['updatedTime'] ?? $entityData['UPDATED_TIME'] ?? ''));
         if ($commentTs === false) {
             return false;
         }

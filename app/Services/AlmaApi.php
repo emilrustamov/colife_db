@@ -239,6 +239,21 @@ class AlmaApi
     }
 
     /**
+     * Bitrix unit/apartment id → Alma rental object (handles additional_external_id).
+     *
+     * @return array<string, mixed>|null
+     */
+    public function rentalObjectByBitrixId(string $bitrixId): ?array
+    {
+        $bitrixId = trim($bitrixId);
+        if ($bitrixId === '') {
+            return null;
+        }
+
+        return $this->byExternalId('realty/rental_object/'.$bitrixId.'/');
+    }
+
+    /**
      * List Alma units (short rows).
      *
      * @return list<array<string, mixed>>
