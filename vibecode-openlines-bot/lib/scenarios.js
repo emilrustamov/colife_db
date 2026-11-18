@@ -1,6 +1,12 @@
 import olBotConfig from '../config/ol-bot.js';
+import { canReplaceCategory } from './categories.js';
 import { apartmentTypeFromRooms, roomsFromCatalogType } from './types.js';
-import { extractDaysToCheckin, extractSearchArgs, parseIsoDate } from './searchApartment.js';
+import {
+  classifyBudgetTarget,
+  extractDaysToCheckin,
+  extractSearchArgs,
+  parseIsoDate,
+} from './searchApartment.js';
 
 /**
  * One route table: scenario ↔ CRM category (null = scenario-only, e.g. urgent).
@@ -323,6 +329,30 @@ export function hydrateStateFromText(state, text) {
       activateScenario(state, 'urgent_move_in');
     } else if (isPostponedMoveIn(state.routingMoveInDate)) {
       activateScenario(state, 'postponed');
+    }
+  }
+
+  // Budget below catalog min → out_of_budget (overrides urgent when both apply).
+  if (
+    Number(state.budget) > 0
+    && state.extras.days_to_checkin != null
+    && !['sharing', 'short_term', 'ejari', 'non_target', 'postponed'].includes(state.activeScenario || '')
+  ) {
+    const classified = classifyBudgetTarget({
+      price: Number(state.budget),
+      types: state.types,
+      area: state.area,
+      period: state.period,
+      days_to_checkin: state.extras.days_to_checkin,
+      move_in_date: state.routingMoveInDate,
+      exclude_ids: state.excludeIds,
+    });
+    if (
+      classified.category === 'out_of_budget'
+      && canReplaceCategory(state.category, 'out_of_budget')
+    ) {
+      activateScenario(state, 'out_of_budget');
+      state.category = 'out_of_budget';
     }
   }
 }

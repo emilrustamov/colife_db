@@ -608,6 +608,23 @@ export function classifyBudgetTarget(args, sourceApartments = loadApartments()) 
     };
   }
 
+  // Absolute catalog floor (no PRICE_FLEX): below min → out_of_budget even if urgent/supertarget window.
+  const typeLabels = (args.types ?? []).map((item) => typeToLabel(item)).filter(Boolean);
+  const floorPrices = sourceApartments
+    .filter((item) => !typeLabels.length || typeLabels.includes(String(item.type || '')))
+    .map((item) => Number(item.price))
+    .filter((n) => Number.isFinite(n) && n > 0);
+  const catalogMin = floorPrices.length ? Math.min(...floorPrices) : null;
+  if (catalogMin != null && price < catalogMin) {
+    return {
+      category: 'out_of_budget',
+      hasMatch: false,
+      min_price: catalogMin,
+      agentInstruction:
+        `*ВЫЗОВИ* qualify_lead(out_of_budget). Budget ${price} < catalog min ${catalogMin}. Follow out_of_budget steps (flex date/area/type); do not quote room prices; do not leave quietly.`,
+    };
+  }
+
   const found = findMatchingApartments(args, sourceApartments);
   if (!found.matches.length) {
     return {

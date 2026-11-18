@@ -529,6 +529,14 @@ export function createBotWorker(config) {
     if (prior.length) {
       instructionParts.push(`Dialog history (oldest→newest):\n${prior.join('\n')}`);
     }
+    if (state.unitNumber && state.unitLookupStatus === 'found') {
+      const from = state.extras?.unitAvailableFrom || '';
+      instructionParts.push(
+        from
+          ? `Unit ${state.unitNumber}: availableFrom=${from}. Always tell the client this availability date when discussing the unit; never say it is free without that date.`
+          : `Unit ${state.unitNumber}: availableFrom unknown — do not claim the unit is free now.`,
+      );
+    }
     instructionParts.push([
       `Reply language for this turn: ${state.language === 'ru' ? 'Russian' : 'English'} only.`,
       'Routing is applied in code into Dialog state (activeScenario/category). Follow the active scenario template; do not re-route against state.',
@@ -537,6 +545,7 @@ export function createBotWorker(config) {
       'Do not re-introduce if Dialog history already has a Bot line. Never re-ask fields already set in Dialog state.',
       'Client text only via make_answer (or short plain final). No chain-of-thought.',
       'If budget+period known and not sharing: search_apartments before “no options” / handoff (unless terminal A/B).',
+      'Do not leave_chat while category is empty/no_information and no options were sent — search or continue the active scenario first.',
     ].join(' '));
     const system = instructionParts.filter(Boolean).join('\n\n');
 
@@ -554,83 +563,101 @@ export function createBotWorker(config) {
     const model = await getAiModel(defaultModel);
     currentModel = model;
     let finalText = '';
-    try {
-      for (let step = 0; step < 6; step += 1) {
-        const llmStarted = Date.now();
-        const completion = await chatCompletions(apiKey, {
-          model,
-          temperature: 0.2,
-          tools,
-          tool_choice: 'auto',
-          messages,
-        });
-        const llmSec = secFromMs(Date.now() - llmStarted);
-        const usage = completion?.usage || {};
-        const credits = Number(usage.total_tokens || usage.prompt_tokens || 0) / 1000;
-        if (Number.isFinite(credits)) m.credits += credits;
-
-        const choice = completion?.choices?.[0]?.message || {};
-        const thinkingText = String(
-          choice.reasoning || choice.thinking || choice.reasoning_content || '',
-        ).trim();
-        if (thinkingText) {
-          runtime.thinking.push(thinkingText.slice(0, 4000));
-          pushAnalysis(
-            runtime.analysis,
-            'explanation',
-            'Explanation of the result',
-            llmSec,
-            thinkingText.slice(0, 4000),
-          );
-        } else if (llmSec > 0) {
-          pushAnalysis(runtime.analysis, 'explanation', 'Explanation of the result', llmSec, choice.content || null);
-        }
-        const toolCalls = choice.tool_calls || [];
-        if (toolCalls.length) {
-          messages.push({
-            role: 'assistant',
-            content: choice.content || null,
-            tool_calls: toolCalls,
+    /** @type {Error|null} */
+    let aiError = null;
+    for (let attempt = 0; attempt < 2; attempt += 1) {
+      try {
+        // Fresh tool loop each attempt (retry only on thrown API errors).
+        const attemptMessages = messages.map((row) => ({ ...row }));
+        for (let step = 0; step < 6; step += 1) {
+          const llmStarted = Date.now();
+          const completion = await chatCompletions(apiKey, {
+            model,
+            temperature: 0.2,
+            tools,
+            tool_choice: 'auto',
+            messages: attemptMessages,
           });
-          for (const call of toolCalls) {
-            const name = call.function?.name || call.name;
-            let args = {};
-            try {
-              args = JSON.parse(call.function?.arguments || call.arguments || '{}');
-            } catch {
-              args = {};
-            }
-            if (name === 'search_apartments') runtime.searchedThisTurn = true;
-            pushAnalysis(runtime.analysis, 'function_call', 'Function call', 0, { name, args });
-            const toolStarted = Date.now();
-            const result = await executeTool(state, name, args, runtime);
-            const summarized = summarizeToolResult(result);
-            runtime.toolTrace.push({ name, args, result: summarized });
+          const llmSec = secFromMs(Date.now() - llmStarted);
+          const usage = completion?.usage || {};
+          const credits = Number(usage.total_tokens || usage.prompt_tokens || 0) / 1000;
+          if (Number.isFinite(credits)) m.credits += credits;
+
+          const choice = completion?.choices?.[0]?.message || {};
+          const thinkingText = String(
+            choice.reasoning || choice.thinking || choice.reasoning_content || '',
+          ).trim();
+          if (thinkingText) {
+            runtime.thinking.push(thinkingText.slice(0, 4000));
             pushAnalysis(
               runtime.analysis,
-              'function_call_result',
-              'Function call result',
-              secFromMs(Date.now() - toolStarted),
-              summarized,
+              'explanation',
+              'Explanation of the result',
+              llmSec,
+              thinkingText.slice(0, 4000),
             );
-            messages.push({
-              role: 'tool',
-              tool_call_id: call.id,
-              content: JSON.stringify(result),
-            });
+          } else if (llmSec > 0) {
+            pushAnalysis(runtime.analysis, 'explanation', 'Explanation of the result', llmSec, choice.content || null);
           }
-          if (state.handedOff || runtime.pendingHandoff) break;
-          continue;
-        }
+          const toolCalls = choice.tool_calls || [];
+          if (toolCalls.length) {
+            attemptMessages.push({
+              role: 'assistant',
+              content: choice.content || null,
+              tool_calls: toolCalls,
+            });
+            for (const call of toolCalls) {
+              const name = call.function?.name || call.name;
+              let args = {};
+              try {
+                args = JSON.parse(call.function?.arguments || call.arguments || '{}');
+              } catch {
+                args = {};
+              }
+              if (name === 'search_apartments') runtime.searchedThisTurn = true;
+              pushAnalysis(runtime.analysis, 'function_call', 'Function call', 0, { name, args });
+              const toolStarted = Date.now();
+              const result = await executeTool(state, name, args, runtime);
+              const summarized = summarizeToolResult(result);
+              runtime.toolTrace.push({ name, args, result: summarized });
+              pushAnalysis(
+                runtime.analysis,
+                'function_call_result',
+                'Function call result',
+                secFromMs(Date.now() - toolStarted),
+                summarized,
+              );
+              attemptMessages.push({
+                role: 'tool',
+                tool_call_id: call.id,
+                content: JSON.stringify(result),
+              });
+            }
+            if (state.handedOff || runtime.pendingHandoff) break;
+            continue;
+          }
 
-        finalText = String(choice.content || '').trim();
+          finalText = String(choice.content || '').trim();
+          break;
+        }
+        aiError = null;
         break;
+      } catch (err) {
+        aiError = err instanceof Error ? err : new Error(String(err));
+        pushLog({
+          question: text,
+          answer: '',
+          handedOff: false,
+          error: `ai_error_attempt_${attempt + 1}: ${aiError.message}`,
+          dialogId,
+        });
       }
-    } catch (err) {
+    }
+    if (aiError) {
       finalText = FALLBACK_TEXT[state.language || detectLang(text)];
-      runtime.pendingHandoff = { mode: 'A', reason: `ai_error:${err.message}` };
-      pushAnalysis(runtime.analysis, 'explanation', 'Explanation of the result', 0, `ai_error: ${err.message}`);
-      pushLog({ question: text, answer: finalText, handedOff: true, error: err.message, dialogId });
+      runtime.pendingHandoff = { mode: 'A', reason: `ai_error:${aiError.message}` };
+      pushAnalysis(runtime.analysis, 'explanation', 'Explanation of the result', 0, `ai_error: ${aiError.message}`);
+      pushLog({ question: text, answer: finalText, handedOff: true, error: aiError.message, dialogId });
     }
 
     runtime.pendingAnswers = runtime.pendingAnswers

@@ -70,6 +70,7 @@ export function applyCatalogUnitToState(state, found) {
     return null;
   }
   state.unitLookupStatus = 'found';
+  state.extras.unitAvailableFrom = String(found.availableFrom || '');
   if (found.link && !state.shownLinks.includes(found.link)) {
     state.shownLinks.push(found.link);
   }
@@ -158,7 +159,7 @@ export async function executeTool(state, name, args, runtime) {
   }
 
   if (name === 'classify_budget_target') {
-    if (state.category) {
+    if (state.category && state.category !== 'no_information') {
       return {
         skipped: true,
         category: state.category,
@@ -179,6 +180,8 @@ export async function executeTool(state, name, args, runtime) {
     });
     if (result.category && canReplaceCategory(state.category, result.category)) {
       state.category = result.category;
+      const mapped = scenarioForCategory(result.category);
+      if (mapped) activateScenario(state, mapped);
     }
     return result;
   }
@@ -276,6 +279,28 @@ export async function executeTool(state, name, args, runtime) {
     if (a.residents && !state.residents) state.residents = String(a.residents);
     if (a.dealId) state.dealId = String(a.dealId);
     if (a.contactId) state.contactId = String(a.contactId);
+
+    // Block silent early leave when rental params are known but nothing was offered yet.
+    const rentalReady = Number(state.budget) > 0
+      && (state.period != null || state.routingMoveInDate || state.savedMoveInDate);
+    const terminalOk = ['non_target', 'sharing', 'short_term', 'ejari', 'postponed'].includes(
+      state.activeScenario || state.category || '',
+    );
+    if (
+      rentalReady
+      && !terminalOk
+      && !state.shownLinks.length
+      && (!state.category || state.category === 'no_information')
+    ) {
+      return {
+        ok: false,
+        blocked: true,
+        error: 'search_required',
+        agentInstruction:
+          'Do not leave yet. Call search_apartments (or get_min_price → out_of_budget). Offer concrete options first.',
+      };
+    }
+
     let crm = { ok: true, stub: !crmEnabled() };
     try {
       crm = await writeLeaveSnapshot(state);

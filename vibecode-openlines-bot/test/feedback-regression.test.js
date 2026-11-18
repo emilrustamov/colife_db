@@ -1,5 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import { setApartmentsCache } from '../lib/catalog.js';
 import { createDialogState } from '../lib/state.js';
 import { detectLang } from '../lib/reply.js';
 import {
@@ -146,15 +147,35 @@ test('feedback #12 2br and 2-3 month does not rewrite move-in', () => {
   assert.equal(s.period, 3);
 });
 
-test('feedback #13 immediate 4000 is urgent', () => {
+test('feedback #13 immediate 4000 below catalog min → out_of_budget', () => {
+  setApartmentsCache([
+    {
+      uid: 'min1',
+      apartmentId: 1,
+      title: 'Studio min',
+      link: 'https://colife.ae/x',
+      area: 'JVC',
+      type: 'Studio',
+      rentType: 'R2R',
+      category: 'A',
+      priceUnit: 'month',
+      price: 5799,
+      priceVariants: [{ period: '1 month', price: '5799' }],
+      text: 'Studio',
+      availableFrom: 'Now',
+    },
+  ]);
   const s = run(['Need to move immediately 4000']);
   assert.equal(s.budget, 4000);
   assert.equal(s.extras.days_to_checkin, 0);
-  assert.equal(s.activeScenario, 'urgent_move_in');
+  assert.equal(s.planningToMove, 'urgent');
+  assert.equal(s.activeScenario, 'out_of_budget');
+  assert.equal(s.category, 'out_of_budget');
 });
 
 test('asap and immediately share urgent bucket (0 days)', () => {
-  const asap = run(['Need to move asap 5000']);
+  setApartmentsCache([]);
+  const asap = run(['Need to move asap 9000']);
   assert.equal(asap.extras.days_to_checkin, 0);
   assert.equal(asap.planningToMove, 'urgent');
   assert.equal(asap.activeScenario, 'urgent_move_in');

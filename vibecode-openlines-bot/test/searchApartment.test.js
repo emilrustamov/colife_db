@@ -176,4 +176,12 @@ test('classify_budget_target target vs out_of_budget', () => {
     sample,
   );
   assert.equal(oob.category, 'out_of_budget');
+
+  // Urgent window still OOB when budget is below absolute catalog min (no flex).
+  const urgentOob = classifyBudgetTarget(
+    { price: 4000, days_to_checkin: 0, exclude_ids: [] },
+    sample,
+  );
+  assert.equal(urgentOob.category, 'out_of_budget');
+  assert.equal(urgentOob.min_price, 6599);
 });
