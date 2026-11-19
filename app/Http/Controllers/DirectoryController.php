@@ -352,6 +352,14 @@ class DirectoryController extends Controller
                 'id' => 'id',
                 'morph' => 'App\\Models\\ApartmentOwnership',
             ],
+            'landlord-reports' => [
+                'key' => 'landlord-reports',
+                'title' => 'Отчеты собственников',
+                'icon' => '📑',
+                'table' => 'landlord_finance_sheets',
+                'id' => 'id',
+                'morph' => 'App\\Models\\LandlordFinanceSheet',
+            ],
             'bitrix-units-snapshot' => [
                 'key' => 'bitrix-units-snapshot',
                 'title' => 'Financial report',
@@ -453,6 +461,7 @@ class DirectoryController extends Controller
             'units' => 'Directories/Units',
             'unit-stays' => 'Directories/UnitStays',
             'apartment-ownerships' => 'Directories/ApartmentOwnerships',
+            'landlord-reports' => 'Directories/LandlordReports',
             'bitrix-units-snapshot' => 'Directories/BitrixUnitsSnapshot',
             'disk' => 'Directories/Disk',
             'utilities' => 'Directories/Utilities',
@@ -483,6 +492,31 @@ class DirectoryController extends Controller
 
                     $row->{$field} = (int) $row->{$field} === 1 ? 'Есть' : 'Нет';
                 }
+            }
+        }
+
+        if ($directoryKey === 'landlord-reports') {
+            foreach ($rows as $row) {
+                foreach (['is_active', 'is_external'] as $field) {
+                    if (! property_exists($row, $field) || $row->{$field} === null) {
+                        continue;
+                    }
+
+                    $row->{$field} = ((int) $row->{$field} === 1 || $row->{$field} === true) ? 'true' : 'false';
+                }
+
+                $spreadsheetId = trim((string) ($row->spreadsheet_id ?? ''));
+                if ($spreadsheetId === '') {
+                    continue;
+                }
+
+                $url = trim((string) ($row->source_url ?? ''));
+                if ($url === '') {
+                    $url = 'https://docs.google.com/spreadsheets/d/'.$spreadsheetId.'/edit';
+                    $row->source_url = $url;
+                }
+
+                $row->source_url_href = $url;
             }
         }
 

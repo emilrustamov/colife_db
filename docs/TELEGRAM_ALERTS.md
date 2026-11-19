@@ -22,6 +22,7 @@
 - Disk sync: `ERROR` в логах `bitrix_disk` за N часов (если sync не кинул exception)
 - Паузы: overdue/stuck в очереди `bp-pauses` / свежие `failed_jobs`
 - Storage: права на `storage/logs` / framework
+- Cache: в production запрещён `CACHE_STORE=file` (ломает `Cache::lock`); Redis cache ping/lock
 - Supervisor: `horizon` не `RUNNING`
 - HTTP: `APP_URL/up` не 2xx
 

@@ -4,7 +4,7 @@
 
 ## Зачем
 
-Форма отчёта по уборке во фрейме Bitrix24: выбор апартамента/юнита, клинера, чеклиста и фото. После сабмита — комментарий в таймлайне юнита, задача Cleaning и опционально задача на ремонт.
+Форма отчёта по уборке во фрейме Bitrix24: выбор апартамента/юнита, клинера, чеклиста и фото. После сабмита — комментарий в таймлайне; задача housemaster только если отмечен Needs repair.
 
 ## Пути локального приложения
 
@@ -14,9 +14,9 @@
 | Приложение само завершает установку | да |
 | Путь обработчика | `https://db.colifeb24apps.com/api/cleaning` |
 
-Права приложения: **CRM**, **Диск**, **Задачи**, **Пользователи**.
+Права приложения: **CRM**, **Диск**, **Задачи**, **Пользователи**, **Списки** (для daily sync клинеров).
 
-Устанавливать нужно под системным пользователем **71857** — от его OAuth-токена пишутся комментарии и задачи.
+Устанавливать нужно под системным пользователем **71857** — от его OAuth-токена пишутся комментарии и задачи. После добавления права «Списки» — переустановить приложение (install URL) под тем же пользователем, иначе `lists.*` вернёт `insufficient_scope`.
 
 ## Flow
 
@@ -31,9 +31,8 @@ Staff opens /api/cleaning
   → filter out FAIL stages; units by UF on select
   → POST /api/cleaning/submit
       → disk upload
-      → crm.timeline.comment.add on unit (as 71857)
-      → tasks.task.add group 13 (assignee 62997, participant 110103)
-      → optional tasks.task.add group 27 bound to apartment
+      → crm.timeline.comment.add on apartment (+ unit unless Common area)
+      → only if Needs repair: tasks.task.add group 27 (housemaster)
 ```
 
 Каталог апартов **не** хранится в локальной БД (TR). В БД есть таблица `portals` и `portal_id` на `apartments`/`units` для AE-синка основного проекта.
@@ -48,15 +47,18 @@ Staff opens /api/cleaning
 |---|---|
 | Автор комментария / постановщик | 71857 |
 | Assignee (Sergey Saryyev) | 62997 |
-| Participant (M.Kaan AKBAŞ) | 110103 |
-| Проект cleaning / maintenance | 13 |
-| Проект housemaster | 27 |
+| Проект housemaster (repair task) | 27 |
 
-Название основной задачи: `[Apartment] Unit [Unit] Cleaning`  
-Пример: `F52- Unit 2.1 Cleaning`  
+Автозадача создаётся **только** при `Needs repair`.  
+Название из SPA-поля **Apartment number** (`ufCrm5_1692857555592`) + тип уборки:  
+Пример: `64 - Deep Cleaning`  
 Deadline: +2 дня.
 
-Клинеры (статика): Nursel, Lena, Fatma, Oksana, İlvira.
+Клинеры: универсальный список TR [`87`](https://colife.bitrix24.com.tr/company/lists/87/view/0/) → таблица `cleaning_staff`.  
+- При открытии формы: BX24 `lists.element.get` → `POST /api/cleaning/staff-sync` (права пользователя, работает без scope Lists у приложения).  
+- Hourly: `cleaning:sync-staff` (нужен scope **Списки** у OAuth-приложения).  
+Форма/submit читают локальные имена; пока таблица пуста — fallback `config/services.php` → `cleaning.staff`.  
+Элемент списка = имя в поле **Название** (`NAME`).
 
 ## Файлы модуля
 
@@ -66,6 +68,10 @@ Deadline: +2 дня.
 | `app/Http/Controllers/Api/CleaningFormController.php` | UI формы |
 | `app/Http/Controllers/Api/CleaningSubmitController.php` | Приём сабмита |
 | `app/Services/CleaningSubmitService.php` | Диск + задачи + комментарий |
+| `app/Services/CleaningStaffSync.php` | Sync списка клинеров |
+| `app/Http/Controllers/Api/CleaningStaffSyncController.php` | `POST /api/cleaning/staff-sync` |
+| `app/Console/Commands/SyncCleaningStaffCommand.php` | `cleaning:sync-staff` |
+| `app/Models/CleaningStaff.php` | Локальный кэш staff |
 | `resources/views/cleaning/install.blade.php` | Мастер установки |
 | `resources/views/cleaning/form.blade.php` | Форма |
 | `routes/api.php` | `/api/cleaning/*` |
@@ -78,6 +84,7 @@ Deadline: +2 дня.
 - `B24_TR_PORTAL_DOMAIN` (по умолчанию `colife.bitrix24.com.tr`)
 - `B24_TR_CLIENT_ID`, `B24_TR_CLIENT_SECRET`, `B24_TR_REDIRECT_URI`
 - `CLEANING_DISK_FOLDER_ID` (по умолчанию `396621` — папка Cleaning в общем диске)
+- `CLEANING_STAFF_LIST_IBLOCK_ID` (по умолчанию `87`)
 - Опционально: `CLEANING_OBSERVER_IDS`, `CLEANING_DEADLINE_DAYS`
 
 User/group/entity IDs и поле units — в `config/services.php` → `cleaning.*` (не в `.env`).

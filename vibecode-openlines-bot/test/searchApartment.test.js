@@ -107,6 +107,9 @@ test('does not treat unit SKUs as calendar dates', () => {
   assert.equal(extractDaysToCheckin('107.1'), undefined);
   assert.ok(extractDaysToCheckin('15.12.2026') != null);
   assert.ok(extractDaysToCheckin('15/12') != null);
+  assert.ok(extractDaysToCheckin('06.01') != null);
+  assert.ok(extractDaysToCheckin('from 06.01 to 28.02') != null);
+  assert.equal(extractDaysToCheckin('7.1'), undefined);
 });
 
 test('parses bare RU and EN day+month move-in dates', () => {
@@ -120,6 +123,18 @@ test('parses bare RU and EN day+month move-in dates', () => {
   assert.equal(extractDaysToCheckin('Need to move immediately'), 0);
   assert.equal(extractDaysToCheckin('Need to move asap'), 0);
   assert.equal(extractDaysToCheckin('urgent move-in please'), 0);
+  assert.equal(extractDaysToCheckin('in about 1.5 months'), 45);
+  assert.ok(extractDaysToCheckin('в январе') != null);
+  assert.ok(extractDaysToCheckin('in January') != null);
+  assert.equal(extractSearchArgs('in about 1.5 months').period, undefined);
+  assert.ok(extractDaysToCheckin('January 1st for 3 months') != null);
+  assert.ok(extractDaysToCheckin('From 22-Dec need for 1 month') != null);
+  assert.ok(extractDaysToCheckin('Mid December') != null);
+  // Stay length must not override an explicit calendar move-in date.
+  const nov = extractDaysToCheckin(
+    'Is the flat available for 30 days rent starting from Friday 20 November?',
+  );
+  assert.ok(nov != null && nov <= 14);
 });
 
 test('parses budgets with k suffix and after dates', () => {

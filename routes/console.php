@@ -10,6 +10,7 @@ Schedule::command('bitrix:sync-unit-stays')->dailyAt('23:38')->withoutOverlappin
 Schedule::command('prices:calculate')->dailyAt('23:42')->withoutOverlapping(120);
 Schedule::command('bitrix:sync-units-snapshot')->dailyAt('23:40')->withoutOverlapping(60);
 Schedule::command('bitrix:sync-utilities')->dailyAt('23:45')->withoutOverlapping(60);
+Schedule::command('cleaning:sync-staff')->hourly()->withoutOverlapping(30);
 Schedule::command('bitrix:sync-contacts')->dailyAt('23:50')->withoutOverlapping(240);
 Schedule::command('chatapp:collect')
     ->dailyAt('09:00')

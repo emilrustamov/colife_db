@@ -15,7 +15,9 @@ return [
     |
     */
 
-    'default' => env('CACHE_STORE', 'file'),
+    // Production must stay on redis: Cache::lock (Alma Bridge / Prices / OAuth)
+    // breaks under php-fpm with the file driver (fopen / Permission denied).
+    'default' => env('CACHE_STORE', 'redis'),
 
     /*
     |--------------------------------------------------------------------------

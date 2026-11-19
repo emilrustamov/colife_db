@@ -121,6 +121,11 @@ php artisan landlord-finance:collect --year=2026
 php artisan landlord-finance:collect --id=1 --year=2026
 ```
 
+## Админка
+
+Справочник **Отчеты собственников** (`/directories/landlord-reports`) — реестр `landlord_finance_sheets` (ids, вкладки, `is_active`, ошибки sync, ссылка на Google Sheet).  
+`is_active=false` исключает строку из `landlord-finance:collect`.
+
 ## Логи
 
 Канал `landlord_finance` → `storage/logs/landlord_finance-YYYY-MM-DD.log`.

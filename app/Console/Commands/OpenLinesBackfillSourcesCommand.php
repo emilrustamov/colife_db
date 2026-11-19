@@ -12,6 +12,8 @@ class OpenLinesBackfillSourcesCommand extends Command
 {
     protected $signature = 'open-lines:backfill-sources
         {--since=2026-11-16 : ISO date/time lower bound for DATE_CREATE}
+        {--categories= : Comma-separated CATEGORY_ID list (default: rules categories)}
+        {--ignore-category : Apply even if deal CATEGORY_ID differs from rule (ops backfill)}
         {--deal= : Process only this deal id}
         {--limit=0 : Max deals to process (0 = no limit)}
         {--dry-run : Match and report without writing}';
@@ -36,18 +38,28 @@ class OpenLinesBackfillSourcesCommand extends Command
 
         $since = Carbon::parse((string) $this->option('since'));
         $dryRun = (bool) $this->option('dry-run');
+        $ignoreCategory = (bool) $this->option('ignore-category');
         $limit = max(0, (int) $this->option('limit'));
         $onlyDeal = (int) $this->option('deal');
+        $categories = $this->targetCategoryIds();
 
         $dealIds = $onlyDeal > 0
             ? [$onlyDeal]
-            : $this->candidateDealIds($domain, $since, $limit);
+            : $this->candidateDealIds($domain, $since, $categories, $limit);
 
         if ($dealIds === []) {
             $this->info('No candidate deals.');
 
             return self::SUCCESS;
         }
+
+        $this->info(sprintf(
+            'Backfill candidates=%d categories=[%s] ignore_category=%s since=%s',
+            count($dealIds),
+            implode(',', $categories),
+            $ignoreCategory ? 'yes' : 'no',
+            $since->toIso8601String()
+        ));
 
         $stats = [
             'checked' => 0,
@@ -64,7 +76,7 @@ class OpenLinesBackfillSourcesCommand extends Command
         foreach ($dealIds as $dealId) {
             $stats['checked']++;
             try {
-                $status = $this->processDeal($domain, $dealId, $dryRun);
+                $status = $this->processDeal($domain, $dealId, $dryRun, $ignoreCategory);
             } catch (Throwable $e) {
                 $stats['errors']++;
                 $this->error(sprintf('deal %d error: %s', $dealId, $e->getMessage()));
@@ -94,12 +106,12 @@ class OpenLinesBackfillSourcesCommand extends Command
     }
 
     /**
+     * @param  list<int>  $categories
      * @return list<int>
      */
-    private function candidateDealIds(string $domain, Carbon $since, int $limit): array
+    private function candidateDealIds(string $domain, Carbon $since, array $categories, int $limit): array
     {
         $ufFlag = (string) config('open_lines_source.uf_flag');
-        $categories = $this->targetCategoryIds();
         $ids = [];
 
         foreach ($categories as $categoryId) {
@@ -149,6 +161,19 @@ class OpenLinesBackfillSourcesCommand extends Command
      */
     private function targetCategoryIds(): array
     {
+        $raw = trim((string) $this->option('categories'));
+        if ($raw !== '') {
+            $ids = [];
+            foreach (explode(',', $raw) as $part) {
+                $id = (int) trim($part);
+                if ($id >= 0) {
+                    $ids[$id] = true;
+                }
+            }
+
+            return array_map('intval', array_keys($ids));
+        }
+
         $ids = [(int) config('open_lines_source.category_id', 0)];
         foreach (config('open_lines_source.rules', []) as $rule) {
             if (! is_array($rule) || ! array_key_exists('category_id', $rule)) {
@@ -160,7 +185,7 @@ class OpenLinesBackfillSourcesCommand extends Command
         return array_values(array_unique($ids));
     }
 
-    private function processDeal(string $domain, int $dealId, bool $dryRun): string
+    private function processDeal(string $domain, int $dealId, bool $dryRun, bool $ignoreCategory): string
     {
         $sessionId = $this->resolveSessionId($domain, $dealId);
         if ($sessionId <= 0) {
@@ -188,7 +213,7 @@ class OpenLinesBackfillSourcesCommand extends Command
             return 'applied';
         }
 
-        return $this->olDealSource->applyTextToDeal($domain, $dealId, $text, $lineId);
+        return $this->olDealSource->applyTextToDeal($domain, $dealId, $text, $lineId, $ignoreCategory);
     }
 
     private function resolveSessionId(string $domain, int $dealId): int

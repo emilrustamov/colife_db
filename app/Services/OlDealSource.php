@@ -106,15 +106,20 @@ class OlDealSource
      *
      * @return string applied|no_match|skip_category|skip_stage|skip_flag
      */
-    public function applyTextToDeal(string $domain, int $dealId, string $text, int $lineId): string
-    {
+    public function applyTextToDeal(
+        string $domain,
+        int $dealId,
+        string $text,
+        int $lineId,
+        bool $ignoreCategory = false
+    ): string {
         $domain = $this->oauth->normalizeDomain($domain);
         $rule = $this->matchTextRule($text, $lineId);
         if ($rule === null || $dealId <= 0) {
             return 'no_match';
         }
 
-        return $this->applyMatchedRule($domain, $dealId, trim($text), $rule, 0);
+        return $this->applyMatchedRule($domain, $dealId, trim($text), $rule, 0, $ignoreCategory);
     }
 
     /**
@@ -134,7 +139,8 @@ class OlDealSource
         int $dealId,
         string $text,
         array $rule,
-        int $chatId
+        int $chatId,
+        bool $ignoreCategory = false
     ): string {
         $logger = Log::channel('bitrix_open_lines');
         $ufFlag = (string) config('open_lines_source.uf_flag');
@@ -143,7 +149,7 @@ class OlDealSource
         $deal = $this->bitrixRest->postJson('crm.deal.get', ['id' => $dealId], $domain);
         $fields = is_array($deal['result'] ?? null) ? $deal['result'] : [];
 
-        if ((int) ($fields['CATEGORY_ID'] ?? -1) !== $categoryId) {
+        if (! $ignoreCategory && (int) ($fields['CATEGORY_ID'] ?? -1) !== $categoryId) {
             $logger->info('OL_SOURCE_SKIP_CATEGORY', [
                 'deal_id' => $dealId,
                 'category_id' => $fields['CATEGORY_ID'] ?? null,

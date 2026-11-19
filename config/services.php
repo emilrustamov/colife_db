@@ -56,7 +56,10 @@ return [
         'apartment_entity_type_id' => (int) config('bitrix_entities.portals.tr.entities.apartments'),
         'unit_entity_type_id' => (int) config('bitrix_entities.portals.tr.entities.units'),
         'apartment_units_field' => 'ufCrm5_1697012153',
+        // SPA field "Apartment number" (short code in task titles, e.g. 64).
+        'apartment_number_field' => 'ufCrm5_1692857555592',
         'disk_folder_id' => (int) env('CLEANING_DISK_FOLDER_ID', 0),
+        // Fallback only while cleaning_staff table is empty (before first successful sync).
         'staff' => [
             'Nursel',
             'Lena',
@@ -64,6 +67,8 @@ return [
             'Oksana',
             'İlvira',
         ],
+        // https://colife.bitrix24.com.tr/company/lists/87/view/0/
+        'staff_list_iblock_id' => (int) env('CLEANING_STAFF_LIST_IBLOCK_ID', 87),
     ],
 
     'bitrix_im' => [

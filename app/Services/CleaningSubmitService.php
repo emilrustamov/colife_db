@@ -35,7 +35,7 @@ class CleaningSubmitService
      * }  $payload
      * @param  list<UploadedFile>  $photos
      * @param  list<UploadedFile>  $receipts
-     * @return array{task_id: int, repair_task_id: int|null, comment_id: int, unit_comment_id: int, file_ids: list<int>, receipt_ids: list<int>}
+     * @return array{repair_task_id: int|null, comment_id: int, unit_comment_id: int, file_ids: list<int>, receipt_ids: list<int>}
      */
     public function submit(array $payload, array $photos = [], array $receipts = []): array
     {
@@ -50,10 +50,6 @@ class CleaningSubmitService
         [$fileIds, $photoFiles] = $this->uploadPhotos($domain, $payload, $photos);
         [$receiptIds, $receiptFiles] = $this->uploadPhotos($domain, $payload, $receipts, 'receipt_');
         $diskFileRefs = array_map(static fn (int $id): string => 'n'.$id, $fileIds);
-        $receiptRefs = array_map(static fn (int $id): string => 'n'.$id, $receiptIds);
-
-        $taskFiles = array_merge($diskFileRefs, $receiptRefs);
-        $taskId = $this->createMaintenanceTask($domain, $payload, $taskFiles);
 
         $repairTaskId = null;
         if (! empty($payload['needs_repair'])) {
@@ -64,7 +60,7 @@ class CleaningSubmitService
             $domain,
             $this->cleaningApartmentTypeId(),
             (int) $payload['apartment_id'],
-            $this->withTaskLinks($this->buildReportText($payload, []), $domain, $taskId, $repairTaskId),
+            $this->withTaskLinks($this->buildReportText($payload, []), $domain, $repairTaskId),
             array_merge($photoFiles, $receiptFiles),
         );
         $unitCommentId = $apartmentCommentId;
@@ -73,7 +69,7 @@ class CleaningSubmitService
                 $domain,
                 $this->cleaningUnitTypeId(),
                 (int) $payload['unit_id'],
-                $this->withTaskLinks($this->buildReportText($payload, $fileIds, $receiptIds), $domain, $taskId, $repairTaskId),
+                $this->withTaskLinks($this->buildReportText($payload, $fileIds, $receiptIds), $domain, $repairTaskId),
             );
         }
 
@@ -81,7 +77,6 @@ class CleaningSubmitService
             'domain' => $domain,
             'apartment_id' => $payload['apartment_id'],
             'unit_id' => $payload['unit_id'],
-            'task_id' => $taskId,
             'repair_task_id' => $repairTaskId,
             'comment_id' => $apartmentCommentId,
             'unit_comment_id' => $unitCommentId,
@@ -90,7 +85,6 @@ class CleaningSubmitService
         ]);
 
         return [
-            'task_id' => $taskId,
             'repair_task_id' => $repairTaskId,
             'comment_id' => $apartmentCommentId,
             'unit_comment_id' => $unitCommentId,
@@ -409,19 +403,19 @@ class CleaningSubmitService
     }
 
     /**
-     * Append clickable task links for the apartment and room timeline comments.
+     * Append clickable repair-task link for the apartment and room timeline comments.
      */
-    private function withTaskLinks(string $comment, string $domain, int $taskId, ?int $repairTaskId): string
+    private function withTaskLinks(string $comment, string $domain, ?int $repairTaskId): string
     {
-        $lines = [$comment, ''];
-        if ($taskId > 0) {
-            $lines[] = $this->reportField('Task', '[url='.$this->taskUrl($domain, $taskId).']#'.$taskId.'[/url]');
-        }
-        if ($repairTaskId !== null && $repairTaskId > 0) {
-            $lines[] = $this->reportField('Repair task', '[url='.$this->taskUrl($domain, $repairTaskId).']#'.$repairTaskId.'[/url]');
+        if ($repairTaskId === null || $repairTaskId <= 0) {
+            return $comment;
         }
 
-        return implode("\n", $lines);
+        return implode("\n", [
+            $comment,
+            '',
+            $this->reportField('Repair task', '[url='.$this->taskUrl($domain, $repairTaskId).']#'.$repairTaskId.'[/url]'),
+        ]);
     }
 
     /**
@@ -459,45 +453,9 @@ class CleaningSubmitService
      * @param  array<string, mixed>  $payload
      * @param  list<string>  $diskFileRefs
      */
-    private function createMaintenanceTask(string $domain, array $payload, array $diskFileRefs): int
-    {
-        $title = $this->buildCleaningTaskTitle($payload);
-
-        $fields = [
-            'TITLE' => $title,
-            'DESCRIPTION' => $this->buildReportText($payload, []),
-            'RESPONSIBLE_ID' => (int) config('services.cleaning.assignee_id'),
-            'CREATED_BY' => (int) config('services.cleaning.system_user_id'),
-            'GROUP_ID' => (int) config('services.cleaning.cleaning_group_id'),
-            'DEADLINE' => now()->addDays((int) config('services.cleaning.deadline_days', 2))->format('c'),
-            'ACCOMPLICES' => [(int) config('services.cleaning.participant_id')],
-            'AUDITORS' => $this->observerIds(),
-            'UF_CRM_TASK' => $this->crmBindings($payload, empty($payload['is_common_area']), true),
-        ];
-
-        if ($diskFileRefs !== []) {
-            $fields['UF_TASK_WEBDAV_FILES'] = $diskFileRefs;
-        }
-
-        $response = $this->bitrixRest->postJson('tasks.task.add', [
-            'fields' => $fields,
-        ], $domain);
-
-        return (int) data_get($response, 'result.task.id', data_get($response, 'result.task.ID', 0));
-    }
-
-    /**
-     * @param  array<string, mixed>  $payload
-     * @param  list<string>  $diskFileRefs
-     */
     private function createRepairTask(string $domain, array $payload, array $diskFileRefs): int
     {
-        $title = sprintf(
-            'Repair needed_ %s_ %s',
-            $this->formatTitleDate((string) $payload['date']),
-            trim((string) $payload['apartment_title'])
-        );
-
+        $title = $this->buildRepairTaskTitle($domain, $payload);
         $description = $this->buildRepairDescription($payload);
 
         $fields = [
@@ -520,6 +478,68 @@ class CleaningSubmitService
         ], $domain);
 
         return (int) data_get($response, 'result.task.id', data_get($response, 'result.task.ID', 0));
+    }
+
+    /**
+     * Short repair title from Bitrix "Apartment number" + cleaning type.
+     * Example: "64 - Deep Cleaning".
+     *
+     * @param  array<string, mixed>  $payload
+     */
+    private function buildRepairTaskTitle(string $domain, array $payload): string
+    {
+        $number = $this->resolveApartmentNumber($domain, (int) ($payload['apartment_id'] ?? 0));
+        $type = trim((string) ($payload['cleaning_type'] ?? ''));
+        if ($type === '') {
+            $type = 'Repair';
+        }
+
+        if ($number !== '') {
+            return $number.' - '.$type;
+        }
+
+        return 'Apartment #'.(int) ($payload['apartment_id'] ?? 0).' - '.$type;
+    }
+
+    /**
+     * Read SPA field "Apartment number" for the selected apartment.
+     */
+    private function resolveApartmentNumber(string $domain, int $apartmentId): string
+    {
+        if ($apartmentId <= 0) {
+            return '';
+        }
+
+        $field = (string) config('services.cleaning.apartment_number_field', 'ufCrm5_1692857555592');
+        if ($field === '') {
+            return '';
+        }
+
+        try {
+            $response = $this->bitrixRest->postJson('crm.item.get', [
+                'entityTypeId' => $this->cleaningApartmentTypeId(),
+                'id' => $apartmentId,
+            ], $domain);
+        } catch (\Throwable $e) {
+            Log::channel('bitrix_cleaning')->warning('CLEANING_APARTMENT_NUMBER_FETCH_FAILED', [
+                'apartment_id' => $apartmentId,
+                'error' => $e->getMessage(),
+            ]);
+
+            return '';
+        }
+
+        $item = data_get($response, 'result.item', []);
+        if (! is_array($item)) {
+            return '';
+        }
+
+        $raw = $item[$field] ?? $item[lcfirst($field)] ?? null;
+        if (is_array($raw)) {
+            $raw = reset($raw);
+        }
+
+        return trim((string) $raw);
     }
 
     /**
@@ -656,34 +676,6 @@ class CleaningSubmitService
     private function reportField(string $label, string $value): string
     {
         return '[b]'.$label.':[/b] '.$value;
-    }
-
-    /**
-     * Build cleaning task title: "{Apartment} Unit {Unit} Cleaning".
-     *
-     * @param  array<string, mixed>  $payload
-     */
-    private function buildCleaningTaskTitle(array $payload): string
-    {
-        $apartment = trim((string) ($payload['apartment_title'] ?? ''));
-        if ($apartment === '') {
-            $apartment = 'Apartment';
-        }
-
-        if (! empty($payload['is_common_area'])) {
-            return trim($apartment.' Common area Cleaning');
-        }
-
-        $unit = trim((string) ($payload['unit_title'] ?? ''));
-        if ($unit === '') {
-            $unit = '#'.(int) ($payload['unit_id'] ?? 0);
-        }
-
-        if (preg_match('/^unit\b/iu', $unit) === 1) {
-            return trim($apartment.' '.$unit.' Cleaning');
-        }
-
-        return trim($apartment.' Unit '.$unit.' Cleaning');
     }
 
     /**

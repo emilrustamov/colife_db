@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
+use App\Models\CleaningStaff;
 use App\Support\EntityMap;
 use Illuminate\Http\Response;
 
@@ -26,7 +27,9 @@ class CleaningFormController extends Controller
         return response()
             ->view('cleaning.form', [
                 'submitUrl' => url('/api/cleaning/submit'),
-                'staff' => config('services.cleaning.staff', []),
+                'staffSyncUrl' => url('/api/cleaning/staff-sync'),
+                'staff' => CleaningStaff::namesForForm(),
+                'staffListIblockId' => (int) config('services.cleaning.staff_list_iblock_id', 87),
                 'apartmentEntityTypeId' => $apartmentTypeId,
                 'unitEntityTypeId' => $unitTypeId,
                 'apartmentUnitsField' => (string) config('services.cleaning.apartment_units_field'),

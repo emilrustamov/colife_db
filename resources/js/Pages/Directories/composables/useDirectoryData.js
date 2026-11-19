@@ -120,6 +120,14 @@ export const useDirectoryData = ({ selectedKey, menu, perPage }) => {
     };
 
     const openLinkedRecord = async (href) => {
+        if (typeof href === 'string' && /^https?:\/\//i.test(href.trim())) {
+            if (typeof window !== 'undefined') {
+                window.open(href.trim(), '_blank', 'noopener,noreferrer');
+            }
+
+            return;
+        }
+
         const parsed = parseDirectoryHref(href);
         if (!parsed) {
             return;

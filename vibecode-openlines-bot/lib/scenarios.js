@@ -75,7 +75,14 @@ export function activateScenario(state, scenario) {
   if (scenario === 'short_term' && !state.category) {
     state.category = 'short_term';
   }
-  return { ok: true, activeScenario: scenario };
+  return {
+    ok: true,
+    activeScenario: scenario,
+    // Main prompt says “pass to scenario / do not answer yourself” — without this,
+    // the model ends the turn empty and empty_reply forces FALLBACK handoff.
+    agentInstruction:
+      `Scenario "${scenario}" is now active for THIS turn. Follow that scenario's first-reply steps and call make_answer with the required client message before ending. Do not end the turn silently.`,
+  };
 }
 
 export { apartmentTypeFromRooms, roomsFromCatalogType };

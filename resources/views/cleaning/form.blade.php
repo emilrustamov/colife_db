@@ -633,6 +633,8 @@
 (function () {
     const CONFIG = {
         submitUrl: @json($submitUrl),
+        staffSyncUrl: @json($staffSyncUrl),
+        staffListIblockId: {{ (int) $staffListIblockId }},
         apartmentEntityTypeId: {{ (int) $apartmentEntityTypeId }},
         unitEntityTypeId: {{ (int) $unitEntityTypeId }},
         apartmentUnitsField: @json($apartmentUnitsField),
@@ -1293,8 +1295,9 @@
             if (!response.ok || data.status !== 'ok') {
                 throw new Error((data && data.message) ? data.message : ('Submit failed (' + response.status + ')'));
             }
-            setStatus('ok', 'Report submitted. Task #' + data.result.task_id +
-                (data.result.repair_task_id ? (', repair task #' + data.result.repair_task_id) : '') + '.');
+            setStatus('ok', data.result.repair_task_id
+                ? ('Report submitted. Repair task #' + data.result.repair_task_id + '.')
+                : 'Report submitted.');
             document.getElementById('cleaningForm').reset();
             cleaningTypeInput.value = 'Deep Cleaning';
             document.querySelectorAll('#cleaningTypes .type-card').forEach(function (c, idx) {
@@ -1338,6 +1341,110 @@
     areaPhotos.render();
     receiptPhotos.render();
 
+    /**
+     * Load all universal-list elements via BX24 pagination (result.more / result.next).
+     */
+    function listAllListElements(iblockId) {
+        return new Promise(function (resolve, reject) {
+            const items = [];
+            const seenIds = {};
+
+            BX24.callMethod('lists.element.get', {
+                IBLOCK_TYPE_ID: 'lists',
+                IBLOCK_ID: iblockId,
+                FILTER: { ACTIVE: 'Y' },
+            }, function onList(result) {
+                if (result.error()) {
+                    reject(new Error(result.error()));
+                    return;
+                }
+
+                const data = result.data();
+                const batch = Array.isArray(data) ? data : [];
+                for (let i = 0; i < batch.length; i++) {
+                    const item = batch[i];
+                    const id = parseInt(item && item.ID, 10);
+                    if (!id || seenIds[id]) {
+                        continue;
+                    }
+                    seenIds[id] = true;
+                    items.push(item);
+                }
+
+                if (result.more()) {
+                    result.next();
+                    return;
+                }
+
+                resolve(items);
+            });
+        });
+    }
+
+    function fillStaffSelect(names) {
+        const selected = staffSelect.value;
+        staffSelect.innerHTML = '<option value="">Select your name</option>';
+        (names || []).forEach(function (name) {
+            const option = document.createElement('option');
+            option.value = name;
+            option.textContent = name;
+            if (name === selected) {
+                option.selected = true;
+            }
+            staffSelect.appendChild(option);
+        });
+    }
+
+    async function refreshStaffFromBitrixList() {
+        if (!CONFIG.staffListIblockId || !CONFIG.staffSyncUrl) {
+            return;
+        }
+
+        const items = await listAllListElements(CONFIG.staffListIblockId);
+        const elements = items.map(function (item) {
+            return {
+                id: parseInt(item.ID, 10),
+                name: String(item.NAME || '').trim(),
+                sort: parseInt(item.SORT, 10) || 500,
+            };
+        }).filter(function (row) {
+            return row.id > 0 && row.name !== '';
+        });
+
+        if (elements.length === 0) {
+            return;
+        }
+
+        const bxAuth = await resolveAuth();
+        const portalDomain = (bxAuth && bxAuth.domain) || '';
+        const accessToken = (bxAuth && bxAuth.access_token) || '';
+        if (!portalDomain || !accessToken) {
+            return;
+        }
+
+        const response = await fetch(CONFIG.staffSyncUrl, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Accept': 'application/json',
+                'X-Requested-With': 'XMLHttpRequest',
+            },
+            body: JSON.stringify({
+                auth: {
+                    domain: portalDomain,
+                    access_token: accessToken,
+                },
+                elements: elements,
+            }),
+        });
+        const data = await response.json().catch(function () { return {}; });
+        if (!response.ok || data.status !== 'ok' || !Array.isArray(data.staff)) {
+            throw new Error((data && data.message) ? data.message : ('Staff sync failed (' + response.status + ')'));
+        }
+
+        fillStaffSelect(data.staff);
+    }
+
     BX24.init(function () {
         loadApartments()
             .then(function () {
@@ -1348,6 +1455,10 @@
             .catch(function (e) {
                 setStatus('err', 'Failed to load apartments: ' + e.message);
             });
+
+        refreshStaffFromBitrixList().catch(function (e) {
+            console.warn('Cleaning staff list sync skipped:', e && e.message ? e.message : e);
+        });
     });
 })();
 </script>

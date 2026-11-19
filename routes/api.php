@@ -18,6 +18,7 @@ use App\Http\Controllers\Api\DiskApi;
 use App\Http\Controllers\Api\TerminateBpApi;
 use App\Http\Controllers\Api\CleaningInstallController;
 use App\Http\Controllers\Api\CleaningFormController;
+use App\Http\Controllers\Api\CleaningStaffSyncController;
 use App\Http\Controllers\Api\CleaningSubmitController;
 use App\Http\Controllers\Api\OpenLinesInstallController;
 use Illuminate\Support\Facades\Route;
@@ -75,4 +76,7 @@ Route::match(['get', 'post'], '/cleaning', [CleaningFormController::class, 'inde
     ->withoutMiddleware(['auth', 'auth:sanctum', 'api.key']);
 Route::post('/cleaning/submit', [CleaningSubmitController::class, 'submit'])
     ->middleware('throttle:20,1')
+    ->withoutMiddleware(['auth', 'auth:sanctum', 'api.key']);
+Route::post('/cleaning/staff-sync', [CleaningStaffSyncController::class, 'sync'])
+    ->middleware('throttle:30,1')
     ->withoutMiddleware(['auth', 'auth:sanctum', 'api.key']);

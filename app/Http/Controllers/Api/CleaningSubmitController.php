@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
+use App\Models\CleaningStaff;
 use App\Services\CleaningAlert;
 use App\Services\CleaningSubmitService;
 use App\Services\TokenVerifier;
@@ -73,8 +74,8 @@ class CleaningSubmitController extends Controller
             return response()->json(['status' => 'error', 'message' => 'Please select room / area.'], 422);
         }
 
-        $staffList = config('services.cleaning.staff', []);
-        if (! is_array($staffList) || ! in_array($validated['staff'], $staffList, true)) {
+        $staffList = CleaningStaff::namesForForm();
+        if ($staffList === [] || ! in_array($validated['staff'], $staffList, true)) {
             return response()->json(['status' => 'error', 'message' => 'Invalid cleaning staff.'], 422);
         }
 

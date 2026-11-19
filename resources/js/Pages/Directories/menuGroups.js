@@ -27,7 +27,7 @@ export const MENU_GROUPS = [
         id: 'contracts',
         labelKey: 'menuGroupContracts',
         tone: 'rose',
-        keys: ['unit-stays', 'apartment-ownerships'],
+        keys: ['unit-stays', 'apartment-ownerships', 'landlord-reports'],
     },
     {
         id: 'ops',

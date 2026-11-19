@@ -144,13 +144,21 @@ export function extractDaysToCheckin(text) {
   if (/\b(tomorrow|завтра)\b/i.test(t)) return 1;
   if (/\b(next\s+week|следующ\w*\s+недел)\b/i.test(t)) return 7;
 
+  // Bare "N days/weeks" is often stay length ("30 days rent") — only treat as
+  // move-in offset when not clearly a rental duration.
   const daysMatch = t.match(
-    /(\d+)\s*(?:day|days|дн(?:я|ей|ень)?|сутки|суток)/i,
+    /(\d+)\s*(?:day|days|дн(?:я|ей|ень)?|сутки|суток)\b(?!\s*(?:rent|stay|lease|rental|аренд|прожив|найм))/i,
   );
-  if (daysMatch) return Number.parseInt(daysMatch[1], 10);
+  if (daysMatch && !/\b(?:for|на)\s+\d+\s*(?:day|days|дн)/i.test(t)) {
+    return Number.parseInt(daysMatch[1], 10);
+  }
 
-  const weeksMatch = t.match(/(\d+)\s*(?:week|weeks|недел)/i);
-  if (weeksMatch) return Number.parseInt(weeksMatch[1], 10) * 7;
+  const weeksMatch = t.match(
+    /(\d+)\s*(?:week|weeks|недел)\b(?!\s*(?:rent|stay|lease|rental|аренд|прожив))/i,
+  );
+  if (weeksMatch && !/\b(?:for|на)\s+\d+\s*(?:week|weeks|недел)/i.test(t)) {
+    return Number.parseInt(weeksMatch[1], 10) * 7;
+  }
 
   const monthsMatch = t.match(
     /(\d+)\s*(?:month|months|мес(?:яц|яца|яцев)?)\s*(?:до\s*заезд|before\s*check|до\s*переезд)?/i,
@@ -160,22 +168,32 @@ export function extractDaysToCheckin(text) {
   }
 
   const throughMatch = t.match(
-    /через\s+(\d+)\s*(?:день|дня|дней|недел|неделю|недели|месяц)/i,
+    /через\s+(\d+(?:[.,]\d+)?)\s*(?:день|дня|дней|недел|неделю|недели|месяц)/i,
   );
   if (throughMatch) {
-    const n = Number.parseInt(throughMatch[1], 10);
-    if (/недел/i.test(throughMatch[0])) return n * 7;
-    if (/месяц/i.test(throughMatch[0])) return n * 30;
-    return n;
+    const n = Number.parseFloat(throughMatch[1].replace(',', '.'));
+    if (/недел/i.test(throughMatch[0])) return Math.round(n * 7);
+    if (/месяц/i.test(throughMatch[0])) return Math.round(n * 30);
+    return Math.round(n);
   }
 
-  const inMatch = t.match(/\bin\s+(\d+)\s*(days?|weeks?|months?)\b/i);
+  // "in about 1.5 months" / "in 2 months" — timing, not stay length.
+  const inMatch = t.match(
+    /\bin\s+(?:about|approximately|approx\.?|roughly|~|примерно|около)?\s*(\d+(?:[.,]\d+)?)\s*(days?|weeks?|months?)\b/i,
+  );
   if (inMatch) {
-    const n = Number.parseInt(inMatch[1], 10);
+    const n = Number.parseFloat(inMatch[1].replace(',', '.'));
     const unit = inMatch[2].toLowerCase();
-    if (unit.startsWith('week')) return n * 7;
-    if (unit.startsWith('month')) return n * 30;
-    return n;
+    if (unit.startsWith('week')) return Math.round(n * 7);
+    if (unit.startsWith('month')) return Math.round(n * 30);
+    return Math.round(n);
+  }
+
+  const aboutMonths = t.match(
+    /(?:about|approximately|approx\.?|roughly|~|примерно|около)\s+(\d+(?:[.,]\d+)?)\s*(?:months?|мес(?:яц|яца|яцев)?)\b/i,
+  );
+  if (aboutMonths) {
+    return Math.round(Number.parseFloat(aboutMonths[1].replace(',', '.')) * 30);
   }
 
   const rangeDayMonth = t.match(
@@ -189,22 +207,60 @@ export function extractDaysToCheckin(text) {
     if (idx >= 0) return daysUntilDate(Number.parseInt(rangeDayMonth[1], 10), idx);
   }
 
+  /** @type {Array<{ re: RegExp, dayIdx: number, monIdx: number|number[] }>} */
   const singleDayMonthPatterns = [
-    new RegExp(
-      `(?:с|from|заезд|check[\\s-]?in|переезд)\\s*(?:с|from)?\\s*(\\d{1,2})\\s*(?:(${MONTH_RU_RE})[а-яё]*|(${MONTH_EN_RE})\\b)`,
-      'i',
-    ),
+    {
+      re: new RegExp(
+        `(?:с|from|заезд|check[\\s-]?in|переезд)\\s*(?:с|from)?\\s*(\\d{1,2})\\s*(?:(${MONTH_RU_RE})[а-яё]*|(${MONTH_EN_RE})\\b)`,
+        'i',
+      ),
+      dayIdx: 1,
+      monIdx: [2, 3],
+    },
     // bare: 15 декабря / 15 December (no \\b before Cyrillic)
-    new RegExp(
-      `(?:^|[^0-9A-Za-zА-Яа-яЁё])(\\d{1,2})(?:st|nd|rd|th)?\\s*(?:(${MONTH_RU_RE})[а-яё]*|(${MONTH_EN_RE})\\b)`,
-      'i',
-    ),
+    {
+      re: new RegExp(
+        `(?:^|[^0-9A-Za-zА-Яа-яЁё])(\\d{1,2})(?:st|nd|rd|th)?\\s*(?:(${MONTH_RU_RE})[а-яё]*|(${MONTH_EN_RE})\\b)`,
+        'i',
+      ),
+      dayIdx: 1,
+      monIdx: [2, 3],
+    },
+    // month-first: January 1st / January 1 / декабрь 22
+    {
+      re: new RegExp(
+        `(?:(${MONTH_EN_RE})\\b|(${MONTH_RU_RE})[а-яё]*)\\s+(\\d{1,2})(?:st|nd|rd|th)?\\b`,
+        'i',
+      ),
+      dayIdx: 3,
+      monIdx: [1, 2],
+    },
+    // dashed EN month: 22-Dec / From 22-Dec
+    {
+      re: new RegExp(`(\\d{1,2})[-/ ]?(${MONTH_EN_RE})\\b`, 'i'),
+      dayIdx: 1,
+      monIdx: 2,
+    },
   ];
-  for (const re of singleDayMonthPatterns) {
+  for (const { re, dayIdx, monIdx } of singleDayMonthPatterns) {
     const m = t.match(re);
     if (!m) continue;
-    const idx = monthIndexFromName(m[2] || m[3]);
-    if (idx >= 0) return daysUntilDate(Number.parseInt(m[1], 10), idx);
+    const day = Number.parseInt(m[dayIdx], 10);
+    const monRaw = Array.isArray(monIdx) ? m[monIdx[0]] || m[monIdx[1]] : m[monIdx];
+    const idx = monthIndexFromName(monRaw);
+    if (idx >= 0 && day >= 1 && day <= 31) return daysUntilDate(day, idx);
+  }
+
+  // Mid-month: mid-December / середина декабря → 15th
+  const midMonth = t.match(
+    new RegExp(
+      `(?:mid[-\\s]?|middle\\s+of\\s+|середин[аеы]\\s+)(?:(${MONTH_EN_RE})\\b|(${MONTH_RU_RE})[а-яё]*)`,
+      'i',
+    ),
+  );
+  if (midMonth) {
+    const idx = monthIndexFromName(midMonth[1] || midMonth[2]);
+    if (idx >= 0) return daysUntilDate(15, idx);
   }
 
   const dateWithYear = t.match(/(\d{1,2})[./-](\d{1,2})[./-](\d{2,4})\b/);
@@ -218,7 +274,7 @@ export function extractDaysToCheckin(text) {
     );
   }
 
-  // Two-part numeric dates only with / or - (dot is used by unit SKUs).
+  // Two-part numeric dates with / or - (unpadded ok).
   // Skip period ranges like "2-3 month" / "1-2 weeks".
   const dateNoYear = t.match(
     /(\d{1,2})[/-](\d{1,2})(?![./-\d])(?!\s*(?:months?|мес|weeks?|days?|дн|years?|год))/i,
@@ -229,6 +285,30 @@ export function extractDaysToCheckin(text) {
     if (day >= 1 && day <= 31 && month >= 0 && month <= 11) {
       return daysUntilDate(day, month);
     }
+  }
+
+  // Dotted DD.MM without year: require zero-padded month (06.01, 15.12)
+  // so unit SKUs like 7.1 / 107.1 / 469.1 stay untouched.
+  const dottedDayMonth = t.match(/(\d{1,2})\.(\d{2})(?!\d)/);
+  if (dottedDayMonth) {
+    const day = Number.parseInt(dottedDayMonth[1], 10);
+    const month = Number.parseInt(dottedDayMonth[2], 10) - 1;
+    if (day >= 1 && day <= 31 && month >= 0 && month <= 11) {
+      return daysUntilDate(day, month);
+    }
+  }
+
+  // Month-only: "in January" / "в январе" → 1st of that month.
+  // Avoid \\b before Cyrillic — JS \\b is ASCII-only without the /u flag.
+  const monthOnly = t.match(
+    new RegExp(
+      `(?:\\bin\\s+|\\bduring\\s+|(?:^|[^\\p{L}\\p{N}_])в\\s+)(?:(${MONTH_RU_RE})[а-яё]*|(${MONTH_EN_RE})\\b)`,
+      'iu',
+    ),
+  );
+  if (monthOnly) {
+    const idx = monthIndexFromName(monthOnly[1] || monthOnly[2]);
+    if (idx >= 0) return daysUntilDate(1, idx);
   }
 
   if (/\b(friday|пятниц)/i.test(t)) {
@@ -299,7 +379,8 @@ export function extractSearchArgs(text) {
   }
 
   let period;
-  const periodMatch = t.match(/(\d+)\s*(?:month|months|мес|месяц)/i);
+  // Avoid "1.5 months" → matching the trailing "5 months".
+  const periodMatch = t.match(/(?<![\d.,])(\d+)\s*(?:month|months|мес|месяц)/i);
   if (periodMatch) period = Number.parseInt(periodMatch[1], 10);
   else if (/на\s*месяц|for\s*a?\s*month|1\s*month|one\s*month|a\s*month/i.test(t)) period = 1;
   else if (/(?:two|2)\s*months?|(?:three|3)\s*months?/i.test(t)) {

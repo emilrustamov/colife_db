@@ -632,6 +632,28 @@ export function createBotWorker(config) {
                 tool_call_id: call.id,
                 content: JSON.stringify(result),
               });
+              // Mid-turn scenario switch: inject scenario template so the model can
+              // still produce the required first client reply (avoids empty_reply FALLBACK).
+              if (
+                name === 'activate_scenario'
+                && result?.ok
+                && result.activeScenario
+              ) {
+                const scenBody = await loadTemplate(`scenario:${result.activeScenario}`);
+                if (scenBody) {
+                  attemptMessages.push({
+                    role: 'system',
+                    content: [
+                      `# Active scenario now: ${result.activeScenario}`,
+                      'Follow this scenario for the rest of THIS turn.',
+                      'You MUST call make_answer with the scenario first client reply before ending.',
+                      'Do not end the turn without a client-facing message.',
+                      '',
+                      String(scenBody).slice(0, 14000),
+                    ].join('\n'),
+                  });
+                }
+              }
             }
             if (state.handedOff || runtime.pendingHandoff) break;
             continue;
@@ -699,6 +721,8 @@ export function createBotWorker(config) {
     }
 
     // Empty client reply is a hard failure → handoff, not invented clarify questions.
+    // Exception: postponed already routed in code — send the required first client reply
+    // instead of FALLBACK handoff (model often stops after qualify_lead without make_answer).
     if (
       !sentAnswers.length
       && !runtime.pendingHandoff
@@ -706,15 +730,29 @@ export function createBotWorker(config) {
       && !state.terminalAPendingLeave
     ) {
       const lang = state.language || detectLang(text);
-      runtime.pendingHandoff = { mode: 'A', reason: 'empty_reply' };
-      const notice = FALLBACK_TEXT[lang] || FALLBACK_TEXT.en;
-      await sendMessage(apiKey, botId, dialogId, {
-        message: notice,
-        keyboard: OPERATOR_KEYBOARD,
-      });
-      state.transcript.push(`Bot: ${notice}`);
-      state.introduced = true;
-      sentAnswers.push(notice);
+      if (state.activeScenario === 'postponed') {
+        const notice = lang === 'ru'
+          ? 'Бронирование становится доступно только за 2–3 недели до даты заезда. Актуальные варианты в любое время можно посмотреть в нашем каталоге: https://colife.ae/catalog'
+          : 'Booking becomes available only 2–3 weeks before your move-in date. In the meantime, you can always browse the latest available options in our catalogue: https://colife.ae/catalog';
+        await sendMessage(apiKey, botId, dialogId, {
+          message: notice,
+          keyboard: OPERATOR_KEYBOARD,
+        });
+        state.transcript.push(`Bot: ${notice}`);
+        state.introduced = true;
+        sentAnswers.push(notice);
+        pushAnalysis(runtime.analysis, 'explanation', 'Explanation of the result', 0, 'postponed_empty_reply_safety');
+      } else {
+        runtime.pendingHandoff = { mode: 'A', reason: 'empty_reply' };
+        const notice = FALLBACK_TEXT[lang] || FALLBACK_TEXT.en;
+        await sendMessage(apiKey, botId, dialogId, {
+          message: notice,
+          keyboard: OPERATOR_KEYBOARD,
+        });
+        state.transcript.push(`Bot: ${notice}`);
+        state.introduced = true;
+        sentAnswers.push(notice);
+      }
     }
 
     const elapsedMs = Date.now() - started;

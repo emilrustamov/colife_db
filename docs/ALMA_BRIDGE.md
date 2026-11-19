@@ -107,6 +107,8 @@ artisan alma-bridge:upsert {type} {id} [--project=] [--create] [--update]
 | [ALMA.md](ALMA.md) / `AlmaContactService` | PATCH `external_id` по email (`POST /api/alma/contacts/external-id`) |
 | Alma Bridge (`TenantContractService` / `LandlordContractService`) | только `createClient` во время контрактов, с lock `alma-bridge:create-client:{id}` |
 
+`CACHE_STORE` в production — только `redis` (не `file`): иначе `Cache::lock` под php-fpm даёт `fopen` / `Permission denied`. Откат на file ловит `telegram:health` → `CacheStoreHealth`.
+
 Bridge **не** патчит `external_id` клиентов из contacts-кэша. Cutover checklist: убедиться, что handlers не вызывают оба write-path на один и тот же контакт одновременно.
 
 ## Auth webhook
