@@ -172,15 +172,30 @@ class TokenVerifier
      */
     public function cleaningFormUserId(Request $request): int
     {
-        $domain = $this->requestDomain($request);
-        $expected = $this->oauth->normalizeDomain((string) config('services.b24_tr.portal_domain'));
-        if ($domain === '' || $expected === '' || strcasecmp($domain, $expected) !== 0) {
-            return 0;
+        return (int) ($this->cleaningFormUser($request)['id'] ?? 0);
+    }
+
+    /**
+     * Resolve Bitrix user id + display name for the live BX24 access_token.
+     *
+     * @return array{id:int, name:string}
+     */
+    public function cleaningFormUser(Request $request): array
+    {
+        $attrKey = 'cleaning_form_user';
+        $cached = $request->attributes->get($attrKey);
+        if (is_array($cached) && array_key_exists('id', $cached)) {
+            return $cached;
         }
 
+        $empty = ['id' => 0, 'name' => ''];
+        $domain = $this->requestDomain($request);
         $accessToken = trim((string) data_get($request->all(), 'auth.access_token', ''));
-        if ($accessToken === '') {
-            return 0;
+        $expected = $this->oauth->normalizeDomain((string) config('services.b24_tr.portal_domain'));
+        if ($domain === '' || $expected === '' || strcasecmp($domain, $expected) !== 0 || $accessToken === '') {
+            $request->attributes->set($attrKey, $empty);
+
+            return $empty;
         }
 
         try {
@@ -191,12 +206,38 @@ class TokenVerifier
                 ]);
 
             if (! $response->successful()) {
-                return 0;
+                $request->attributes->set($attrKey, $empty);
+
+                return $empty;
             }
 
-            return (int) data_get($response->json(), 'result.ID', 0);
+            $result = $response->json('result');
+            if (! is_array($result)) {
+                $request->attributes->set($attrKey, $empty);
+
+                return $empty;
+            }
+
+            $id = (int) ($result['ID'] ?? 0);
+            $name = trim(implode(' ', array_filter([
+                trim((string) ($result['NAME'] ?? '')),
+                trim((string) ($result['LAST_NAME'] ?? '')),
+            ], static fn (string $part): bool => $part !== '')));
+            if ($name === '' && $id > 0) {
+                $name = 'User #'.$id;
+            }
+
+            $user = [
+                'id' => $id > 0 ? $id : 0,
+                'name' => $name,
+            ];
+            $request->attributes->set($attrKey, $user);
+
+            return $user;
         } catch (\Throwable) {
-            return 0;
+            $request->attributes->set($attrKey, $empty);
+
+            return $empty;
         }
     }
 

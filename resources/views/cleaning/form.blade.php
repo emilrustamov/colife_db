@@ -562,6 +562,7 @@
             overflow: hidden;
             border: 1px solid var(--border);
             background: var(--white);
+            text-decoration: none;
         }
         .history-photos img {
             width: 100%;
@@ -569,6 +570,16 @@
             object-fit: cover;
             display: block;
             background: #e8eef8;
+        }
+        .history-photos-more {
+            display: flex !important;
+            align-items: center;
+            justify-content: center;
+            color: var(--muted);
+            font-size: 14px;
+            font-weight: 700;
+            border-style: dashed;
+            background: var(--blue-tint);
         }
         .history-empty {
             text-align: center;
@@ -640,10 +651,8 @@
             min-width: 90px;
             text-align: center;
         }
-        .history-delete-btn {
-            border: 1px solid #fecaca;
-            background: #fff;
-            color: #b91c1c;
+        .history-delete-btn,
+        .history-photos-btn {
             font: inherit;
             font-size: 12px;
             font-weight: 650;
@@ -652,15 +661,36 @@
             cursor: pointer;
             white-space: nowrap;
         }
+        .history-delete-btn {
+            border: 1px solid #fecaca;
+            background: #fff;
+            color: #b91c1c;
+        }
         .history-delete-btn:hover { background: #fef2f2; }
         .history-delete-btn:disabled { opacity: 0.5; cursor: default; }
+        .history-photos-btn {
+            border: 1px solid var(--border);
+            background: var(--white);
+            color: var(--text);
+        }
+        .history-photos-btn:hover { background: var(--blue-tint); }
+        .history-photos-btn[aria-expanded="true"] {
+            background: var(--blue-soft);
+            border-color: #9bb6de;
+        }
         .history-item-actions {
             display: flex;
             gap: 8px;
             align-items: center;
             margin-top: 8px;
             justify-content: flex-end;
+            flex-wrap: wrap;
         }
+        .history-photos-panel {
+            display: none;
+            margin-top: 10px;
+        }
+        .history-photos-panel.open { display: block; }
         @media (max-width: 760px) {
             .banner { grid-template-columns: 1fr 1fr; }
             .type-grid, .row-2, .checklist, .actions { grid-template-columns: 1fr; }
@@ -891,7 +921,7 @@
                 <div class="history-toolbar-search" id="historyApartmentSlot"></div>
                 <div class="history-pager-meta" id="historyPagerMeta"></div>
             </div>
-            <div class="history-hint" id="historyHint">Loading history...</div>
+            <div class="history-hint" id="historyHint">Open History to load reports.</div>
             <div class="history-list" id="historyList"></div>
             <div class="history-pager" id="historyPager" hidden>
                 <button type="button" id="historyPrevBtn">Prev</button>
@@ -1749,8 +1779,10 @@
     const apartmentFieldLabel = document.getElementById('apartmentFieldLabel');
     const HISTORY_VIEW_KEY = 'cleaningHistoryView';
     const HISTORY_PER_PAGE = 20;
+    const HISTORY_FETCH_TIMEOUT_MS = 25000;
     let currentMode = 'new';
     let historyLoadToken = 0;
+    let historyAbortController = null;
     let historyPage = 1;
     let historyLastPage = 1;
     let historyTotal = 0;
@@ -1802,13 +1834,10 @@
         historyPagerMeta.textContent = from + '–' + to + ' of ' + historyTotal;
     }
 
-    function appendHistoryPhotos(container, photos) {
-        if (!Array.isArray(photos) || !photos.length) {
-            return;
-        }
+    function renderPhotoThumbs(photos) {
         const photosWrapEl = document.createElement('div');
         photosWrapEl.className = 'history-photos';
-        photos.forEach(function (photo) {
+        (photos || []).forEach(function (photo) {
             const link = document.createElement('a');
             link.href = String(photo.openUrl || photo.url || '#');
             link.target = '_blank';
@@ -1816,6 +1845,7 @@
             link.title = String(photo.name || 'photo');
             const img = document.createElement('img');
             img.loading = 'lazy';
+            img.decoding = 'async';
             img.alt = String(photo.name || 'photo');
             img.src = String(photo.url || '');
             img.onerror = function () {
@@ -1825,7 +1855,38 @@
             link.appendChild(img);
             photosWrapEl.appendChild(link);
         });
-        container.appendChild(photosWrapEl);
+        return photosWrapEl;
+    }
+
+    function makeHistoryPhotosControls(item) {
+        const photos = Array.isArray(item.photos) ? item.photos : [];
+        if (!photos.length) {
+            return null;
+        }
+
+        const btn = document.createElement('button');
+        btn.type = 'button';
+        btn.className = 'history-photos-btn';
+        btn.setAttribute('aria-expanded', 'false');
+        btn.textContent = 'Photos (' + photos.length + ')';
+
+        const panel = document.createElement('div');
+        panel.className = 'history-photos-panel';
+        let loaded = false;
+
+        btn.addEventListener('click', function () {
+            const open = panel.classList.toggle('open');
+            btn.setAttribute('aria-expanded', open ? 'true' : 'false');
+            btn.textContent = open
+                ? ('Hide photos (' + photos.length + ')')
+                : ('Photos (' + photos.length + ')');
+            if (open && !loaded) {
+                panel.appendChild(renderPhotoThumbs(photos));
+                loaded = true;
+            }
+        });
+
+        return { btn: btn, panel: panel, count: photos.length };
     }
 
     function makeHistoryDeleteButton(item) {
@@ -1900,7 +1961,14 @@
             title.appendChild(badge);
         }
         const when = document.createElement('span');
-        when.textContent = item.createdLabel || '';
+        const whenParts = [];
+        if (item.createdLabel) {
+            whenParts.push(item.createdLabel);
+        }
+        if (item.submitted_by) {
+            whenParts.push(item.submitted_by);
+        }
+        when.textContent = whenParts.join(' · ');
         top.appendChild(title);
         top.appendChild(when);
         card.appendChild(top);
@@ -1913,6 +1981,7 @@
             ['Date', item.date],
             ['Time', item.time],
             ['Staff', item.staff],
+            ['Submitted by', item.submitted_by || ''],
         ].forEach(function (row) {
             if (!row[1]) {
                 return;
@@ -1933,13 +2002,20 @@
             card.appendChild(notes);
         }
 
-        appendHistoryPhotos(card, item.photos);
-
-        if (historyCanDelete) {
+        const photosControls = makeHistoryPhotosControls(item);
+        if (photosControls || historyCanDelete) {
             const actions = document.createElement('div');
             actions.className = 'history-item-actions';
-            actions.appendChild(makeHistoryDeleteButton(item));
+            if (photosControls) {
+                actions.appendChild(photosControls.btn);
+            }
+            if (historyCanDelete) {
+                actions.appendChild(makeHistoryDeleteButton(item));
+            }
             card.appendChild(actions);
+            if (photosControls) {
+                card.appendChild(photosControls.panel);
+            }
         }
 
         return card;
@@ -1948,7 +2024,7 @@
     function renderHistoryTable(items) {
         const table = document.createElement('table');
         table.className = 'history-table';
-        const headCols = ['When', 'Type', 'Apartment', 'Unit', 'Staff', 'Repair', 'Photos'];
+        const headCols = ['When', 'Type', 'Apartment', 'Unit', 'Staff', 'Submitted by', 'Repair', 'Photos'];
         if (historyCanDelete) {
             headCols.push('');
         }
@@ -1964,6 +2040,7 @@
                 item.apartment_title || '',
                 item.unit || '',
                 item.staff || '',
+                item.submitted_by || '',
                 item.needsRepair ? 'Yes' : 'No',
             ];
             cells.forEach(function (value) {
@@ -1972,8 +2049,11 @@
                 tr.appendChild(td);
             });
             const photoTd = document.createElement('td');
-            appendHistoryPhotos(photoTd, item.photos);
-            if (!item.photos || !item.photos.length) {
+            const photosControls = makeHistoryPhotosControls(item);
+            if (photosControls) {
+                photoTd.appendChild(photosControls.btn);
+                photoTd.appendChild(photosControls.panel);
+            } else {
                 photoTd.textContent = '—';
             }
             tr.appendChild(photoTd);
@@ -2017,7 +2097,20 @@
         const token = ++historyLoadToken;
         historyApartmentId = parseInt(apartmentId, 10) || 0;
         historyPage = Math.max(1, parseInt(page, 10) || 1);
+        historyPrevBtn.disabled = true;
+        historyNextBtn.disabled = true;
         renderHistoryPlaceholder(historyApartmentId > 0 ? 'Loading history for apartment...' : 'Loading history...');
+
+        if (historyAbortController) {
+            try { historyAbortController.abort(); } catch (e) {}
+        }
+        const controller = new AbortController();
+        historyAbortController = controller;
+        let timedOut = false;
+        const timeoutId = setTimeout(function () {
+            timedOut = true;
+            try { controller.abort(); } catch (e) {}
+        }, HISTORY_FETCH_TIMEOUT_MS);
 
         try {
             if (!CONFIG.historyUrl) {
@@ -2025,6 +2118,9 @@
             }
 
             const bxAuth = await ensureBxAuth();
+            if (token !== historyLoadToken) {
+                return;
+            }
             const portalDomain = (bxAuth && bxAuth.domain) || '';
             const accessToken = (bxAuth && bxAuth.access_token) || '';
             if (!portalDomain || !accessToken) {
@@ -2047,6 +2143,7 @@
                     page: historyPage,
                     per_page: HISTORY_PER_PAGE,
                 }),
+                signal: controller.signal,
             });
             const data = await response.json().catch(function () { return {}; });
             if (token !== historyLoadToken) {
@@ -2066,9 +2163,23 @@
             if (token !== historyLoadToken) {
                 return;
             }
+            if (e && e.name === 'AbortError') {
+                if (!timedOut) {
+                    return;
+                }
+                historyItems = [];
+                historyTotal = 0;
+                renderHistoryPlaceholder('History timed out. Server was busy loading photos — try again.');
+                return;
+            }
             historyItems = [];
             historyTotal = 0;
             renderHistoryPlaceholder('Failed to load history: ' + (e && e.message ? e.message : 'unknown error'));
+        } finally {
+            clearTimeout(timeoutId);
+            if (token === historyLoadToken) {
+                updateHistoryPager();
+            }
         }
     }
 

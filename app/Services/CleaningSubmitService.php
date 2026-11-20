@@ -33,7 +33,9 @@ class CleaningSubmitService
      *     checklist_other: string,
      *     needs_repair: bool,
      *     notes: string,
-     *     is_common_area?: bool
+     *     is_common_area?: bool,
+     *     submitted_by_user_id?: int,
+     *     submitted_by_name?: string
      * }  $payload
      * @param  list<UploadedFile>  $photos
      * @param  list<UploadedFile>  $receipts
@@ -85,6 +87,8 @@ class CleaningSubmitService
             'domain' => $domain,
             'apartment_id' => $payload['apartment_id'],
             'unit_id' => $payload['unit_id'],
+            'submitted_by_user_id' => (int) ($payload['submitted_by_user_id'] ?? 0) ?: null,
+            'submitted_by_name' => (string) ($payload['submitted_by_name'] ?? '') ?: null,
             'repair_task_id' => $repairTaskId,
             'comment_id' => $apartmentCommentId,
             'unit_comment_id' => $unitCommentId,
@@ -136,6 +140,8 @@ class CleaningSubmitService
                 'report_date' => mb_substr(trim((string) ($payload['date'] ?? '')), 0, 32) ?: null,
                 'report_time' => mb_substr(trim((string) ($payload['time'] ?? '')), 0, 16) ?: null,
                 'staff' => mb_substr(trim((string) ($payload['staff'] ?? '')), 0, 100) ?: null,
+                'submitted_by_user_id' => ((int) ($payload['submitted_by_user_id'] ?? 0)) ?: null,
+                'submitted_by_name' => mb_substr(trim((string) ($payload['submitted_by_name'] ?? '')), 0, 255) ?: null,
                 'needs_repair' => ! empty($payload['needs_repair']),
                 'notes' => trim((string) ($payload['notes'] ?? '')) ?: null,
                 'unit_comment_id' => $unitCommentId > 0 ? $unitCommentId : null,
@@ -711,6 +717,14 @@ class CleaningSubmitService
             $this->reportField('Cleaning staff', trim((string) $payload['staff'])),
             $this->reportField('Needs repair', ! empty($payload['needs_repair']) ? 'Yes' : 'No'),
         ];
+        $submittedBy = trim((string) ($payload['submitted_by_name'] ?? ''));
+        $submittedById = (int) ($payload['submitted_by_user_id'] ?? 0);
+        if ($submittedBy !== '' || $submittedById > 0) {
+            $lines[] = $this->reportField(
+                'Submitted by',
+                ($submittedBy !== '' ? $submittedBy : 'User').($submittedById > 0 ? ' (#'.$submittedById.')' : '')
+            );
+        }
         if ($checklist !== []) {
             $lines[] = $this->reportField('Checklist', implode(', ', $checklist));
         }

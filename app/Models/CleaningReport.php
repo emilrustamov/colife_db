@@ -20,6 +20,8 @@ class CleaningReport extends Model
         'report_date',
         'report_time',
         'staff',
+        'submitted_by_user_id',
+        'submitted_by_name',
         'needs_repair',
         'notes',
         'apartment_comment_id',
@@ -88,12 +90,14 @@ class CleaningReport extends Model
                     'id' => (int) $row->id,
                     'apartment_id' => (int) $row->apartment_bitrix_id,
                     'apartment_title' => (string) ($row->apartment_title ?: ('#'.$row->apartment_bitrix_id)),
-                    'createdLabel' => optional($row->reported_at)?->format('d.m.Y H:i') ?: '',
+                    'createdLabel' => self::formatReportedAt($row->reported_at),
                     'type' => (string) ($row->cleaning_type ?: 'Cleaning Report'),
                     'unit' => (string) ($row->unit_title ?: ''),
                     'date' => (string) ($row->report_date ?: ''),
                     'time' => (string) ($row->report_time ?: ''),
                     'staff' => (string) ($row->staff ?: ''),
+                    'submitted_by' => (string) ($row->submitted_by_name ?: ''),
+                    'submitted_by_user_id' => (int) ($row->submitted_by_user_id ?: 0),
                     'notes' => (string) ($row->notes ?: ''),
                     'needsRepair' => (bool) $row->needs_repair,
                     'photos' => self::normalizePhotos($row->photo_previews ?? []),
@@ -108,6 +112,29 @@ class CleaningReport extends Model
             'per_page' => $perPage,
             'last_page' => $lastPage,
         ];
+    }
+
+    private static function formatReportedAt(mixed $reportedAt): string
+    {
+        if ($reportedAt === null || $reportedAt === '') {
+            return '';
+        }
+
+        try {
+            $tz = (string) config('services.cleaning.display_timezone', 'Asia/Tashkent');
+            if ($tz === '') {
+                $tz = 'Asia/Tashkent';
+            }
+
+            $dt = $reportedAt instanceof \Carbon\CarbonInterface
+                ? $reportedAt->copy()
+                : \Carbon\Carbon::parse((string) $reportedAt, 'UTC');
+
+            // Stored as UTC; show in local display timezone.
+            return $dt->timezone($tz)->format('d.m.Y H:i');
+        } catch (\Throwable) {
+            return '';
+        }
     }
 
     /**

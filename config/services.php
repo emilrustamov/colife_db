@@ -39,6 +39,8 @@ return [
         'client_secret' => env('B24_TR_CLIENT_SECRET'),
         'redirect_uri' => env('B24_TR_REDIRECT_URI'),
         'application_token' => env('B24_TR_APPLICATION_TOKEN'),
+        // Bitrix timeline CREATED for TR portal.
+        'portal_timezone' => env('B24_TR_PORTAL_TIMEZONE', 'Europe/Istanbul'),
     ],
 
     'cleaning' => [
@@ -72,6 +74,10 @@ return [
         'staff_list_iblock_id' => (int) env('CLEANING_STAFF_LIST_IBLOCK_ID', 87),
         // History delete allowed for Emil Rustamov + M.Kaan AKBAŞ.
         'history_delete_user_ids' => [70855, 110103],
+        // DB stores UTC; History label is converted for display.
+        'display_timezone' => env('CLEANING_DISPLAY_TIMEZONE', 'Asia/Tashkent'),
+        // Bitrix comment CREATED timezone (TR portal).
+        'portal_timezone' => env('CLEANING_PORTAL_TIMEZONE', env('B24_TR_PORTAL_TIMEZONE', 'Europe/Istanbul')),
     ],
 
     'bitrix_im' => [

@@ -11,6 +11,7 @@ use Illuminate\Http\Request;
 use Illuminate\Http\Response;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
+use Symfony\Component\HttpFoundation\BinaryFileResponse;
 use Throwable;
 
 class CleaningFileController extends Controller
@@ -22,17 +23,24 @@ class CleaningFileController extends Controller
     ) {}
 
     /**
-     * Serve a cleaning photo from local cache, otherwise proxy Bitrix Disk once and cache it.
+     * Serve a cleaning photo from local cache, otherwise redirect to Bitrix Disk
+     * (keeps php-fpm free — proxying every thumbnail was exhausting the pool).
      */
-    public function show(Request $request, int $fileId): RedirectResponse|Response
+    public function show(Request $request, int $fileId): BinaryFileResponse|RedirectResponse|Response
     {
         if ($fileId <= 0) {
             return response('Not found', 404);
         }
 
-        $cached = $this->photoCache->get($fileId);
-        if ($cached !== null) {
-            return $this->imageResponse($cached['binary'], $cached['content_type'], $cached['name'], true);
+        $path = $this->photoCache->absolutePath($fileId);
+        $meta = $path ? $this->photoCache->meta($fileId) : null;
+        if ($path !== null && $meta !== null && is_file($path)) {
+            return response()->file($path, [
+                'Content-Type' => $meta['content_type'],
+                'Cache-Control' => 'private, max-age=604800',
+                'Content-Disposition' => 'inline; filename="'.$this->safeFilename($meta['name']).'"',
+                'X-Cleaning-Photo-Cache' => 'HIT',
+            ]);
         }
 
         $domain = $this->oauth->normalizeDomain((string) config('services.b24_tr.portal_domain'));
@@ -41,18 +49,20 @@ class CleaningFileController extends Controller
         }
 
         try {
-            $meta = $this->bitrixRest->postJson('disk.file.get', ['id' => $fileId], $domain);
-            $downloadUrl = trim((string) data_get($meta, 'result.DOWNLOAD_URL', ''));
-            $name = trim((string) data_get($meta, 'result.NAME', 'file'));
+            $remote = $this->bitrixRest->postJson('disk.file.get', ['id' => $fileId], $domain);
+            $downloadUrl = trim((string) data_get($remote, 'result.DOWNLOAD_URL', ''));
+            $name = trim((string) data_get($remote, 'result.NAME', 'file'));
             if ($downloadUrl === '') {
                 return response('File unavailable', 404);
             }
 
-            if ($request->boolean('redirect')) {
+            // Default: redirect browser straight to Bitrix (no body proxy through us).
+            // Use ?proxy=1 only when we explicitly need to populate local cache.
+            if (! $request->boolean('proxy')) {
                 return redirect()->away($downloadUrl);
             }
 
-            $bin = Http::timeout(30)
+            $bin = Http::timeout(12)
                 ->withHeaders(['Accept' => '*/*'])
                 ->get($downloadUrl);
 
@@ -67,7 +77,12 @@ class CleaningFileController extends Controller
 
             $this->photoCache->put($fileId, $bin->body(), $contentType, $name);
 
-            return $this->imageResponse($bin->body(), $contentType, $name, false);
+            return response($bin->body(), 200, [
+                'Content-Type' => $contentType,
+                'Cache-Control' => 'private, max-age=604800',
+                'Content-Disposition' => 'inline; filename="'.$this->safeFilename($name).'"',
+                'X-Cleaning-Photo-Cache' => 'MISS',
+            ]);
         } catch (Throwable $e) {
             Log::channel('bitrix_cleaning')->warning('CLEANING_FILE_PROXY_FAILED', [
                 'file_id' => $fileId,
@@ -76,17 +91,6 @@ class CleaningFileController extends Controller
 
             return response('File unavailable', 404);
         }
-    }
-
-    private function imageResponse(string $binary, string $contentType, string $name, bool $fromCache): Response
-    {
-        return response($binary, 200, [
-            'Content-Type' => $contentType,
-            // File IDs are immutable; browser may keep for a week. Local disk cache is the source of truth.
-            'Cache-Control' => 'private, max-age=604800',
-            'Content-Disposition' => 'inline; filename="'.$this->safeFilename($name).'"',
-            'X-Cleaning-Photo-Cache' => $fromCache ? 'HIT' : 'MISS',
-        ]);
     }
 
     private function safeFilename(string $name): string

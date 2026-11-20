@@ -47,6 +47,30 @@ class CleaningPhotoCache
     }
 
     /**
+     * Absolute filesystem path for a cached binary, if present.
+     */
+    public function absolutePath(int $fileId): ?string
+    {
+        if (! $this->has($fileId)) {
+            return null;
+        }
+
+        return Storage::disk(self::DISK)->path($this->binPath($fileId));
+    }
+
+    /**
+     * @return array{content_type: string, name: string}|null
+     */
+    public function meta(int $fileId): ?array
+    {
+        if ($fileId <= 0 || ! $this->has($fileId)) {
+            return null;
+        }
+
+        return $this->readMeta($fileId);
+    }
+
+    /**
      * @return array{binary: string, content_type: string, name: string}|null
      */
     public function get(int $fileId): ?array

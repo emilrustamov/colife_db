@@ -38,7 +38,8 @@ class CleaningSubmitController extends Controller
             ], 413);
         }
 
-        if (! $this->tokenVerifier->authorizeCleaningForm($request)) {
+        $submitter = $this->tokenVerifier->cleaningFormUser($request);
+        if ((int) ($submitter['id'] ?? 0) <= 0) {
             $domain = $this->tokenVerifier->requestDomain($request);
             Log::channel('bitrix_cleaning')->warning('CLEANING_SUBMIT_REJECTED', [
                 'domain' => $domain,
@@ -93,6 +94,8 @@ class CleaningSubmitController extends Controller
             'checklist_other' => (string) ($validated['checklist_other'] ?? ''),
             'needs_repair' => $request->boolean('needs_repair'),
             'notes' => (string) ($validated['notes'] ?? ''),
+            'submitted_by_user_id' => (int) $submitter['id'],
+            'submitted_by_name' => (string) ($submitter['name'] ?? ''),
         ];
 
         $photos = $this->uploadedFiles($request, 'photos');

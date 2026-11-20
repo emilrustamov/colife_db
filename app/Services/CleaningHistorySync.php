@@ -75,25 +75,36 @@ class CleaningHistorySync
 
                 try {
                     $reportedAt = $this->parseCreated((string) ($comment['CREATED'] ?? ''));
+                    $submittedById = ((int) ($comment['AUTHOR_ID'] ?? 0)) ?: null;
+                    $submittedByName = mb_substr($this->extractSubmittedBy($text), 0, 255) ?: null;
+
+                    $attributes = [
+                        'apartment_bitrix_id' => $apartmentId,
+                        'apartment_title' => $apartmentTitle !== ''
+                            ? mb_substr($apartmentTitle, 0, 255)
+                            : $this->extractField($text, 'Apartment'),
+                        'unit_bitrix_id' => null,
+                        'unit_title' => mb_substr($this->extractField($text, 'Unit'), 0, 255) ?: null,
+                        'cleaning_type' => mb_substr($this->extractField($text, 'Cleaning type'), 0, 100) ?: null,
+                        'report_date' => mb_substr($this->extractField($text, 'Date'), 0, 32) ?: null,
+                        'report_time' => mb_substr($this->extractField($text, 'Time'), 0, 16) ?: null,
+                        'staff' => mb_substr($this->extractField($text, 'Cleaning staff'), 0, 100) ?: null,
+                        'needs_repair' => $this->isYes($this->extractField($text, 'Needs repair')),
+                        'notes' => $this->extractField($text, 'Notes') ?: null,
+                        'repair_task_id' => $this->extractTaskId($text, 'Repair task'),
+                        'photo_previews' => $this->photoPreviews($comment['FILES'] ?? null),
+                        'reported_at' => $reportedAt,
+                    ];
+                    if ($submittedById) {
+                        $attributes['submitted_by_user_id'] = $submittedById;
+                    }
+                    if ($submittedByName) {
+                        $attributes['submitted_by_name'] = $submittedByName;
+                    }
+
                     CleaningReport::query()->updateOrCreate(
                         ['apartment_comment_id' => $commentId],
-                        [
-                            'apartment_bitrix_id' => $apartmentId,
-                            'apartment_title' => $apartmentTitle !== ''
-                                ? mb_substr($apartmentTitle, 0, 255)
-                                : $this->extractField($text, 'Apartment'),
-                            'unit_bitrix_id' => null,
-                            'unit_title' => mb_substr($this->extractField($text, 'Unit'), 0, 255) ?: null,
-                            'cleaning_type' => mb_substr($this->extractField($text, 'Cleaning type'), 0, 100) ?: null,
-                            'report_date' => mb_substr($this->extractField($text, 'Date'), 0, 32) ?: null,
-                            'report_time' => mb_substr($this->extractField($text, 'Time'), 0, 16) ?: null,
-                            'staff' => mb_substr($this->extractField($text, 'Cleaning staff'), 0, 100) ?: null,
-                            'needs_repair' => $this->isYes($this->extractField($text, 'Needs repair')),
-                            'notes' => $this->extractField($text, 'Notes') ?: null,
-                            'repair_task_id' => $this->extractTaskId($text, 'Repair task'),
-                            'photo_previews' => $this->photoPreviews($comment['FILES'] ?? null),
-                            'reported_at' => $reportedAt,
-                        ]
+                        $attributes
                     );
                     $stats['upserted']++;
                 } catch (Throwable $e) {
@@ -208,6 +219,17 @@ class CleaningHistorySync
         return trim((string) $m[1]);
     }
 
+    private function extractSubmittedBy(string $comment): string
+    {
+        $value = $this->extractField($comment, 'Submitted by');
+        if ($value === '') {
+            return '';
+        }
+
+        // "Name (#123)" → "Name"
+        return trim((string) preg_replace('/\s*\(#\d+\)\s*$/', '', $value));
+    }
+
     private function stripBbCode(string $text): string
     {
         $text = preg_replace('/\[url=[^\]]*\](.*?)\[\/url\]/iu', '$1', $text) ?? $text;
@@ -235,12 +257,31 @@ class CleaningHistorySync
         return $id > 0 ? $id : null;
     }
 
+    /**
+     * Bitrix CREATED is portal-local (TR: Europe/Istanbul). Store UTC in DB.
+     */
     private function parseCreated(string $created): Carbon
     {
+        $created = trim($created);
+        if ($created === '') {
+            return now('UTC');
+        }
+
+        $tz = (string) config('services.cleaning.portal_timezone', 'Europe/Istanbul');
+        if ($tz === '') {
+            $tz = 'Europe/Istanbul';
+        }
+
         try {
-            return Carbon::parse($created);
+            // Bitrix often returns "YYYY-MM-DD HH:MM:SS" without offset.
+            if (preg_match('/^\d{4}-\d{2}-\d{2}[\sT]\d{2}:\d{2}:\d{2}$/', $created) === 1) {
+                return Carbon::createFromFormat('Y-m-d H:i:s', str_replace('T', ' ', $created), $tz)
+                    ->utc();
+            }
+
+            return Carbon::parse($created, $tz)->utc();
         } catch (Throwable) {
-            return now();
+            return now('UTC');
         }
     }
 
