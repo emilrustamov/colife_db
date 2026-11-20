@@ -382,6 +382,9 @@ class AlmaApi
         }
 
         $payload['external_id'] = $externalId;
+        if (! array_key_exists('photos', $payload)) {
+            $payload['photos'] = [];
+        }
 
         try {
             return [

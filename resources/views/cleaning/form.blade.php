@@ -423,12 +423,259 @@
             z-index: 20;
         }
         .loading-overlay.show { display: block; }
+        .mode-tabs {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 8px;
+            margin: 0 0 18px;
+            padding: 4px;
+            background: var(--blue-tint);
+            border: 1px solid var(--border-soft);
+            border-radius: 12px;
+        }
+        .mode-tab {
+            border: 0;
+            background: transparent;
+            color: var(--muted);
+            font: inherit;
+            font-weight: 650;
+            font-size: 14px;
+            padding: 10px 12px;
+            border-radius: 9px;
+            cursor: pointer;
+        }
+        .mode-tab.active {
+            background: var(--white);
+            color: var(--blue);
+            box-shadow: 0 2px 8px rgba(43, 78, 155, 0.12);
+        }
+        .history-panel { display: none; }
+        .history-panel.show { display: block; }
+        .history-toolbar {
+            display: grid;
+            grid-template-columns: auto minmax(180px, 1fr) auto;
+            gap: 10px;
+            align-items: center;
+            margin: 4px 0 12px;
+        }
+        .history-toolbar-search .control {
+            width: 100%;
+        }
+        .history-toolbar-search .combobox-list {
+            z-index: 30;
+        }
+        .history-view-toggle {
+            display: inline-grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 4px;
+            padding: 3px;
+            border: 1px solid var(--border-soft);
+            border-radius: 10px;
+            background: var(--blue-tint);
+            justify-self: start;
+        }
+        .history-view-btn {
+            border: 0;
+            background: transparent;
+            color: var(--muted);
+            font: inherit;
+            font-size: 13px;
+            font-weight: 650;
+            padding: 7px 12px;
+            border-radius: 8px;
+            cursor: pointer;
+        }
+        .history-view-btn.active {
+            background: var(--white);
+            color: var(--blue);
+            box-shadow: 0 1px 4px rgba(43, 78, 155, 0.12);
+        }
+        .history-pager-meta {
+            color: var(--muted);
+            font-size: 13px;
+            justify-self: end;
+            white-space: nowrap;
+        }
+        .history-hint {
+            color: var(--muted);
+            font-size: 14px;
+            padding: 14px 4px 8px;
+        }
+        .history-list {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+        .history-list.view-table {
+            display: block;
+            overflow-x: auto;
+            border: 1px solid var(--border-soft);
+            border-radius: 12px;
+            background: var(--white);
+        }
+        .history-item {
+            border: 1px solid var(--border-soft);
+            border-radius: 12px;
+            padding: 14px 14px 12px;
+            background: var(--blue-tint);
+        }
+        .history-item-top {
+            display: flex;
+            justify-content: space-between;
+            gap: 10px;
+            align-items: baseline;
+            margin-bottom: 8px;
+        }
+        .history-item-top strong {
+            color: var(--blue);
+            font-size: 14px;
+        }
+        .history-item-top span {
+            color: var(--muted);
+            font-size: 12px;
+            white-space: nowrap;
+        }
+        .history-meta {
+            display: grid;
+            gap: 4px;
+            font-size: 13px;
+            color: var(--text);
+            margin-bottom: 8px;
+        }
+        .history-meta b { color: var(--muted); font-weight: 600; }
+        .history-notes {
+            font-size: 13px;
+            color: var(--text);
+            white-space: pre-wrap;
+            margin: 0 0 8px;
+        }
+        .history-photos {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+        }
+        .history-photos a {
+            display: block;
+            width: 72px;
+            height: 72px;
+            border-radius: 8px;
+            overflow: hidden;
+            border: 1px solid var(--border);
+            background: var(--white);
+        }
+        .history-photos img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            display: block;
+            background: #e8eef8;
+        }
+        .history-empty {
+            text-align: center;
+            color: var(--muted);
+            padding: 28px 12px;
+            font-size: 14px;
+        }
+        .history-badge {
+            display: inline-block;
+            margin-left: 6px;
+            padding: 2px 8px;
+            border-radius: 999px;
+            background: #fee2e2;
+            color: #b91c1c;
+            font-size: 11px;
+            font-weight: 700;
+            vertical-align: middle;
+        }
+        .history-table {
+            width: 100%;
+            border-collapse: collapse;
+            min-width: 720px;
+            font-size: 13px;
+        }
+        .history-table th,
+        .history-table td {
+            padding: 10px 12px;
+            border-bottom: 1px solid var(--border-soft);
+            text-align: left;
+            vertical-align: top;
+        }
+        .history-table th {
+            background: var(--blue-tint);
+            color: var(--muted);
+            font-weight: 700;
+            white-space: nowrap;
+        }
+        .history-table tr:last-child td { border-bottom: 0; }
+        .history-table .history-photos a {
+            width: 44px;
+            height: 44px;
+        }
+        .history-pager {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            gap: 8px;
+            margin-top: 14px;
+            flex-wrap: wrap;
+        }
+        .history-pager button {
+            border: 1px solid var(--border);
+            background: var(--white);
+            color: var(--blue);
+            font: inherit;
+            font-size: 13px;
+            font-weight: 650;
+            padding: 8px 12px;
+            border-radius: 8px;
+            cursor: pointer;
+        }
+        .history-pager button:disabled {
+            opacity: 0.45;
+            cursor: default;
+        }
+        .history-pager .page-label {
+            color: var(--muted);
+            font-size: 13px;
+            min-width: 90px;
+            text-align: center;
+        }
+        .history-delete-btn {
+            border: 1px solid #fecaca;
+            background: #fff;
+            color: #b91c1c;
+            font: inherit;
+            font-size: 12px;
+            font-weight: 650;
+            padding: 5px 10px;
+            border-radius: 8px;
+            cursor: pointer;
+            white-space: nowrap;
+        }
+        .history-delete-btn:hover { background: #fef2f2; }
+        .history-delete-btn:disabled { opacity: 0.5; cursor: default; }
+        .history-item-actions {
+            display: flex;
+            gap: 8px;
+            align-items: center;
+            margin-top: 8px;
+            justify-content: flex-end;
+        }
         @media (max-width: 760px) {
             .banner { grid-template-columns: 1fr 1fr; }
             .type-grid, .row-2, .checklist, .actions { grid-template-columns: 1fr; }
             .check-other { grid-column: 1; }
             .header { flex-direction: column; }
             .card { padding: 18px 14px; }
+            .history-item-top { flex-direction: column; align-items: flex-start; }
+            .history-toolbar {
+                grid-template-columns: 1fr;
+            }
+            .history-view-toggle,
+            .history-pager-meta {
+                justify-self: stretch;
+            }
+            .history-pager-meta { text-align: center; }
         }
     </style>
 </head>
@@ -458,7 +705,7 @@
             </div>
         </div>
 
-        <div class="banner">
+        <div class="banner" id="formBanner">
             <div class="banner-item">
                 <div class="ico"><svg viewBox="0 0 24 24"><path d="M4 20V10l8-6 8 6v10H4z"/><path d="M10 20v-6h4v6"/></svg></div>
                 <div><strong>Keep it Clean</strong><span>Clean spaces, happy places.</span></div>
@@ -477,19 +724,26 @@
             </div>
         </div>
 
+        <div class="mode-tabs" role="tablist" aria-label="Cleaning form mode">
+            <button type="button" class="mode-tab active" id="modeNewBtn" data-mode="new">New report</button>
+            <button type="button" class="mode-tab" id="modeHistoryBtn" data-mode="history">History</button>
+        </div>
+
         <form id="cleaningForm" novalidate>
-            <div class="field">
+            <div class="field" id="apartmentFieldWrap">
                 <div class="row-2">
-                    <div>
-                        <label class="label"><span class="num">1.</span> Apartment Number</label>
-                        <div class="control combobox">
-                            <span class="icon"><svg viewBox="0 0 24 24"><path d="M4 20V9l8-5 8 5v11H4z"/><path d="M9 20v-6h6v6"/></svg></span>
-                            <input type="text" id="apartmentSearch" placeholder="Search apartment" autocomplete="off" required>
-                            <input type="hidden" id="apartmentId" value="">
-                            <div class="combobox-list" id="apartmentList"></div>
+                    <div id="apartmentComboboxHost">
+                        <label class="label" id="apartmentFieldLabel"><span class="num">1.</span> Apartment Number</label>
+                        <div id="apartmentComboboxWrap">
+                            <div class="control combobox">
+                                <span class="icon"><svg viewBox="0 0 24 24"><path d="M4 20V9l8-5 8 5v11H4z"/><path d="M9 20v-6h6v6"/></svg></span>
+                                <input type="text" id="apartmentSearch" placeholder="Search apartment" autocomplete="off" required>
+                                <input type="hidden" id="apartmentId" value="">
+                                <div class="combobox-list" id="apartmentList"></div>
+                            </div>
                         </div>
                     </div>
-                    <div>
+                    <div id="unitFieldWrap">
                         <label class="label"><span class="num">2.</span> Room / Area</label>
                         <div class="control">
                             <span class="icon"><svg viewBox="0 0 24 24"><rect x="5" y="3" width="14" height="18" rx="2"/><circle cx="15" cy="12" r="1"/></svg></span>
@@ -501,6 +755,7 @@
                 </div>
             </div>
 
+            <div id="newReportFields">
             <div class="field">
                 <label class="label"><span class="num">3.</span> Cleaning Type</label>
                 <div class="type-grid" id="cleaningTypes">
@@ -624,7 +879,26 @@
                     Submit Report
                 </button>
             </div>
+            </div>
         </form>
+
+        <div class="history-panel" id="historyPanel" aria-live="polite">
+            <div class="history-toolbar">
+                <div class="history-view-toggle" role="group" aria-label="History view">
+                    <button type="button" class="history-view-btn active" id="historyViewCards" data-view="cards">Cards</button>
+                    <button type="button" class="history-view-btn" id="historyViewTable" data-view="table">Table</button>
+                </div>
+                <div class="history-toolbar-search" id="historyApartmentSlot"></div>
+                <div class="history-pager-meta" id="historyPagerMeta"></div>
+            </div>
+            <div class="history-hint" id="historyHint">Loading history...</div>
+            <div class="history-list" id="historyList"></div>
+            <div class="history-pager" id="historyPager" hidden>
+                <button type="button" id="historyPrevBtn">Prev</button>
+                <div class="page-label" id="historyPageLabel">1 / 1</div>
+                <button type="button" id="historyNextBtn">Next</button>
+            </div>
+        </div>
     </div>
 </div>
 <div class="toast-wrap" id="toastWrap" aria-live="polite"></div>
@@ -634,6 +908,8 @@
     const CONFIG = {
         submitUrl: @json($submitUrl),
         staffSyncUrl: @json($staffSyncUrl),
+        historyUrl: @json($historyUrl),
+        historyDeleteUrl: @json($historyDeleteUrl),
         staffListIblockId: {{ (int) $staffListIblockId }},
         apartmentEntityTypeId: {{ (int) $apartmentEntityTypeId }},
         unitEntityTypeId: {{ (int) $unitEntityTypeId }},
@@ -871,6 +1147,9 @@
         }
         unitSelect.innerHTML = '<option value="">Select room / area</option>';
         unitSelect.disabled = true;
+        if (currentMode === 'history') {
+            loadHistoryList();
+        }
     }
 
     function normalizeTitle(value) {
@@ -911,6 +1190,9 @@
         loadUnitsForApartment(apartment.id).catch(function (e) {
             setStatus('err', 'Failed to load units: ' + e.message);
         });
+        if (currentMode === 'history') {
+            loadHistoryList(apartment.id);
+        }
     }
 
     /**
@@ -1415,7 +1697,7 @@
             return;
         }
 
-        const bxAuth = await resolveAuth();
+        const bxAuth = await ensureBxAuth();
         const portalDomain = (bxAuth && bxAuth.domain) || '';
         const accessToken = (bxAuth && bxAuth.access_token) || '';
         if (!portalDomain || !accessToken) {
@@ -1444,6 +1726,401 @@
 
         fillStaffSelect(data.staff);
     }
+
+    const modeNewBtn = document.getElementById('modeNewBtn');
+    const modeHistoryBtn = document.getElementById('modeHistoryBtn');
+    const newReportFields = document.getElementById('newReportFields');
+    const unitFieldWrap = document.getElementById('unitFieldWrap');
+    const historyPanel = document.getElementById('historyPanel');
+    const historyList = document.getElementById('historyList');
+    const historyHint = document.getElementById('historyHint');
+    const formBanner = document.getElementById('formBanner');
+    const historyViewCards = document.getElementById('historyViewCards');
+    const historyViewTable = document.getElementById('historyViewTable');
+    const historyPager = document.getElementById('historyPager');
+    const historyPrevBtn = document.getElementById('historyPrevBtn');
+    const historyNextBtn = document.getElementById('historyNextBtn');
+    const historyPageLabel = document.getElementById('historyPageLabel');
+    const historyPagerMeta = document.getElementById('historyPagerMeta');
+    const historyApartmentSlot = document.getElementById('historyApartmentSlot');
+    const apartmentFieldWrap = document.getElementById('apartmentFieldWrap');
+    const apartmentComboboxHost = document.getElementById('apartmentComboboxHost');
+    const apartmentComboboxWrap = document.getElementById('apartmentComboboxWrap');
+    const apartmentFieldLabel = document.getElementById('apartmentFieldLabel');
+    const HISTORY_VIEW_KEY = 'cleaningHistoryView';
+    const HISTORY_PER_PAGE = 20;
+    let currentMode = 'new';
+    let historyLoadToken = 0;
+    let historyPage = 1;
+    let historyLastPage = 1;
+    let historyTotal = 0;
+    let historyApartmentId = 0;
+    let historyItems = [];
+    let historyView = 'cards';
+    let historyCanDelete = false;
+
+    try {
+        const savedView = localStorage.getItem(HISTORY_VIEW_KEY);
+        if (savedView === 'table' || savedView === 'cards') {
+            historyView = savedView;
+        }
+    } catch (e) {}
+
+    function setHistoryView(view) {
+        historyView = view === 'table' ? 'table' : 'cards';
+        try {
+            localStorage.setItem(HISTORY_VIEW_KEY, historyView);
+        } catch (e) {}
+        historyViewCards.classList.toggle('active', historyView === 'cards');
+        historyViewTable.classList.toggle('active', historyView === 'table');
+        historyList.classList.toggle('view-table', historyView === 'table');
+        if (historyItems.length) {
+            renderHistoryItems(historyItems);
+        }
+    }
+
+    function renderHistoryPlaceholder(message) {
+        historyHint.textContent = message;
+        historyHint.style.display = 'block';
+        historyList.innerHTML = '';
+        historyPager.hidden = true;
+        historyPagerMeta.textContent = '';
+    }
+
+    function updateHistoryPager() {
+        const hasPages = historyTotal > 0;
+        historyPager.hidden = !hasPages;
+        historyPageLabel.textContent = historyPage + ' / ' + historyLastPage;
+        historyPrevBtn.disabled = historyPage <= 1;
+        historyNextBtn.disabled = historyPage >= historyLastPage;
+        if (!hasPages) {
+            historyPagerMeta.textContent = '';
+            return;
+        }
+        const from = (historyPage - 1) * HISTORY_PER_PAGE + 1;
+        const to = Math.min(historyTotal, historyPage * HISTORY_PER_PAGE);
+        historyPagerMeta.textContent = from + '–' + to + ' of ' + historyTotal;
+    }
+
+    function appendHistoryPhotos(container, photos) {
+        if (!Array.isArray(photos) || !photos.length) {
+            return;
+        }
+        const photosWrapEl = document.createElement('div');
+        photosWrapEl.className = 'history-photos';
+        photos.forEach(function (photo) {
+            const link = document.createElement('a');
+            link.href = String(photo.openUrl || photo.url || '#');
+            link.target = '_blank';
+            link.rel = 'noopener noreferrer';
+            link.title = String(photo.name || 'photo');
+            const img = document.createElement('img');
+            img.loading = 'lazy';
+            img.alt = String(photo.name || 'photo');
+            img.src = String(photo.url || '');
+            img.onerror = function () {
+                img.style.opacity = '0.35';
+                img.alt = 'Photo unavailable';
+            };
+            link.appendChild(img);
+            photosWrapEl.appendChild(link);
+        });
+        container.appendChild(photosWrapEl);
+    }
+
+    function makeHistoryDeleteButton(item) {
+        const btn = document.createElement('button');
+        btn.type = 'button';
+        btn.className = 'history-delete-btn';
+        btn.textContent = 'Delete';
+        btn.addEventListener('click', function () {
+            deleteHistoryItem(item, btn);
+        });
+        return btn;
+    }
+
+    async function deleteHistoryItem(item, btn) {
+        const id = parseInt(item && item.id, 10);
+        if (!id || !CONFIG.historyDeleteUrl) {
+            return;
+        }
+        if (!window.confirm('Delete this cleaning report?\n\nThis removes History, apartment/unit timeline comments, repair task and disk photos.')) {
+            return;
+        }
+
+        btn.disabled = true;
+        try {
+            const bxAuth = await ensureBxAuth();
+            const portalDomain = (bxAuth && bxAuth.domain) || '';
+            const accessToken = (bxAuth && bxAuth.access_token) || '';
+            if (!portalDomain || !accessToken) {
+                throw new Error('Bitrix authorization is missing. Reopen the form.');
+            }
+
+            const response = await fetch(CONFIG.historyDeleteUrl, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Accept': 'application/json',
+                    'X-Requested-With': 'XMLHttpRequest',
+                },
+                body: JSON.stringify({
+                    auth: {
+                        domain: portalDomain,
+                        access_token: accessToken,
+                    },
+                    id: id,
+                }),
+            });
+            const data = await response.json().catch(function () { return {}; });
+            if (!response.ok || data.status !== 'ok') {
+                throw new Error((data && data.message) ? data.message : ('Delete failed (' + response.status + ')'));
+            }
+
+            setStatus('ok', 'Report deleted.');
+            await loadHistoryList(historyApartmentId, historyPage);
+        } catch (e) {
+            btn.disabled = false;
+            setStatus('err', e && e.message ? e.message : String(e));
+        }
+    }
+
+    function renderHistoryCard(item) {
+        const card = document.createElement('div');
+        card.className = 'history-item';
+
+        const top = document.createElement('div');
+        top.className = 'history-item-top';
+        const title = document.createElement('strong');
+        title.textContent = item.type || 'Cleaning Report';
+        if (item.needsRepair) {
+            const badge = document.createElement('span');
+            badge.className = 'history-badge';
+            badge.textContent = 'Repair';
+            title.appendChild(badge);
+        }
+        const when = document.createElement('span');
+        when.textContent = item.createdLabel || '';
+        top.appendChild(title);
+        top.appendChild(when);
+        card.appendChild(top);
+
+        const meta = document.createElement('div');
+        meta.className = 'history-meta';
+        [
+            ['Apartment', item.apartment_title || ''],
+            ['Unit', item.unit],
+            ['Date', item.date],
+            ['Time', item.time],
+            ['Staff', item.staff],
+        ].forEach(function (row) {
+            if (!row[1]) {
+                return;
+            }
+            const line = document.createElement('div');
+            const label = document.createElement('b');
+            label.textContent = row[0] + ': ';
+            line.appendChild(label);
+            line.appendChild(document.createTextNode(row[1]));
+            meta.appendChild(line);
+        });
+        card.appendChild(meta);
+
+        if (item.notes) {
+            const notes = document.createElement('div');
+            notes.className = 'history-notes';
+            notes.textContent = item.notes;
+            card.appendChild(notes);
+        }
+
+        appendHistoryPhotos(card, item.photos);
+
+        if (historyCanDelete) {
+            const actions = document.createElement('div');
+            actions.className = 'history-item-actions';
+            actions.appendChild(makeHistoryDeleteButton(item));
+            card.appendChild(actions);
+        }
+
+        return card;
+    }
+
+    function renderHistoryTable(items) {
+        const table = document.createElement('table');
+        table.className = 'history-table';
+        const headCols = ['When', 'Type', 'Apartment', 'Unit', 'Staff', 'Repair', 'Photos'];
+        if (historyCanDelete) {
+            headCols.push('');
+        }
+        table.innerHTML = '<thead><tr>' + headCols.map(function (h) {
+            return '<th>' + h + '</th>';
+        }).join('') + '</tr></thead>';
+        const tbody = document.createElement('tbody');
+        items.forEach(function (item) {
+            const tr = document.createElement('tr');
+            const cells = [
+                item.createdLabel || '',
+                item.type || '',
+                item.apartment_title || '',
+                item.unit || '',
+                item.staff || '',
+                item.needsRepair ? 'Yes' : 'No',
+            ];
+            cells.forEach(function (value) {
+                const td = document.createElement('td');
+                td.textContent = value;
+                tr.appendChild(td);
+            });
+            const photoTd = document.createElement('td');
+            appendHistoryPhotos(photoTd, item.photos);
+            if (!item.photos || !item.photos.length) {
+                photoTd.textContent = '—';
+            }
+            tr.appendChild(photoTd);
+            if (historyCanDelete) {
+                const actionTd = document.createElement('td');
+                actionTd.appendChild(makeHistoryDeleteButton(item));
+                tr.appendChild(actionTd);
+            }
+            tbody.appendChild(tr);
+        });
+        table.appendChild(tbody);
+        return table;
+    }
+
+    function renderHistoryItems(items) {
+        historyHint.style.display = 'none';
+        historyList.innerHTML = '';
+        historyList.classList.toggle('view-table', historyView === 'table');
+        if (!items.length) {
+            const empty = document.createElement('div');
+            empty.className = 'history-empty';
+            empty.textContent = historyApartmentId
+                ? 'No cleaning reports found for this apartment yet.'
+                : 'No cleaning reports yet.';
+            historyList.appendChild(empty);
+            updateHistoryPager();
+            return;
+        }
+
+        if (historyView === 'table') {
+            historyList.appendChild(renderHistoryTable(items));
+        } else {
+            items.forEach(function (item) {
+                historyList.appendChild(renderHistoryCard(item));
+            });
+        }
+        updateHistoryPager();
+    }
+
+    async function loadHistoryList(apartmentId, page) {
+        const token = ++historyLoadToken;
+        historyApartmentId = parseInt(apartmentId, 10) || 0;
+        historyPage = Math.max(1, parseInt(page, 10) || 1);
+        renderHistoryPlaceholder(historyApartmentId > 0 ? 'Loading history for apartment...' : 'Loading history...');
+
+        try {
+            if (!CONFIG.historyUrl) {
+                throw new Error('History URL is not configured.');
+            }
+
+            const bxAuth = await ensureBxAuth();
+            const portalDomain = (bxAuth && bxAuth.domain) || '';
+            const accessToken = (bxAuth && bxAuth.access_token) || '';
+            if (!portalDomain || !accessToken) {
+                throw new Error('Bitrix authorization is missing. Reopen the form.');
+            }
+
+            const response = await fetch(CONFIG.historyUrl, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Accept': 'application/json',
+                    'X-Requested-With': 'XMLHttpRequest',
+                },
+                body: JSON.stringify({
+                    auth: {
+                        domain: portalDomain,
+                        access_token: accessToken,
+                    },
+                    apartment_id: historyApartmentId > 0 ? historyApartmentId : null,
+                    page: historyPage,
+                    per_page: HISTORY_PER_PAGE,
+                }),
+            });
+            const data = await response.json().catch(function () { return {}; });
+            if (token !== historyLoadToken) {
+                return;
+            }
+            if (!response.ok || data.status !== 'ok' || !Array.isArray(data.items)) {
+                throw new Error((data && data.message) ? data.message : ('History failed (' + response.status + ')'));
+            }
+
+            historyItems = data.items;
+            historyCanDelete = !!data.can_delete;
+            historyTotal = parseInt(data.total, 10) || historyItems.length;
+            historyPage = parseInt(data.page, 10) || historyPage;
+            historyLastPage = parseInt(data.last_page, 10) || 1;
+            renderHistoryItems(historyItems);
+        } catch (e) {
+            if (token !== historyLoadToken) {
+                return;
+            }
+            historyItems = [];
+            historyTotal = 0;
+            renderHistoryPlaceholder('Failed to load history: ' + (e && e.message ? e.message : 'unknown error'));
+        }
+    }
+
+    function placeApartmentSearch(mode) {
+        if (mode === 'history') {
+            historyApartmentSlot.appendChild(apartmentComboboxWrap);
+            apartmentFieldLabel.style.display = 'none';
+            apartmentFieldWrap.style.display = 'none';
+            return;
+        }
+        apartmentComboboxHost.appendChild(apartmentFieldLabel);
+        apartmentComboboxHost.appendChild(apartmentComboboxWrap);
+        apartmentFieldLabel.style.display = '';
+        apartmentFieldWrap.style.display = '';
+    }
+
+    function setMode(mode) {
+        currentMode = mode === 'history' ? 'history' : 'new';
+        modeNewBtn.classList.toggle('active', currentMode === 'new');
+        modeHistoryBtn.classList.toggle('active', currentMode === 'history');
+        newReportFields.style.display = currentMode === 'new' ? '' : 'none';
+        unitFieldWrap.style.display = currentMode === 'new' ? '' : 'none';
+        formBanner.style.display = currentMode === 'new' ? '' : 'none';
+        historyPanel.classList.toggle('show', currentMode === 'history');
+        apartmentSearch.required = currentMode === 'new';
+        placeApartmentSearch(currentMode);
+
+        if (currentMode === 'history') {
+            const apartment = resolveSelectedApartment();
+            if (apartment && String(apartmentIdInput.value) !== String(apartment.id)) {
+                apartmentIdInput.value = String(apartment.id);
+            }
+            loadHistoryList(apartment ? apartment.id : 0, 1);
+        }
+    }
+
+    historyViewCards.addEventListener('click', function () { setHistoryView('cards'); });
+    historyViewTable.addEventListener('click', function () { setHistoryView('table'); });
+    historyPrevBtn.addEventListener('click', function () {
+        if (historyPage > 1) {
+            loadHistoryList(historyApartmentId, historyPage - 1);
+        }
+    });
+    historyNextBtn.addEventListener('click', function () {
+        if (historyPage < historyLastPage) {
+            loadHistoryList(historyApartmentId, historyPage + 1);
+        }
+    });
+    setHistoryView(historyView);
+
+    modeNewBtn.addEventListener('click', function () { setMode('new'); });
+    modeHistoryBtn.addEventListener('click', function () { setMode('history'); });
 
     BX24.init(function () {
         loadApartments()

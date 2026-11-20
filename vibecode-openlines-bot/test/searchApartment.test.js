@@ -92,7 +92,8 @@ test('not_found with min price instruction', () => {
     sample,
   );
   assert.equal(result.error, 'not_found');
-  assert.match(result.agentInstruction || '', /дороже|оператора|повыше/i);
+  assert.match(result.agentInstruction || '', /Do NOT hand off|flex|Matches only from/i);
+  assert.doesNotMatch(result.agentInstruction || '', /переведи на оператора/i);
 });
 
 test('extracts days to checkin and unlimited budget', () => {
@@ -130,6 +131,9 @@ test('parses bare RU and EN day+month move-in dates', () => {
   assert.ok(extractDaysToCheckin('January 1st for 3 months') != null);
   assert.ok(extractDaysToCheckin('From 22-Dec need for 1 month') != null);
   assert.ok(extractDaysToCheckin('Mid December') != null);
+  assert.ok(extractDaysToCheckin('Yes\nJan1\n1 year') != null);
+  assert.ok(extractDaysToCheckin('Dec22') != null);
+  assert.ok(extractDaysToCheckin('1st of January for 3 months') != null);
   // Stay length must not override an explicit calendar move-in date.
   const nov = extractDaysToCheckin(
     'Is the flat available for 30 days rent starting from Friday 20 November?',

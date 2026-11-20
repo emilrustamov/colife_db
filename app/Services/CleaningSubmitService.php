@@ -2,17 +2,19 @@
 
 namespace App\Services;
 
+use App\Models\CleaningReport;
 use App\Support\EntityMap;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Log;
 use RuntimeException;
+use Throwable;
 
 class CleaningSubmitService
 {
     public function __construct(
         private readonly BitrixRest $bitrixRest,
         private readonly BitrixOAuth $oauth,
-        private readonly CleaningAlert $alerts,
+        private readonly CleaningPhotoCache $photoCache,
     ) {}
 
     /**
@@ -44,8 +46,6 @@ class CleaningSubmitService
             throw new RuntimeException('TR portal domain is not configured.');
         }
 
-        $this->warnIfNotSystemUser($domain);
-
         $logger = Log::channel('bitrix_cleaning');
         [$fileIds, $photoFiles] = $this->uploadPhotos($domain, $payload, $photos);
         [$receiptIds, $receiptFiles] = $this->uploadPhotos($domain, $payload, $receipts, 'receipt_');
@@ -73,6 +73,14 @@ class CleaningSubmitService
             );
         }
 
+        $this->rememberLocalReport(
+            $payload,
+            $apartmentCommentId,
+            $unitCommentId,
+            $repairTaskId,
+            array_values(array_merge($fileIds, $receiptIds)),
+        );
+
         $logger->info('CLEANING_SUBMIT_OK', [
             'domain' => $domain,
             'apartment_id' => $payload['apartment_id'],
@@ -94,28 +102,65 @@ class CleaningSubmitService
     }
 
     /**
-     * Timeline comments are authored by the OAuth token owner (app installer).
-     * CREATED_BY on tasks can still be the system account even if install user differs.
+     * Cache report locally for the History tab (default list without apartment filter).
+     *
+     * @param  array<string, mixed>  $payload
+     * @param  list<int>  $diskFileIds
      */
-    private function warnIfNotSystemUser(string $domain): void
-    {
-        $expectedUserId = (int) config('services.cleaning.system_user_id');
-
+    private function rememberLocalReport(
+        array $payload,
+        int $apartmentCommentId,
+        int $unitCommentId,
+        ?int $repairTaskId,
+        array $diskFileIds = [],
+    ): void {
         try {
-            $current = $this->bitrixRest->postJson('user.current', [], $domain);
-            $actualUserId = (int) data_get($current, 'result.ID', 0);
-        } catch (\Throwable) {
-            return;
-        }
+            $photos = [];
+            foreach ($diskFileIds as $fileId) {
+                $id = (int) $fileId;
+                if ($id <= 0) {
+                    continue;
+                }
+                $photos[] = [
+                    'id' => $id,
+                    'name' => 'photo_'.$id.'.jpg',
+                ];
+            }
 
-        if ($actualUserId > 0 && $actualUserId !== $expectedUserId) {
-            Log::channel('bitrix_cleaning')->warning('CLEANING_TOKEN_NOT_SYSTEM_USER', [
-                'expected' => $expectedUserId,
-                'actual' => $actualUserId,
-                'domain' => $domain,
-                'note' => 'Timeline comments will be authored by the install user, not the system account.',
+            $attributes = [
+                'apartment_bitrix_id' => (int) ($payload['apartment_id'] ?? 0),
+                'apartment_title' => mb_substr(trim((string) ($payload['apartment_title'] ?? '')), 0, 255) ?: null,
+                'unit_bitrix_id' => ! empty($payload['is_common_area']) ? null : ((int) ($payload['unit_id'] ?? 0) ?: null),
+                'unit_title' => mb_substr(trim((string) ($payload['unit_title'] ?? '')), 0, 255) ?: null,
+                'cleaning_type' => mb_substr(trim((string) ($payload['cleaning_type'] ?? '')), 0, 100) ?: null,
+                'report_date' => mb_substr(trim((string) ($payload['date'] ?? '')), 0, 32) ?: null,
+                'report_time' => mb_substr(trim((string) ($payload['time'] ?? '')), 0, 16) ?: null,
+                'staff' => mb_substr(trim((string) ($payload['staff'] ?? '')), 0, 100) ?: null,
+                'needs_repair' => ! empty($payload['needs_repair']),
+                'notes' => trim((string) ($payload['notes'] ?? '')) ?: null,
+                'unit_comment_id' => $unitCommentId > 0 ? $unitCommentId : null,
+                'repair_task_id' => $repairTaskId,
+                'photo_previews' => $photos,
+                'reported_at' => now(),
+            ];
+
+            if ($apartmentCommentId > 0) {
+                CleaningReport::query()->updateOrCreate(
+                    ['apartment_comment_id' => $apartmentCommentId],
+                    $attributes
+                );
+
+                return;
+            }
+
+            CleaningReport::query()->create($attributes + [
+                'apartment_comment_id' => null,
             ]);
-            $this->alerts->wrongInstaller($domain, $expectedUserId, $actualUserId);
+        } catch (Throwable $e) {
+            Log::channel('bitrix_cleaning')->warning('CLEANING_REPORT_LOCAL_SAVE_FAILED', [
+                'apartment_id' => $payload['apartment_id'] ?? null,
+                'error' => $e->getMessage(),
+            ]);
         }
     }
 
@@ -155,6 +200,7 @@ class CleaningSubmitService
             if ($fileId > 0) {
                 $ids[] = $fileId;
                 $commentFiles[] = [$name, $content];
+                $this->photoCache->put($fileId, $binary, 'image/jpeg', $name);
             }
         }
 
@@ -465,6 +511,7 @@ class CleaningSubmitService
             'CREATED_BY' => (int) config('services.cleaning.system_user_id'),
             'GROUP_ID' => (int) config('services.cleaning.housemaster_group_id'),
             'DEADLINE' => now()->addDays((int) config('services.cleaning.deadline_days', 2))->format('c'),
+            'ACCOMPLICES' => $this->participantIds(),
             'AUDITORS' => $this->observerIds(),
             'UF_CRM_TASK' => $this->crmBindings($payload, empty($payload['is_common_area']), true),
         ];
@@ -478,6 +525,18 @@ class CleaningSubmitService
         ], $domain);
 
         return (int) data_get($response, 'result.task.id', data_get($response, 'result.task.ID', 0));
+    }
+
+    /**
+     * Participants (ACCOMPLICES) for repair tasks — added to the task chat.
+     *
+     * @return list<int>
+     */
+    private function participantIds(): array
+    {
+        $ids = [(int) config('services.cleaning.participant_id', 0)];
+
+        return array_values(array_filter($ids, static fn (int $id): bool => $id > 0));
     }
 
     /**

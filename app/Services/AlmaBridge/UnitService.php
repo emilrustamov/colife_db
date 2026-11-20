@@ -44,11 +44,65 @@ class UnitService
 
     /**
      * Cascade rooms for a sharing apartment.
+     * HongKong: unit ids from apartment.additional_external_id (ufCrm11Units) — legacy parity.
+     * Dubai: list units by unit→apartment link field.
      */
     public function upsertRoomsForApartment(string $apartmentBitrixId, string $projectName, BitrixWebhookClient $bitrix): void
     {
+        $unitIds = $this->listRoomBitrixIds($apartmentBitrixId, $projectName, $bitrix);
+        foreach ($unitIds as $unitId) {
+            try {
+                $this->upsertRoomById($unitId, $projectName, $bitrix, $apartmentBitrixId);
+            } catch (Throwable $e) {
+                BridgeSupport::log()->warning('Room sync failed in cascade', [
+                    'unit_id' => $unitId,
+                    'error' => $e->getMessage(),
+                ]);
+            }
+        }
+    }
+
+    /**
+     * @return list<string>
+     */
+    private function listRoomBitrixIds(
+        string $apartmentBitrixId,
+        string $projectName,
+        BitrixWebhookClient $bitrix
+    ): array {
         $unitTypeId = ProjectMapping::unitTypeId($projectName);
+
+        // Legacy AppartApi::syncRooms: HK reads unit ids from apartment UF list.
+        if ($projectName === 'HongKong') {
+            $aptTypeId = ProjectMapping::apartmentTypeIds($projectName)[0] ?? null;
+            $unitsField = ProjectMapping::getApartmentField('additional_external_id', $projectName);
+            if ($aptTypeId === null || $unitsField === null) {
+                return [];
+            }
+            $apartment = $bitrix->call('crm.item.get', [
+                'entityTypeId' => $aptTypeId,
+                'id' => $apartmentBitrixId,
+            ])['result']['item'] ?? null;
+            if (! is_array($apartment)) {
+                return [];
+            }
+            $raw = ProjectMapping::itemValue($apartment, $unitsField) ?? [];
+            if (! is_array($raw)) {
+                $raw = ($raw === null || $raw === '') ? [] : [$raw];
+            }
+            $ids = [];
+            foreach ($raw as $unitId) {
+                $unitId = trim((string) $unitId);
+                if ($unitId !== '') {
+                    $ids[] = $unitId;
+                }
+            }
+
+            return array_values(array_unique($ids));
+        }
+
         $aptLinkField = ProjectMapping::unitApartmentField($projectName);
+        $ids = [];
         $start = 0;
         do {
             $list = $bitrix->call('crm.item.list', [
@@ -62,20 +116,14 @@ class UnitService
                 break;
             }
             foreach ($items as $item) {
-                if (! is_array($item) || empty($item['id'])) {
-                    continue;
-                }
-                try {
-                    $this->upsertRoomById((string) $item['id'], $projectName, $bitrix, $apartmentBitrixId);
-                } catch (Throwable $e) {
-                    BridgeSupport::log()->warning('Room sync failed in cascade', [
-                        'unit_id' => $item['id'],
-                        'error' => $e->getMessage(),
-                    ]);
+                if (is_array($item) && ! empty($item['id'])) {
+                    $ids[] = (string) $item['id'];
                 }
             }
             $start = isset($list['next']) ? (int) $list['next'] : -1;
         } while ($start >= 0);
+
+        return array_values(array_unique($ids));
     }
 
     /**
@@ -169,6 +217,8 @@ class UnitService
             'number' => $number,
             'name' => $name,
             'header' => $name,
+            // Alma requires photos on room create (legacy always sent []).
+            'photos' => [],
             'internal_area' => ProjectMapping::itemValue(
                 $unit,
                 ProjectMapping::getUnitField('internal_area', $projectName)

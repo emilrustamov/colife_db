@@ -7,7 +7,6 @@ use App\Http\Controllers\Controller;
 use App\Models\BitrixToken;
 use App\Services\BitrixAuth;
 use App\Services\BitrixOAuth;
-use App\Services\CleaningAlert;
 use App\Services\TokenVerifier;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -20,7 +19,6 @@ class CleaningInstallController extends Controller
         private readonly BitrixAuth $bitrixAuthService,
         private readonly BitrixOAuth $oauth,
         private readonly TokenVerifier $tokenVerifier,
-        private readonly CleaningAlert $alerts,
     ) {}
 
     /**
@@ -97,8 +95,6 @@ class CleaningInstallController extends Controller
             return response()->json(['status' => 'error', 'message' => 'Tokens required'], 422);
         }
 
-        $this->warnUnexpectedInstaller($domain, $userId);
-
         $attributes = [
             'access_token' => $accessToken,
             'auth_id' => $accessToken,
@@ -141,8 +137,6 @@ class CleaningInstallController extends Controller
         $authUserId = $request->input('auth.user_id');
 
         if ($authAccessToken !== '' && $authRefreshToken !== '') {
-            $this->warnUnexpectedInstaller($domain, $authUserId);
-
             $attributes = [
                 'access_token' => $authAccessToken,
                 'auth_id' => $authAccessToken,
@@ -207,21 +201,4 @@ class CleaningInstallController extends Controller
         return true;
     }
 
-    /**
-     * Log and Telegram-alert when cleaning app is installed under the wrong Bitrix user.
-     */
-    private function warnUnexpectedInstaller(string $domain, mixed $userId): void
-    {
-        $systemUserId = (int) config('services.cleaning.system_user_id');
-        if (! is_numeric($userId) || (int) $userId === $systemUserId) {
-            return;
-        }
-
-        $actualUserId = (int) $userId;
-        Log::channel('bitrix_cleaning')->warning('CLEANING_INSTALL_UNEXPECTED_USER', [
-            'expected' => $systemUserId,
-            'actual' => $actualUserId,
-        ]);
-        $this->alerts->wrongInstaller($domain, $systemUserId, $actualUserId);
-    }
 }

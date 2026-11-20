@@ -80,6 +80,69 @@ export function applyCatalogUnitToState(state, found) {
   return found;
 }
 
+const HANDOFF_NOTICE_RE =
+  /подключа|перевед|специалист|оператор|connect(ing)? you|specialist|transfer(ring)? you|manager who/i;
+
+const TERMINAL_HANDOFF_OK = new Set([
+  'non_target',
+  'sharing',
+  'short_term',
+  'ejari',
+  'postponed',
+]);
+
+/**
+ * Block early operator handoff until: search → one flex → search again.
+ * Terminal scenarios and empty catalog skip the gate.
+ *
+ * @param {import('./state.js').DialogState} state
+ * @returns {null|{ ok: false, blocked: true, error: string, agentInstruction: string }}
+ */
+export function handoffSearchGate(state) {
+  const scenario = state.activeScenario || '';
+  const category = state.category || '';
+  if (TERMINAL_HANDOFF_OK.has(scenario) || TERMINAL_HANDOFF_OK.has(category)) {
+    return null;
+  }
+  if (state.extras?.catalogEmpty) return null;
+  // Client already saw offers — further handoff is allowed.
+  if ((state.shownLinks || []).length) return null;
+
+  const attempts = Number(state.searchAttempts) || 0;
+  if (attempts < 1) {
+    return {
+      ok: false,
+      blocked: true,
+      error: 'search_required',
+      agentInstruction:
+        'Do not hand off yet. Call search_apartments first (or get_min_price → out_of_budget). Offer concrete options before leaving.',
+    };
+  }
+
+  if (state.extras?.lastSearchNotFound) {
+    if (!state.extras?.flexApplied) {
+      return {
+        ok: false,
+        blocked: true,
+        error: 'flex_required',
+        agentInstruction:
+          'Do not hand off yet. After the empty search ask ONE flex (budget OR area OR type OR move-in), wait for the answer, then call search_apartments again.',
+      };
+    }
+    if (attempts < 2) {
+      return {
+        ok: false,
+        blocked: true,
+        error: 'search_retry_required',
+        agentInstruction:
+          'Do not hand off yet. Client flexed — call search_apartments again with the updated params. Hand off only if that retry still fails.',
+      };
+    }
+  }
+
+  return null;
+}
+
 /**
  * @param {import('./state.js').DialogState} state
  * @param {string} name
@@ -93,6 +156,7 @@ export async function executeTool(state, name, args, runtime) {
   if (name === 'search_apartments') {
     const blocked = blockApartmentCatalogTools(state);
     if (blocked) return { ...blocked };
+    const prevNotFound = Boolean(state.extras?.lastSearchNotFound);
     if (Array.isArray(a.types) && a.types.length) state.types = a.types.map(Number);
     if (a.period != null && Number(a.period) > 0) state.period = Number(a.period);
     if (a.price != null && Number(a.price) > 0) state.budget = Number(a.price);
@@ -107,7 +171,10 @@ export async function executeTool(state, name, args, runtime) {
       exclude_ids: exclude,
       move_in_date: a.move_in_date || state.routingMoveInDate,
     });
+    state.searchAttempts = (Number(state.searchAttempts) || 0) + 1;
+    if (result.emptyCatalog) state.extras.catalogEmpty = true;
     if (result.apartments) {
+      state.extras.lastSearchNotFound = false;
       for (const row of result.apartments) {
         const id = Number(row.apartment?.apartmentId);
         if (Number.isFinite(id) && !state.excludeIds.includes(id)) state.excludeIds.push(id);
@@ -115,6 +182,10 @@ export async function executeTool(state, name, args, runtime) {
           state.shownLinks.push(row.apartment.link);
         }
       }
+    } else if (result.error === 'not_found') {
+      state.extras.lastSearchNotFound = true;
+      // Second search after a prior miss counts as the flex retry.
+      if (prevNotFound || state.searchAttempts >= 2) state.extras.flexApplied = true;
     }
     return result;
   }
@@ -280,26 +351,8 @@ export async function executeTool(state, name, args, runtime) {
     if (a.dealId) state.dealId = String(a.dealId);
     if (a.contactId) state.contactId = String(a.contactId);
 
-    // Block silent early leave when rental params are known but nothing was offered yet.
-    const rentalReady = Number(state.budget) > 0
-      && (state.period != null || state.routingMoveInDate || state.savedMoveInDate);
-    const terminalOk = ['non_target', 'sharing', 'short_term', 'ejari', 'postponed'].includes(
-      state.activeScenario || state.category || '',
-    );
-    if (
-      rentalReady
-      && !terminalOk
-      && !state.shownLinks.length
-      && (!state.category || state.category === 'no_information')
-    ) {
-      return {
-        ok: false,
-        blocked: true,
-        error: 'search_required',
-        agentInstruction:
-          'Do not leave yet. Call search_apartments (or get_min_price → out_of_budget). Offer concrete options first.',
-      };
-    }
+    const gated = handoffSearchGate(state);
+    if (gated) return { ...gated };
 
     let crm = { ok: true, stub: !crmEnabled() };
     try {
@@ -327,12 +380,18 @@ export async function executeTool(state, name, args, runtime) {
 
   if (name === 'make_answer') {
     const text = String(a.text || '').trim();
+    if (text && HANDOFF_NOTICE_RE.test(text)) {
+      const gated = handoffSearchGate(state);
+      if (gated) return { ...gated };
+    }
     // One client bubble per turn — last make_answer wins (stops duplicate spam).
     if (text) runtime.pendingAnswers = [text];
     return { ok: true };
   }
 
   if (name === 'redirect_to_operator') {
+    const gated = handoffSearchGate(state);
+    if (gated) return { ...gated };
     runtime.pendingHandoff = {
       mode: 'B',
       reason: a.reason || 'redirect_to_operator',

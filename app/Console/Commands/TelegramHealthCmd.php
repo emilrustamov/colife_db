@@ -91,7 +91,6 @@ class TelegramHealthCmd extends Command
             $text->message('❌', 'Паузы: job упал', $hk, 'Bitrix OAuth refresh failed.'),
             $text->message('🧹', 'Cleaning submit упал', $tr, "apartment=157\nHTTP request returned status code 400"),
             $text->message('🧹', 'Cleaning: доступ отклонён', $tr, 'Форма Cleaning отвечает 403 — проверь install/OAuth TR.'),
-            $text->message('🧹', 'Cleaning: неверный install-user', $tr, 'Ожидали user 71857, токен от 70855. Переустанови /api/cleaning/install под системным пользователем.'),
             $text->message('📇', 'Contacts sync упал', $ae, "bitrix:sync-contacts\nSQLSTATE[HY000]: General error: 1390"),
             $text->message('💬', 'ChatApp collect упал', $ae, "AE · проверь CHATAPP_* логин/пароль\nConnection timed out"),
             $text->message('💥', 'Job упал', null, "App\\Jobs\\ExampleJob · default\nRuntimeException"),

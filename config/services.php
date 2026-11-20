@@ -45,7 +45,8 @@ return [
         'application_token' => env('CLEANING_APPLICATION_TOKEN'),
         'system_user_id' => 71857,
         'assignee_id' => 62997,
-        'participant_id' => 110103,
+        // Repair task participant (Ilvira Yetişgin) — appears in task chat.
+        'participant_id' => 63019,
         'observer_ids' => array_values(array_filter(array_map(
             'intval',
             explode(',', (string) env('CLEANING_OBSERVER_IDS', ''))
@@ -69,6 +70,8 @@ return [
         ],
         // https://colife.bitrix24.com.tr/company/lists/87/view/0/
         'staff_list_iblock_id' => (int) env('CLEANING_STAFF_LIST_IBLOCK_ID', 87),
+        // History delete allowed for Emil Rustamov + M.Kaan AKBAŞ.
+        'history_delete_user_ids' => [70855, 110103],
     ],
 
     'bitrix_im' => [

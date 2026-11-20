@@ -28,6 +28,8 @@ class CleaningFormController extends Controller
             ->view('cleaning.form', [
                 'submitUrl' => url('/api/cleaning/submit'),
                 'staffSyncUrl' => url('/api/cleaning/staff-sync'),
+                'historyUrl' => url('/api/cleaning/history'),
+                'historyDeleteUrl' => url('/api/cleaning/history/delete'),
                 'staff' => CleaningStaff::namesForForm(),
                 'staffListIblockId' => (int) config('services.cleaning.staff_list_iblock_id', 87),
                 'apartmentEntityTypeId' => $apartmentTypeId,

@@ -3,11 +3,13 @@ import assert from 'node:assert/strict';
 import { createDialogState } from '../lib/state.js';
 import {
   activateScenario,
+  clampToOneQuestion,
   enrichStateForLeave,
   hydrateStateFromText,
   isPostponedMoveIn,
   languageSourceText,
   looksLikeRoomRequest,
+  prepareClientAnswer,
   stayDurationFromPeriod,
 } from '../lib/scenarios.js';
 import { executeTool } from '../lib/tools.js';
@@ -40,6 +42,23 @@ test('hydrate overwrites move-in and type from latest utterance', () => {
   assert.deepEqual(state.types, [2]);
   assert.equal(state.apartmentType, '2_bedroom');
   assert.equal(state.period, 3);
+});
+
+test('hydrate ignores dashed quote of previous bot message', () => {
+  const state = createDialogState();
+  hydrateStateFromText(
+    state,
+    [
+      '------------------------------------------------------',
+      'Unit 833.1 is available only from 22 December, so it won’t be available for a move-in next Monday.',
+      '------------------------------------------------------',
+      'No I cannot wait that longer will good if you can help me with other options 3-4 months I ll be here 1BH or studio my budget is 8500 to 9000AED',
+    ].join('\n'),
+  );
+  assert.ok(Number(state.budget) >= 8500);
+  assert.ok(Number(state.period) >= 3);
+  assert.ok((state.types || []).length >= 1);
+  assert.notEqual(state.activeScenario, 'postponed');
 });
 
 test('non_target scenario sets category for CRM leave snapshot', () => {
@@ -93,4 +112,14 @@ test('postponed threshold and unit availability fit', () => {
   assert.equal(unitFitsMoveIn('2026-11-30', '23-11-2026').fits, false);
   assert.equal(unitFitsMoveIn('2026-11-20', '23-11-2026').fits, true);
   assert.equal(unitFitsMoveIn('', '23-11-2026').known, false);
+});
+
+test('clampToOneQuestion keeps a single ask', () => {
+  const multi =
+    'To help me find options, could you please tell me:\n1. When are you planning to move in?\n2. What type of apartment?\n3. What is your budget?';
+  const clamped = clampToOneQuestion(multi);
+  assert.equal((clamped.match(/[?？]/g) || []).length, 1);
+  assert.equal(/\n\s*2[\).:]/.test(clamped), false);
+  assert.match(prepareClientAnswer(multi), /\?/);
+  assert.equal((prepareClientAnswer(multi).match(/[?？]/g) || []).length, 1);
 });

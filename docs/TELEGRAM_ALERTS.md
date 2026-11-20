@@ -13,7 +13,7 @@
 - Bitrix sync упал: `bitrix:sync-contacts`, SPA (`ownerships` / `unit-stays` / …)
 - Disk sync упал / partial failed (`bitrix:sync-disk` / `SyncDiskJob`; dedupe `disk_sync_errors`)
 - Schedule: любая scheduled-команда с non-zero exit (`ScheduledTaskFailed`); skip для sync/collect, у которых свой алерт
-- Cleaning (TR): submit 500, form 403, install не под user 71857 (wrong installer — раз в сутки)
+- Cleaning (TR): submit 500, form 403
 - Job finally failed (skip `PauseJob` / `SyncDiskJob`) / Horizon long wait
 
 **Только опросом `telegram:health` (каждые 15 мин)** — нет события «сломалось», пока сами не проверим:

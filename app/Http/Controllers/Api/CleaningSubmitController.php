@@ -116,16 +116,24 @@ class CleaningSubmitController extends Controller
                 'result' => $result,
             ]);
         } catch (Throwable $e) {
-            Log::channel('bitrix_cleaning')->error('CLEANING_SUBMIT_FAILED', [
-                'message' => $e->getMessage(),
-                'apartment_id' => $payload['apartment_id'],
-                'unit_id' => $payload['unit_id'],
-            ]);
-            $this->alerts->submitFailed(
-                (string) config('services.b24_tr.portal_domain', ''),
-                $e->getMessage(),
-                $payload['apartment_id'],
-            );
+            try {
+                Log::channel('bitrix_cleaning')->error('CLEANING_SUBMIT_FAILED', [
+                    'message' => $e->getMessage(),
+                    'apartment_id' => $payload['apartment_id'],
+                    'unit_id' => $payload['unit_id'],
+                ]);
+            } catch (Throwable) {
+                // Logging must not mask the original submit failure (e.g. root-owned daily log).
+            }
+            try {
+                $this->alerts->submitFailed(
+                    (string) config('services.b24_tr.portal_domain', ''),
+                    $e->getMessage(),
+                    $payload['apartment_id'],
+                );
+            } catch (Throwable) {
+                // Alert transport failures should not replace the API error payload.
+            }
 
             return response()->json([
                 'status' => 'error',

@@ -11,7 +11,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { createBotWorker } from '../lib/bot.js';
 import { setVibeTestHooks } from '../lib/vibe.js';
-import { enrichStateForLeave } from '../lib/scenarios.js';
+import { enrichStateForLeave, isRobotOnlyMessage } from '../lib/scenarios.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const root = path.join(__dirname, '..');
@@ -40,13 +40,15 @@ if (!apiKey) {
 
 const args = process.argv.slice(2);
 const batchArg = args.find((a) => a.startsWith('--batch='));
+const prefixArg = args.find((a) => a.startsWith('--prefix='));
 const onlyArg = args.find((a) => a.startsWith('--only='));
 const afterArg = args.find((a) => a.startsWith('--after='));
 const batch = batchArg ? Number(batchArg.split('=')[1]) : 1;
+const prefix = prefixArg ? prefixArg.split('=')[1] : 'batch';
 const only = onlyArg ? onlyArg.split('=')[1] : null;
 const after = afterArg ? afterArg.split('=')[1] : null;
 
-const inputPath = path.join(compareDir, `batch${batch}-input.json`);
+const inputPath = path.join(compareDir, `${prefix}${batch}-input.json`);
 if (!fs.existsSync(inputPath)) {
   console.error('missing', inputPath);
   process.exit(1);
@@ -59,7 +61,7 @@ if (after) {
   chats = idx >= 0 ? chats.slice(idx + 1) : chats;
 }
 
-const outPath = path.join(compareDir, `batch${batch}-results.json`);
+const outPath = path.join(compareDir, `${prefix}${batch}-results.json`);
 const mergePrior = Boolean(after || only);
 const priorResults =
   mergePrior && fs.existsSync(outPath)
@@ -95,7 +97,8 @@ function langOf(s) {
 
 function analyze(req, ours, handedOff) {
   const notes = [];
-  if (!String(ours || '').trim()) {
+  // Intentional silent ack for robot-only templates is not a compare failure.
+  if (!String(ours || '').trim() && !isRobotOnlyMessage(req)) {
     notes.push(handedOff ? 'silent_handoff' : 'empty_our_reply');
   }
   if (langOf(req) === 'en' && CYR.test(ours || '')) notes.push('lang_ru_after_en');

@@ -13,6 +13,9 @@ class StorageHealth
         'framework/cache',
         'framework/sessions',
         'framework/views',
+        'app',
+        'app/cleaning',
+        'app/cleaning/photos',
     ];
 
     public function __construct(

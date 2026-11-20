@@ -37,6 +37,7 @@ class BitrixSoftDelete
         }
 
         $present = array_fill_keys($presentBitrixIds, true);
+        /** @var list<int|string> $missingIds */
         $missingIds = [];
 
         $query
@@ -45,7 +46,9 @@ class BitrixSoftDelete
             ->lazyById(self::UPDATE_CHUNK)
             ->each(function (Model $row) use ($present, &$missingIds): void {
                 if (! isset($present[(int) $row->getAttribute('bitrix_id')])) {
-                    $missingIds[] = (int) $row->getKey();
+                    // Keep UUID/string PKs as-is; casting to int turns them into 0 and
+                    // makes MySQL compare uuid `id` to DECIMAL (SQLSTATE[22007]).
+                    $missingIds[] = $row->getKey();
                 }
             });
 

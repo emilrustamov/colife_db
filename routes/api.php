@@ -18,6 +18,8 @@ use App\Http\Controllers\Api\DiskApi;
 use App\Http\Controllers\Api\TerminateBpApi;
 use App\Http\Controllers\Api\CleaningInstallController;
 use App\Http\Controllers\Api\CleaningFormController;
+use App\Http\Controllers\Api\CleaningFileController;
+use App\Http\Controllers\Api\CleaningHistoryController;
 use App\Http\Controllers\Api\CleaningStaffSyncController;
 use App\Http\Controllers\Api\CleaningSubmitController;
 use App\Http\Controllers\Api\OpenLinesInstallController;
@@ -72,11 +74,21 @@ Route::post('/cleaning/install/save', [CleaningInstallController::class, 'save']
     ->middleware('throttle:bitrix-install')
     ->withoutMiddleware(['auth', 'auth:sanctum', 'api.key']);
 Route::match(['get', 'post'], '/cleaning', [CleaningFormController::class, 'index'])
-    ->middleware('throttle:60,1')
+    ->middleware('throttle:cleaning-form')
     ->withoutMiddleware(['auth', 'auth:sanctum', 'api.key']);
 Route::post('/cleaning/submit', [CleaningSubmitController::class, 'submit'])
-    ->middleware('throttle:20,1')
+    ->middleware('throttle:cleaning-submit')
     ->withoutMiddleware(['auth', 'auth:sanctum', 'api.key']);
 Route::post('/cleaning/staff-sync', [CleaningStaffSyncController::class, 'sync'])
-    ->middleware('throttle:30,1')
+    ->middleware('throttle:cleaning-staff')
+    ->withoutMiddleware(['auth', 'auth:sanctum', 'api.key']);
+Route::post('/cleaning/history', [CleaningHistoryController::class, 'index'])
+    ->middleware('throttle:cleaning-history')
+    ->withoutMiddleware(['auth', 'auth:sanctum', 'api.key']);
+Route::post('/cleaning/history/delete', [CleaningHistoryController::class, 'destroy'])
+    ->middleware('throttle:cleaning-history-delete')
+    ->withoutMiddleware(['auth', 'auth:sanctum', 'api.key']);
+Route::get('/cleaning/file/{fileId}', [CleaningFileController::class, 'show'])
+    ->whereNumber('fileId')
+    ->middleware('throttle:cleaning-file')
     ->withoutMiddleware(['auth', 'auth:sanctum', 'api.key']);

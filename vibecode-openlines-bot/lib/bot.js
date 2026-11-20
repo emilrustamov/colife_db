@@ -545,7 +545,10 @@ export function createBotWorker(config) {
       'Do not re-introduce if Dialog history already has a Bot line. Never re-ask fields already set in Dialog state.',
       'Client text only via make_answer (or short plain final). No chain-of-thought.',
       'If budget+period known and not sharing: search_apartments before “no options” / handoff (unless terminal A/B).',
+      'Handoff gate: not_found → one flex → search_apartments again → only then leave_chat/notify. Empty catalog may leave immediately.',
       'Do not leave_chat while category is empty/no_information and no options were sent — search or continue the active scenario first.',
+      'Hard limit: at most ONE question mark in make_answer this turn. Never 1./2./3. questionnaires.',
+      'Bare Yes/Да without unit context → short hello + one move-in question only.',
     ].join(' '));
     const system = instructionParts.filter(Boolean).join('\n\n');
 

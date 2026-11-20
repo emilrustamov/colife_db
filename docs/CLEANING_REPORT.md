@@ -16,12 +16,12 @@
 
 Права приложения: **CRM**, **Диск**, **Задачи**, **Пользователи**, **Списки** (для daily sync клинеров).
 
-Устанавливать нужно под системным пользователем **71857** — от его OAuth-токена пишутся комментарии и задачи. После добавления права «Списки» — переустановить приложение (install URL) под тем же пользователем, иначе `lists.*` вернёт `insufficient_scope`.
+После добавления права «Списки» — переустановить приложение (install URL), иначе `lists.*` вернёт `insufficient_scope`. Комментарии в таймлайне пишет владелец OAuth-токена (кто установил приложение).
 
 ## Flow
 
 ```
-Bitrix local app install (user 71857)
+Bitrix local app install
   → POST/GET /api/cleaning/install
   → bitrix_tokens (TR domain)
   → BX24.installFinish()
@@ -29,6 +29,8 @@ Bitrix local app install (user 71857)
 Staff opens /api/cleaning
   → BX24 crm.item.list apartments (165): pages of 50 via `start`/`next`
   → filter out FAIL stages; units by UF on select
+  → tabs: New report | History (default list from local `cleaning_reports`; optional apartment filter)
+  → backfill: `cleaning:sync-history`
   → POST /api/cleaning/submit
       → disk upload
       → crm.timeline.comment.add on apartment (+ unit unless Common area)
@@ -45,8 +47,10 @@ Staff opens /api/cleaning
 
 | Роль | ID |
 |---|---|
-| Автор комментария / постановщик | 71857 |
+| CREATED_BY на repair-задаче | 71857 |
 | Assignee (Sergey Saryyev) | 62997 |
+| Participant / task chat (Ilvira Yetişgin) | 63019 |
+| History delete (Emil Rustamov, M.Kaan AKBAŞ) | 70855, 110103 — удаляет local row + apartment/unit timeline + repair task + disk files |
 | Проект housemaster (repair task) | 27 |
 
 Автозадача создаётся **только** при `Needs repair`.  
@@ -95,4 +99,4 @@ User/group/entity IDs и поле units — в `config/services.php` → `cleani
 
 Auth submit: `auth[domain]` + живой `auth[access_token]` из `BX24.getAuth()` (сервер проверяет через `user.current` на TR).
 
-Telegram (`CleaningAlert`): submit 500, form 403, install/submit под неверным user (не `71857`, dedupe раз в сутки). OAuth TR — через `telegram:health` → `/api/cleaning/install`.
+Telegram (`CleaningAlert`): submit 500, form 403. OAuth TR — через `telegram:health` → `/api/cleaning/install`.

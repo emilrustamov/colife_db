@@ -47,25 +47,6 @@ class CleaningAlert
         );
     }
 
-    /**
-     * Alert once per day when cleaning app is not installed as system user 71857.
-     */
-    public function wrongInstaller(string $domain, int $expectedUserId, int $actualUserId): void
-    {
-        $domain = $this->domainOrTr($domain);
-
-        $this->alerts->notifyOnce(
-            'cleaning_wrong_installer:'.$domain,
-            $this->text->message(
-                '🧹',
-                'Cleaning: неверный install-user',
-                $domain,
-                "Ожидали user {$expectedUserId}, токен от {$actualUserId}. Переустанови /api/cleaning/install под системным пользователем.",
-            ),
-            $this->alerts->dailyTtl(),
-        );
-    }
-
     private function domainOrTr(?string $domain): string
     {
         $normalized = $this->oauth->normalizeDomain((string) $domain);

@@ -55,6 +55,15 @@ class AppServiceProvider extends ServiceProvider
             };
         });
 
+        // Cleaning SPA: separate buckets — History thumbnails must not burn the list API limit.
+        $cleaningBy = static fn (Request $request): string => $request->ip() ?: 'unknown';
+        RateLimiter::for('cleaning-form', fn (Request $request) => Limit::perMinute(60)->by('cleaning-form:'.$cleaningBy($request)));
+        RateLimiter::for('cleaning-submit', fn (Request $request) => Limit::perMinute(20)->by('cleaning-submit:'.$cleaningBy($request)));
+        RateLimiter::for('cleaning-staff', fn (Request $request) => Limit::perMinute(30)->by('cleaning-staff:'.$cleaningBy($request)));
+        RateLimiter::for('cleaning-history', fn (Request $request) => Limit::perMinute(120)->by('cleaning-history:'.$cleaningBy($request)));
+        RateLimiter::for('cleaning-history-delete', fn (Request $request) => Limit::perMinute(30)->by('cleaning-history-delete:'.$cleaningBy($request)));
+        RateLimiter::for('cleaning-file', fn (Request $request) => Limit::perMinute(600)->by('cleaning-file:'.$cleaningBy($request)));
+
         Gate::before(function ($user, ?string $ability) {
             if ($user instanceof User && $user->is_superadmin) {
                 return true;

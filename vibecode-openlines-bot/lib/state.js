@@ -26,6 +26,7 @@
  * @property {'en'|'ru'|null} language
  * @property {boolean} terminalAPendingLeave
  * @property {number} attachmentAskCount
+ * @property {number} searchAttempts
  * @property {object} extras
  */
 
@@ -60,6 +61,7 @@ export function createDialogState() {
     language: null,
     terminalAPendingLeave: false,
     attachmentAskCount: 0,
+    searchAttempts: 0,
     extras: {},
   };
 }

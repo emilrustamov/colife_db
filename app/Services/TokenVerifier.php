@@ -164,15 +164,23 @@ class TokenVerifier
      */
     public function authorizeCleaningForm(Request $request): bool
     {
+        return $this->cleaningFormUserId($request) > 0;
+    }
+
+    /**
+     * Resolve Bitrix user id for a live cleaning-form BX24 access_token.
+     */
+    public function cleaningFormUserId(Request $request): int
+    {
         $domain = $this->requestDomain($request);
         $expected = $this->oauth->normalizeDomain((string) config('services.b24_tr.portal_domain'));
         if ($domain === '' || $expected === '' || strcasecmp($domain, $expected) !== 0) {
-            return false;
+            return 0;
         }
 
         $accessToken = trim((string) data_get($request->all(), 'auth.access_token', ''));
         if ($accessToken === '') {
-            return false;
+            return 0;
         }
 
         try {
@@ -183,12 +191,12 @@ class TokenVerifier
                 ]);
 
             if (! $response->successful()) {
-                return false;
+                return 0;
             }
 
-            return (int) data_get($response->json(), 'result.ID', 0) > 0;
+            return (int) data_get($response->json(), 'result.ID', 0);
         } catch (\Throwable) {
-            return false;
+            return 0;
         }
     }
 

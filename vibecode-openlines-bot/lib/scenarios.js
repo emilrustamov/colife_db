@@ -271,6 +271,25 @@ export function hydrateStateFromTranscript(state) {
 }
 
 /**
+ * Drop Bitrix/WhatsApp quote echoes (dashed previous-bot blocks) so hydrate
+ * does not pick dates/types from the pasted assistant message.
+ *
+ * @param {string} text
+ * @returns {string}
+ */
+export function clientTextForHydrate(text) {
+  let t = String(text || '');
+  // Blocks between long dash separators: keep only the client tail.
+  if (/-{20,}/.test(t)) {
+    const parts = t.split(/\n?-{20,}\n?/);
+    const last = parts[parts.length - 1] || '';
+    if (String(last).trim()) t = last;
+    else t = parts.filter((p) => String(p).trim()).pop() || t;
+  }
+  return String(t).trim();
+}
+
+/**
  * Fill dialog state from the latest user utterance and route scenario when obvious.
  *
  * @param {import('./state.js').DialogState} state
@@ -278,6 +297,15 @@ export function hydrateStateFromTranscript(state) {
  * @returns {void}
  */
 export function hydrateStateFromText(state, text) {
+  text = clientTextForHydrate(text);
+  if (!text) return;
+
+  const prevBudget = state.budget;
+  const prevPeriod = state.period;
+  const prevTypes = JSON.stringify(state.types || []);
+  const prevArea = JSON.stringify(state.area || []);
+  const prevMoveIn = state.routingMoveInDate || state.savedMoveInDate || null;
+
   const args = extractSearchArgs(text);
   if (args.price != null && args.price > 0) state.budget = args.price;
   if (args.period != null && args.period > 0) state.period = args.period;
@@ -361,6 +389,19 @@ export function hydrateStateFromText(state, text) {
       activateScenario(state, 'out_of_budget');
       state.category = 'out_of_budget';
     }
+  }
+
+  // After a miss: any param change from the client counts as the required flex.
+  if (state.extras?.lastSearchNotFound && !state.extras?.flexApplied) {
+    const nextMoveIn = state.routingMoveInDate || state.savedMoveInDate || null;
+    const flexed =
+      prevBudget !== state.budget
+      || prevPeriod !== state.period
+      || prevTypes !== JSON.stringify(state.types || [])
+      || prevArea !== JSON.stringify(state.area || [])
+      || prevMoveIn !== nextMoveIn
+      || /\b(yes|да|ok|okay|можно|согласен|raise|выше|другой|another|flex|гибк)\b/i.test(text);
+    if (flexed) state.extras.flexApplied = true;
   }
 }
 
@@ -490,6 +531,36 @@ export function sanitizeClientText(text) {
 }
 
 /**
+ * Keep at most one client-facing question (Wikibot-style turns).
+ * Collapses "1. …? 2. …?" lists and cuts after the first ? / ؟.
+ *
+ * @param {string} text
+ * @returns {string}
+ */
+export function clampToOneQuestion(text) {
+  let t = String(text || '').trim();
+  if (!t) return t;
+
+  // Numbered multi-ask: keep preamble + first item only.
+  if (/\n\s*2[\).:]/.test(t) || /\n\s*2\s+/.test(t)) {
+    const m = t.match(/^([\s\S]*?)(?:^|\n)\s*1[\).:]\s*([^\n]+)/m);
+    if (m) {
+      const preamble = m[1]
+        .replace(/\s*(?:could you|please|tell me|let me know|подскажите|уточните)[:\s]*$/i, '')
+        .trim();
+      const first = String(m[2] || '').trim();
+      t = preamble ? `${preamble}\n\n${first}` : first;
+    }
+  }
+
+  const marks = [...t.matchAll(/[?？]/g)];
+  if (marks.length >= 2) {
+    t = t.slice(0, marks[0].index + 1).trim();
+  }
+  return t;
+}
+
+/**
  * Format outbound text; drop reasoning leaks. No soft substitutes.
  *
  * @param {string} text
@@ -498,5 +569,5 @@ export function sanitizeClientText(text) {
 export function prepareClientAnswer(text) {
   const out = sanitizeClientText(text);
   if (!out || looksLikeReasoningLeak(out)) return '';
-  return out;
+  return clampToOneQuestion(out);
 }

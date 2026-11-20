@@ -241,6 +241,21 @@ export function extractDaysToCheckin(text) {
       dayIdx: 1,
       monIdx: 2,
     },
+    // glued EN month+day: Jan1 / Dec22 / january1st
+    {
+      re: new RegExp(`\\b(${MONTH_EN_RE})(\\d{1,2})(?:st|nd|rd|th)?\\b`, 'i'),
+      dayIdx: 2,
+      monIdx: 1,
+    },
+    // "1st of January" / "15 of December"
+    {
+      re: new RegExp(
+        `(\\d{1,2})(?:st|nd|rd|th)?\\s+of\\s+(?:(${MONTH_EN_RE})\\b|(${MONTH_RU_RE})[а-яё]*)`,
+        'i',
+      ),
+      dayIdx: 1,
+      monIdx: [2, 3],
+    },
   ];
   for (const { re, dayIdx, monIdx } of singleDayMonthPatterns) {
     const m = t.match(re);
@@ -612,6 +627,7 @@ export function searchApartments(args, sourceApartments = loadApartments()) {
   if (found.emptyCatalog) {
     return {
       error: 'not_found',
+      emptyCatalog: true,
       agentInstruction: 'каталог пустой, переведи на оператора',
     };
   }
@@ -630,12 +646,14 @@ export function searchApartments(args, sourceApartments = loadApartments()) {
     if (!minPrice) {
       return {
         error: 'not_found',
-        agentInstruction: 'Вариантов нет никаких, переведи на оператора',
+        agentInstruction:
+          'No matches. Do NOT hand off yet. Ask ONE flex question only (budget OR area OR type OR move-in), wait for the answer, then call search_apartments again. Hand off only after that second search still fails.',
       };
     }
     return {
       error: 'not_found',
-      agentInstruction: `Варианты есть только дороже, начиная с ${minPrice}, отработай возражение по цене и после ищи этот вариант`,
+      agentInstruction:
+        `Matches only from ${minPrice}. Do NOT hand off yet. Ask ONE question: can they raise budget toward ${minPrice} (or flex area/type/date)? Then search_apartments again. Hand off only after the retry still fails.`,
     };
   }
 
