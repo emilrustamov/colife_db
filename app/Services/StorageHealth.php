@@ -24,7 +24,8 @@ class StorageHealth
     ) {}
 
     /**
-     * Ensure Laravel storage dirs are traversable/writable; repair mode if possible.
+     * Report if Laravel storage dirs are not writable. Does not chmod/chown —
+     * writers (php-fpm / schedule / horizon) must all run as www-data.
      *
      * @return list<string>
      */
@@ -35,39 +36,19 @@ class StorageHealth
         foreach (self::PATHS as $relative) {
             $path = storage_path($relative);
             if (! is_dir($path)) {
-                if (@mkdir($path, 0775, true)) {
-                    @chown($path, 'www-data');
-                    @chgrp($path, 'www-data');
-                } else {
-                    $broken[] = $relative.' (missing)';
-                }
+                $broken[] = $relative.' (missing)';
 
                 continue;
             }
 
             $mode = fileperms($path) & 0777;
-            $needsExec = ($mode & 0111) !== 0111;
             $writable = is_writable($path);
             $probe = $path.'/.storage_health_probe';
 
-            if (! $needsExec && $writable) {
-                if (@file_put_contents($probe, 'ok') !== false) {
-                    @unlink($probe);
+            if ($writable && @file_put_contents($probe, 'ok') !== false) {
+                @unlink($probe);
 
-                    continue;
-                }
-            }
-
-            if (@chmod($path, 0775)) {
-                @chown($path, 'www-data');
-                @chgrp($path, 'www-data');
-                clearstatcache(true, $path);
-
-                if (is_writable($path) && @file_put_contents($probe, 'ok') !== false) {
-                    @unlink($probe);
-
-                    continue;
-                }
+                continue;
             }
 
             $broken[] = sprintf('%s (%04o, writable=%s)', $relative, $mode, $writable ? 'yes' : 'no');
